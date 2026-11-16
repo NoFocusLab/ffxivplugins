@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <PropertyGroup>
+    <Version>0.1.0.0</Version>
+    <Author>NoFocusLab</Author>
+    <Name>Plugin Hub</Name>
+    <Punchline>Hotbar-style bars of plugin buttons: click to open a plugin, right-click for its settings.</Punchline>
+    <Description>Put the plugins you use on bars of icons, laid out in rows and columns like your hotbars, instead of hunting through the plugin list or remembering commands. Click a tile to open that plugin's window, right-click for its settings, or give a tile its own command. Shift+click turns a plugin on or off. Tiles use the plugin's own icon when it has one, and its name when it doesn't; hover for what it does. Make as many bars as you like, each with its own columns, tile size, position and lock, and drag tiles to rearrange them. /hub opens the settings.</Description>
+    <Tags>hotbar;plugins;launcher;utility;ui</Tags>
+    <RepoUrl>https://github.com/NoFocusLab/ffxivplugins</RepoUrl>
+  </PropertyGroup>
+  <!-- Our own plugins' icons ship inside the hub, so their tiles have icons even before Dalamud has their icon link.
+       New plugin: add a line here (see docs/NEW_PLUGIN.md). -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\CombatRecorder\images\icon.png" LogicalName="PluginHub.Icons.CombatRecorder.png" />
+    <EmbeddedResource Include="..\CooldownGrid\images\icon.png" LogicalName="PluginHub.Icons.CooldownGrid.png" />
+    <EmbeddedResource Include="..\MapClickNav\images\icon.png" LogicalName="PluginHub.Icons.MapClickNav.png" />
+    <EmbeddedResource Include="..\MateriaManager\images\icon.png" LogicalName="PluginHub.Icons.MateriaManager.png" />
+    <EmbeddedResource Include="..\MaterialStash\images\icon.png" LogicalName="PluginHub.Icons.MaterialStash.png" />
+    <EmbeddedResource Include="..\MitPlanner\images\icon.png" LogicalName="PluginHub.Icons.MitPlanner.png" />
+    <EmbeddedResource Include="..\PluginHub\images\icon.png" LogicalName="PluginHub.Icons.PluginHub.png" />
+    <EmbeddedResource Include="..\PoeticsSpender\images\icon.png" LogicalName="PluginHub.Icons.PoeticsSpender.png" />
+    <EmbeddedResource Include="..\RaiseCallouts\images\icon.png" LogicalName="PluginHub.Icons.RaiseCallouts.png" />
+    <EmbeddedResource Include="..\RescueHelper\images\icon.png" LogicalName="PluginHub.Icons.RescueHelper.png" />
+    <EmbeddedResource Include="..\RetainerGear\images\icon.png" LogicalName="PluginHub.Icons.RetainerGear.png" />
+    <EmbeddedResource Include="..\SaucerRun\images\icon.png" LogicalName="PluginHub.Icons.SaucerRun.png" />
+    <EmbeddedResource Include="..\TankStanceManager\images\icon.png" LogicalName="PluginHub.Icons.TankStanceManager.png" />
+    <EmbeddedResource Include="..\TurnInManager\images\icon.png" LogicalName="PluginHub.Icons.TurnInManager.png" />
+  </ItemGroup>
+</Project>

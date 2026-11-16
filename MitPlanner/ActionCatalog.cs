@@ -1,0 +1,146 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using FFXIVClientStructs.FFXIV.Client.Game;
+using Lumina.Excel.Sheets;
+using Action = Lumina.Excel.Sheets.Action;
+
+namespace MitPlanner;
+
+/// <summary>An ability the current job can use that has its own cooldown.</summary>
+/// <param name="CanTargetAlly">The game lets this target another party member (OT Sent Mits).</param>
+/// <param name="IsGcd">On the global cooldown (healer shields like Adloquium): callouts only unless allowed.</param>
+/// <param name="CastSeconds">Base cast time from the sheet (live, spell-speed-adjusted value: <see cref="Timing"/>).</param>
+/// <param name="IsGround">Ground-targeted (Asylum, Sacred Soil, Earthly Star, Liturgy of the Bell).</param>
+public sealed record CatalogEntry(uint ActionId, string Name, uint Icon, int Level, float RecastSeconds, bool CanTargetAlly,
+    bool IsGcd = false, float CastSeconds = 0, bool IsGround = false);
+
+/// <summary>
+/// Builds the list of cooldown abilities for a job straight from game data, so every combat job
+/// works without hand-written lists. Rebuilt when your job or level changes.
+/// </summary>
+public static unsafe class ActionCatalog
+{
+    // Cooldown group 58 is the shared GCD; everything else is a real cooldown.
+    private const byte GcdGroup = 58;
+
+    private static uint cachedJob;
+    private static int cachedLevel = -1;
+    private static List<CatalogEntry> cached = new();
+    private static readonly Dictionary<string, PropertyInfo?> CategoryProps = new();
+
+    public static IReadOnlyList<CatalogEntry> ForCurrentJob()
+    {
+        var player = Plugin.ObjectTable.LocalPlayer;
+        if (player == null) return Array.Empty<CatalogEntry>();
+
+        var jobId = player.ClassJob.RowId;
+        var level = (int)player.Level;
+        if (jobId == cachedJob && level == cachedLevel) return cached;
+
+        cachedJob = jobId;
+        cachedLevel = level;
+        cached = Build(jobId, level);
+        return cached;
+    }
+
+    private static readonly Dictionary<(uint Job, int Level), List<CatalogEntry>> ByLevel = new();
+
+    /// <summary>The job's cooldowns as they are at <paramref name="level"/> (names, icons, recasts of that level).</summary>
+    public static IReadOnlyList<CatalogEntry> ForJob(uint jobId, int level)
+    {
+        if (!ByLevel.TryGetValue((jobId, level), out var list))
+        {
+            list = Build(jobId, level);
+            ByLevel[(jobId, level)] = list;
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// What you'll have in this fight: your job at the duty's level sync (e.g. 49), or your own
+    /// level if that's lower or the duty doesn't sync. Use for planning, outside the duty too.
+    /// </summary>
+    public static IReadOnlyList<CatalogEntry> ForFight(FightDefinition? fight)
+    {
+        var player = Plugin.ObjectTable.LocalPlayer;
+        if (player == null) return Array.Empty<CatalogEntry>();
+        var level = (int)player.Level;
+        if (fight is { SyncLevel: > 0 } && fight.SyncLevel < level) level = fight.SyncLevel;
+        return level == player.Level ? ForCurrentJob() : ForJob(player.ClassJob.RowId, level);
+    }
+
+    /// <summary>Look up one action's display info (used for icons of placed abilities).</summary>
+    public static CatalogEntry? Find(uint actionId) => ForCurrentJob().FirstOrDefault(e => e.ActionId == actionId);
+
+    private static List<CatalogEntry> Build(uint jobId, int level)
+    {
+        var job = Plugin.DataManager.GetExcelSheet<ClassJob>().GetRowOrDefault(jobId);
+        if (job == null) return new();
+        var abbreviation = job.Value.Abbreviation.ExtractText();
+
+        var am = ActionManager.Instance();
+        var candidates = new List<(Action Row, uint Adjusted)>();
+
+        foreach (var row in Plugin.DataManager.GetExcelSheet<Action>())
+        {
+            if (!row.IsPlayerAction || row.IsPvP) continue;
+            if (row.Recast100ms == 0 || row.CooldownGroup == GcdGroup) continue;
+            if (row.ClassJobLevel > level) continue;
+            if (!CategoryAllows(row.ClassJobCategory.ValueNullable, abbreviation)) continue;
+
+            var adjusted = am != null ? am->GetAdjustedActionId(row.RowId) : row.RowId;
+            candidates.Add((row, adjusted));
+        }
+
+        // An ability and its upgrade (Vengeance / Damnation) resolve to the same live action.
+        // Keep one entry per live action, keyed by the base (lowest) ID. Shown as the version you
+        // have at this level: the live upgrade if it's within the level, else the highest one that is.
+        var entries = new List<CatalogEntry>();
+        foreach (var group in candidates.GroupBy(c => c.Adjusted))
+        {
+            var baseRow = group.OrderBy(c => c.Row.RowId).First().Row;
+            var liveRow = Plugin.DataManager.GetExcelSheet<Action>().GetRowOrDefault(group.Key);
+            var live = liveRow is { } lr && lr.ClassJobLevel <= level
+                ? lr
+                : group.OrderByDescending(c => c.Row.ClassJobLevel).First().Row;
+            entries.Add(new CatalogEntry(
+                baseRow.RowId,
+                live.Name.ExtractText(),
+                live.Icon,
+                baseRow.ClassJobLevel,
+                live.Recast100ms / 10f,
+                live.CanTargetParty,
+                CastSeconds: live.Cast100ms / 10f,
+                IsGround: live.TargetArea));
+        }
+
+        // Healers: the GCD shields their plans use (Adloquium, Eukrasian Diagnosis, ...). Eukrasian
+        // spells aren't player actions of their own (Diagnosis turns into one), so they're looked up directly.
+        var sheet = Plugin.DataManager.GetExcelSheet<Action>();
+        foreach (var id in HealerKits.CatalogGcds(jobId))
+        {
+            if (entries.Any(e => e.ActionId == id) || sheet.GetRowOrDefault(id) is not { } row || row.ClassJobLevel > level) continue;
+            var liveId = am != null ? am->GetAdjustedActionId(HealerKits.PressId(id)) : id;
+            // Show the upgrade you have (Succor -> Concitation) unless it's the Eukrasia form of the button.
+            var shown = HealerKits.PressId(id) == id && sheet.GetRowOrDefault(liveId) is { } up && up.ClassJobLevel <= level ? up : row;
+            entries.Add(new CatalogEntry(id, shown.Name.ExtractText(), shown.Icon, row.ClassJobLevel,
+                shown.Recast100ms / 10f, shown.CanTargetParty, IsGcd: true, CastSeconds: shown.Cast100ms / 10f, IsGround: shown.TargetArea));
+        }
+
+        return entries.OrderBy(e => e.Level).ThenBy(e => e.Name).ToList();
+    }
+
+    /// <summary>ClassJobCategory has one bool column per job abbreviation (WAR, MRD, ...).</summary>
+    private static bool CategoryAllows(ClassJobCategory? category, string abbreviation)
+    {
+        if (category == null || string.IsNullOrEmpty(abbreviation)) return false;
+        if (!CategoryProps.TryGetValue(abbreviation, out var prop))
+        {
+            prop = typeof(ClassJobCategory).GetProperty(abbreviation, BindingFlags.Public | BindingFlags.Instance);
+            CategoryProps[abbreviation] = prop;
+        }
+        return prop?.GetValue(category.Value) is true;
+    }
+}

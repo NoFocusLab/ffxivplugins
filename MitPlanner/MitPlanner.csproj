@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <PropertyGroup>
+    <Version>0.11.1.0</Version>
+    <Author>NoFocusLab</Author>
+    <Name>Mit Planner</Name>
+    <Punchline>Boss timeline with countdowns, plus a per-job cooldown plan that tells you what to press and when.</Punchline>
+    <Description>Detects your duty, runs the fight's timeline (cactbot format, synced to the boss's actual abilities), and shows the next mechanics with countdowns and type (tank buster, raid-wide, ...). Attach your cooldowns to specific mechanics per job (tanks and healers get an automatic Default plan; keep several plans per fight), and get a callout a few seconds before each one. Optional per-cooldown auto-use. Ships with every fight cactbot has a timeline for (300+ dungeons, trials, raids and ultimates, refreshed weekly), with tank busters and raid-wides pre-tagged.</Description>
+    <Tags>timeline;mitigation;cooldowns;raid;tank</Tags>
+    <RepoUrl>https://github.com/NoFocusLab/ffxivplugins</RepoUrl>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Timelines\cactbot.zip" LogicalName="MitPlanner.Timelines.cactbot.zip" />
+    <EmbeddedResource Include="Timelines\Learned\*.txt;Timelines\Learned\*.json" LogicalName="MitPlanner.Learned.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Routes\*.json" LogicalName="MitPlanner.Routes.%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

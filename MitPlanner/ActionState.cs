@@ -1,0 +1,113 @@
+using FFXIVClientStructs.FFXIV.Client.Game;
+
+namespace MitPlanner;
+
+/// <summary>Live cooldown/charge state for one ability.</summary>
+public readonly record struct AbilityStatus(
+    float Remaining,      // seconds until usable (next charge, for charge abilities)
+    int Charges,          // current charges (0 if not a charge ability)
+    int MaxCharges,       // 1 for normal abilities
+    bool OnCooldown,      // no use available right now because of cooldown
+    bool Usable);         // the game would accept a press right now
+
+public static unsafe class ActionState
+{
+    public static AbilityStatus Get(uint baseActionId)
+    {
+        var am = ActionManager.Instance();
+        if (am == null) return default;
+
+        var id = am->GetAdjustedActionId(baseActionId);
+        var total = am->GetRecastTime(ActionType.Action, id);
+        var elapsed = am->GetRecastTimeElapsed(ActionType.Action, id);
+        var remainingAll = total > 0 ? total - elapsed : 0;
+
+        int max = ActionManager.GetMaxCharges(id, 0);
+        if (max < 1) max = 1;
+
+        float remaining;
+        int charges;
+        bool onCooldown;
+        if (max > 1)
+        {
+            charges = (int)am->GetCurrentCharges(id);
+            // The recast timer covers all charges; the next charge arrives after the last slice.
+            var perCharge = total / max;
+            remaining = charges < max && remainingAll > 0 ? remainingAll - perCharge * (max - charges - 1) : 0;
+            onCooldown = charges == 0;
+        }
+        else
+        {
+            charges = 0;
+            remaining = remainingAll;
+            onCooldown = am->IsRecastTimerActive(ActionType.Action, id) && remaining > 0;
+        }
+
+        var usable = am->GetActionStatus(ActionType.Action, id) == 0;
+        return new AbilityStatus(remaining, charges, max, onCooldown, usable);
+    }
+
+    /// <summary>
+    /// Seconds since the ability was last used (its recast timer started), or +inf if it isn't
+    /// recasting. Counts presses by you or anything else. [Assumption] for charge abilities the
+    /// timer covers all charges, so this is approximate.
+    /// </summary>
+    public static float SecondsSinceUse(uint baseActionId)
+    {
+        var am = ActionManager.Instance();
+        if (am == null) return float.PositiveInfinity;
+        var id = am->GetAdjustedActionId(baseActionId);
+        if (!am->IsRecastTimerActive(ActionType.Action, id)) return float.PositiveInfinity;
+        return am->GetRecastTimeElapsed(ActionType.Action, id);
+    }
+
+    /// <summary>Same request a hotbar button sends; targeting is resolved by the game.</summary>
+    public static bool Use(uint baseActionId) => Use(baseActionId, 0xE000_0000);
+
+    /// <summary>The live action a base ID turns into right now (upgrades, Eukrasia, a placed Earthly Star).</summary>
+    public static uint Adjusted(uint baseActionId)
+    {
+        var am = ActionManager.Instance();
+        return am == null ? baseActionId : am->GetAdjustedActionId(baseActionId);
+    }
+
+    /// <summary>Place a ground-targeted ability (Asylum, Sacred Soil, Earthly Star) at a spot.</summary>
+    public static bool UseAt(uint baseActionId, System.Numerics.Vector3 location)
+    {
+        var am = ActionManager.Instance();
+        if (am == null) return false;
+        return am->UseActionLocation(ActionType.Action, am->GetAdjustedActionId(baseActionId), 0xE000_0000, &location);
+    }
+
+    /// <summary>
+    /// A GCD spell was cast in the last <paramref name="seconds"/>: the GCD's recast group was last
+    /// started by it. (GCDs can't use the "went on cooldown" check: any GCD starts that timer.)
+    /// </summary>
+    public static bool GcdUsedWithin(uint baseActionId, float seconds)
+    {
+        var am = ActionManager.Instance();
+        if (am == null) return false;
+        var id = am->GetAdjustedActionId(baseActionId);
+        var group = am->GetRecastGroup((int)ActionType.Action, id);
+        if (group < 0) return false;
+        var detail = am->GetRecastGroupDetail(group);
+        return detail != null && detail->IsActive && detail->ActionId == id && detail->Elapsed <= seconds;
+    }
+
+    /// <summary>The GCD (recast group 58, index 57) started in the last <paramref name="seconds"/>, by anything.</summary>
+    public static bool GcdStartedWithin(float seconds)
+    {
+        var am = ActionManager.Instance();
+        if (am == null) return false;
+        var detail = am->GetRecastGroupDetail(57);
+        return detail != null && detail->IsActive && detail->Elapsed <= seconds;
+    }
+
+    /// <summary>Use on a specific target (OT Sent Mits: cast on the MT without targeting them).</summary>
+    public static bool Use(uint baseActionId, ulong targetObjectId)
+    {
+        var am = ActionManager.Instance();
+        if (am == null) return false;
+        return am->UseAction(ActionType.Action, am->GetAdjustedActionId(baseActionId), targetObjectId);
+    }
+}

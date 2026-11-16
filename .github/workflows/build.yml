@@ -1,0 +1,107 @@
+name: Build
+
+# Public repo. Code arrives from the private workshop repo (pushed by the NoFocusLab Publisher app),
+# so every push to main compiles all plugins. For each plugin whose <Version> in its .csproj has no
+# GitHub Release yet, this creates the release (<PluginFolder>-v<version>, with <PluginFolder>.zip)
+# and updates repo.json so Dalamud offers the update. repo.json is only ever written here.
+# (Data syncs - cactbot timelines, Teamcraft sources - run in the workshop and arrive as code.)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # The Dalamud SDK compiles against Dalamud's own DLLs, which XIVLauncher
+      # normally installs. On the build server we download them instead.
+      - name: Download Dalamud dev files
+        shell: pwsh
+        run: |
+          $dest = "$env:APPDATA\XIVLauncher\addon\Hooks\dev"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Invoke-WebRequest -Uri https://goatcorp.github.io/dalamud-distrib/latest.zip -OutFile latest.zip
+          Expand-Archive -Force latest.zip -DestinationPath $dest
+
+      - name: Build all plugins
+        run: dotnet build ffxiv-plugins.slnx -c Release
+
+      - name: List build output
+        shell: pwsh
+        run: Get-ChildItem -Recurse -File -Path . -Include latest.zip,*.json | Where-Object FullName -match '\\bin\\' | ForEach-Object { $_.FullName }
+
+      - name: Upload builds
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugins
+          path: '*/bin/Release/**'
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Release new plugin versions
+        if: github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Let us check exit codes ourselves (gh release view returns 1 for "not found").
+          $PSNativeCommandUseErrorActionPreference = $false
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          $target = $env:GITHUB_SHA
+          $changed = $false
+          foreach ($proj in Get-ChildItem -Path */*.csproj) {
+            $plugin = $proj.Directory.Name
+            $version = ([xml](Get-Content $proj.FullName)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+            if (-not $version) { Write-Host "$plugin has no <Version>; skipping"; continue }
+            $tag = "$plugin-v$version"
+            gh release view $tag *> $null
+            if ($LASTEXITCODE -eq 0) {
+              # Released, but repo.json may still be behind (a push of repo.json that was rejected
+              # earlier): point it at the release so Dalamud offers the update.
+              $listed = if (Test-Path repo.json) { (Get-Content repo.json -Raw | ConvertFrom-Json) } else { @() }
+              $listed = $listed | Where-Object { $_.InternalName -eq $plugin } | Select-Object -First 1
+              if ($listed -and $listed.AssemblyVersion -eq $version) { Write-Host "$tag already released and listed"; continue }
+              Write-Host "$tag already released but repo.json lists $($listed.AssemblyVersion): updating repo.json"
+              python .github/scripts/update_repo_json.py $plugin $tag
+              if ($LASTEXITCODE -ne 0) { throw "repo.json update failed for $plugin" }
+              $changed = $true
+              continue
+            }
+
+            $zip = Get-ChildItem -Recurse -File -Path "$plugin/bin" -Filter latest.zip | Select-Object -First 1
+            if (-not $zip) { throw "No latest.zip found for $plugin" }
+            Copy-Item $zip.FullName "$plugin.zip"
+            gh release create $tag "$plugin.zip" --title "$plugin $version" --notes "$plugin $version" --target $target
+            if ($LASTEXITCODE -ne 0) { throw "Release failed for $tag" }
+
+            python .github/scripts/update_repo_json.py $plugin $tag
+            if ($LASTEXITCODE -ne 0) { throw "repo.json update failed for $plugin" }
+            $changed = $true
+          }
+          if ($changed) {
+            git add repo.json
+            git commit -m "repo.json: publish new plugin versions [skip ci]"
+            # Someone else may have pushed to main during the build: rebase onto it and retry, and fail
+            # the run loudly if it still won't go (a silent failure left Dalamud on old versions).
+            $pushed = $false
+            for ($i = 1; $i -le 5 -and -not $pushed; $i++) {
+              git pull --rebase origin main
+              git push origin HEAD:main
+              if ($LASTEXITCODE -eq 0) { $pushed = $true } else { Write-Host "push of repo.json failed (try $i); retrying"; Start-Sleep -Seconds (5 * $i) }
+            }
+            if (-not $pushed) { throw "Couldn't push repo.json: Dalamud won't see the new versions" }
+          }
+          exit 0
