@@ -1,4 +1,5 @@
 # ffxiv-plugins
+This is a collection of personally crafted and maintained plugins that either help coordinate between various other plugins, or function completely on their own. They are not for use by anyone but me. If you're interested in using them, please reach out via email. No Discord, no support. These are for me. 
 
 Personal Dalamud plugins (API 15).
 
