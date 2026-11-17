@@ -175,7 +175,7 @@
     "Author": "NoFocusLab",
     "Name": "Plugin Hub",
     "InternalName": "PluginHub",
-    "AssemblyVersion": "0.1.0.1",
+    "AssemblyVersion": "0.1.1.0",
     "Description": "Put the plugins you use on bars of icons, laid out in rows and columns like your hotbars, instead of hunting through the plugin list or remembering commands. Click a tile to open that plugin's window, right-click for its settings, or give a tile its own command. Shift+click turns a plugin on or off. Tiles use the plugin's own icon when it has one, and its name when it doesn't; hover for what it does. Make as many bars as you like, each with its own columns, tile size, position and lock, and drag tiles to rearrange them. /hub opens the settings.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/NoFocusLab/ffxivplugins",
@@ -194,9 +194,9 @@
     "Punchline": "Hotbar-style bars of plugin buttons: click to open a plugin, right-click for its settings.",
     "AcceptsFeedback": true,
     "IconUrl": "https://raw.githubusercontent.com/NoFocusLab/ffxivplugins/main/PluginHub/images/icon.png",
-    "DownloadLinkInstall": "https://github.com/NoFocusLab/ffxivplugins/releases/download/PluginHub-v0.1.0.1/PluginHub.zip",
-    "DownloadLinkUpdate": "https://github.com/NoFocusLab/ffxivplugins/releases/download/PluginHub-v0.1.0.1/PluginHub.zip",
-    "DownloadLinkTesting": "https://github.com/NoFocusLab/ffxivplugins/releases/download/PluginHub-v0.1.0.1/PluginHub.zip"
+    "DownloadLinkInstall": "https://github.com/NoFocusLab/ffxivplugins/releases/download/PluginHub-v0.1.1.0/PluginHub.zip",
+    "DownloadLinkUpdate": "https://github.com/NoFocusLab/ffxivplugins/releases/download/PluginHub-v0.1.1.0/PluginHub.zip",
+    "DownloadLinkTesting": "https://github.com/NoFocusLab/ffxivplugins/releases/download/PluginHub-v0.1.1.0/PluginHub.zip"
   },
   {
     "Author": "NoFocusLab",
