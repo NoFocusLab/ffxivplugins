@@ -83,6 +83,9 @@ jobs:
 
             $zip = Get-ChildItem -Recurse -File -Path "$plugin/bin" -Filter latest.zip | Select-Object -First 1
             if (-not $zip) { throw "No latest.zip found for $plugin" }
+            # Installed plugins take their icon from the manifest inside the zip.
+            python .github/scripts/add_icon_to_zip.py $plugin
+            if ($LASTEXITCODE -ne 0) { throw "Couldn't add the icon link for $plugin" }
             Copy-Item $zip.FullName "$plugin.zip"
             gh release create $tag "$plugin.zip" --title "$plugin $version" --notes "$plugin $version" --target $target
             if ($LASTEXITCODE -ne 0) { throw "Release failed for $tag" }
