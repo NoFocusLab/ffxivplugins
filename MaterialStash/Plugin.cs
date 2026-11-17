@@ -51,6 +51,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly SaddleOverlay saddle;
     private readonly VentureWindow ventures;
     private readonly ScripWindow scripWindow;
+    private readonly ReportWindow results;
 
     public Plugin()
     {
@@ -81,14 +82,17 @@ public sealed class Plugin : IDalamudPlugin
         saddle = new SaddleOverlay(this);
         ventures = new VentureWindow(this);
         scripWindow = new ScripWindow(this);
+        results = new ReportWindow(this);
         windows.AddWindow(main);
         windows.AddWindow(bell);
         windows.AddWindow(saddle);
         windows.AddWindow(ventures);
         windows.AddWindow(scripWindow);
+        windows.AddWindow(results);
+        Runner.Reported += OnRunReported;
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Material Stash. /stash (settings) | deposit (at the bell) | tidy (sort items between retainers) | sell (list the to-sell items) | clean (carry out the approved clean-up) | desynth (desynthesize the approved items in your bags) | looks (store approved looks at an inn) | furnish (furnishings off the retainers, at the bell) | storeroom (furnishings in your bags into the house storeroom) | bell (go to the nearest summoning bell) | scan (record every retainer) | saddle in|out (mats into / out of the open saddlebag) | scrips (work through the scrip goals) | turnin (turn in the collectables in your bags) | closebags (close a stuck inventory window) | resume (after buying on the market board) | icebreak (toggle: pause ICE for retainers) | icebreak now | stop",
+            HelpMessage = "Material Stash. /stash (settings) | deposit (at the bell) | tidy (sort items between retainers) | sell (list the to-sell items) | clean (carry out the approved clean-up) | desynth (desynthesize the approved items in your bags) | looks (store approved looks at an inn) | furnish (furnishings off the retainers, at the bell) | storeroom (furnishings in your bags into the house storeroom) | bell (go to the nearest summoning bell) | scan (record every retainer) | saddle in|out (mats into / out of the open saddlebag) | scrips (work through the scrip goals) | turnin (turn in the collectables in your bags) | results (what the last runs put where) | closebags (close a stuck inventory window) | resume (after buying on the market board) | icebreak (toggle: pause ICE for retainers) | icebreak now | stop",
         });
         PluginInterface.UiBuilder.Draw += windows.Draw;
         PluginInterface.UiBuilder.OpenMainUi += ToggleMain;
@@ -96,6 +100,14 @@ public sealed class Plugin : IDalamudPlugin
     }
 
     public void ToggleMain() => main.Toggle();
+
+    /// <summary>Open the results window on the newest run.</summary>
+    public void ShowResults() => results.ShowLatest();
+
+    private void OnRunReported(RunReport r)
+    {
+        if (Configuration.ShowRunResults) results.ShowLatest();
+    }
 
     private void OnCommand(string cmd, string args)
     {
@@ -118,6 +130,7 @@ public sealed class Plugin : IDalamudPlugin
             case "resume": Scrips.Resume(); return;
             case "turnin": TurnIns.Start(); return;
             case "closebags": Bags.CloseNow(); return;
+            case "results": ShowResults(); return;
             case "icebreak":
                 Configuration.IceBreakEnabled = !Configuration.IceBreakEnabled; Configuration.Save();
                 ChatGui.Print($"[Stash] ICE break for retainers: {(Configuration.IceBreakEnabled ? "on" : "off")}.");

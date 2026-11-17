@@ -165,6 +165,8 @@ public class Configuration : IPluginConfiguration
 
     // ---- venture timer window
     public bool ShowVentureWindow { get; set; } = true;
+    /// <summary>Open the results window (what went to which retainer, what was listed) when a run ends.</summary>
+    public bool ShowRunResults { get; set; } = true;
     public bool VentureWindowAlways { get; set; } = false;
 
     public Dictionary<ulong, CharacterData> Characters { get; set; } = new();

@@ -35,7 +35,14 @@ public sealed class MainWindow : Window
             ImGui.TextColored(Warn, "Use a summoning bell once so the plugin can read your retainer list.");
             return;
         }
+        if (plugin.Runner.History.Count > 0)
+        {
+            if (ImGui.SmallButton("Results")) plugin.ShowResults();
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("What the last runs put into / took out of each retainer, and what was listed.");
+            ImGui.SameLine();
+        }
         if (plugin.Runner.Status.Length > 0) ImGui.TextColored(Dim, plugin.Runner.Status);
+        else ImGui.NewLine();
         if (!ImGui.BeginTabBar("##stash")) return;
         if (ImGui.BeginTabItem("Search")) { DrawSearch(me); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Bags now")) { DrawBags(me); ImGui.EndTabItem(); }
@@ -221,6 +228,8 @@ public sealed class MainWindow : Window
         if (ImGui.InputInt("Leave this many slots free on every retainer", ref reserve, 1, 5)) { C.ReserveSlots = Math.Clamp(reserve, 0, 170); changed = true; }
 
         ImGui.Separator();
+        var res = C.ShowRunResults;
+        if (ImGui.Checkbox("Show a results window when a run ends (what went to which retainer, what was listed)", ref res)) { C.ShowRunResults = res; changed = true; }
         var show = C.ShowBellButtons;
         if (ImGui.Checkbox("Show the Stash / Scan buttons above the retainer list", ref show)) { C.ShowBellButtons = show; changed = true; }
         var showS = C.ShowSaddlebagButtons;

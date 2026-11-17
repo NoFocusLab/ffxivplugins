@@ -86,6 +86,14 @@ public sealed unsafe class Runner : IDisposable
 
     public string Status { get; private set; } = "";
     public bool Busy => phase != Phase.Idle;
+
+    /// <summary>The last few runs' results, newest first (shown in the results window).</summary>
+    public List<RunReport> History { get; } = new();
+    /// <summary>Raised when a run that moved or listed something ends.</summary>
+    public event Action<RunReport>? Reported;
+    private RunReport? report;
+    /// <summary>The open retainer's contents when work there started (item incl. HQ offset -> qty).</summary>
+    private Dictionary<uint, int>? retainerBefore;
     public bool Scanning => Busy && scanOnly;
     public bool Tidying => Busy && tidy;
 
@@ -197,6 +205,12 @@ public sealed unsafe class Runner : IDisposable
         }
         foreach (var id in list) queue.Enqueue(id);
         Set(Phase.Select);
+        report = mode == RunMode.Scan ? null : new RunReport
+        {
+            Title = mode switch { RunMode.Tidy => "Tidy", RunMode.Sell => "Sell", RunMode.Cleanup => "Clean-up", RunMode.Furnish => "Furnishings", RunMode.Fetch => "Take materials out", _ => "Stash" },
+            DuringAutoRetainer = duringAr,
+        };
+        retainerBefore = null;
         Status = mode switch { RunMode.Scan => "Scanning retainers...", RunMode.Tidy => "Tidying...", RunMode.Sell => "Selling...", RunMode.Cleanup => "Cleaning up...", RunMode.Furnish => "Taking furnishings out...", RunMode.Fetch => "Taking materials out...", _ => "Stashing..." };
     }
 
@@ -221,6 +235,44 @@ public sealed unsafe class Runner : IDisposable
         crystal = null;
         Status = "Stopped.";
         Plugin.ChatGui.Print("[Stash] Stopped.");
+        RecordRetainerDiff();
+        Publish();
+    }
+
+    // ------------------------------------------------------------------ results
+
+    /// <summary>Everything in the open retainer's inventory and crystal slots (item incl. HQ offset -> qty).</summary>
+    private static Dictionary<uint, int>? RetainerContents()
+    {
+        if (!Tracker.Loaded(Tracker.RetainerPages)) return null;
+        var all = new Dictionary<uint, int>();
+        foreach (var s in Tracker.Stacks(Tracker.RetainerPages)) all[s.ItemId] = all.GetValueOrDefault(s.ItemId) + s.Qty;
+        if (Tracker.Loaded(new[] { InventoryType.RetainerCrystals }))
+            foreach (var (id, c) in Tracker.Crystals(InventoryType.RetainerCrystals)) all[id] = all.GetValueOrDefault(id) + c.Qty;
+        return all;
+    }
+
+    /// <summary>Compare the open retainer with when work there started, once, before its window closes.</summary>
+    private void RecordRetainerDiff()
+    {
+        if (report == null || retainerBefore == null) return;
+        var before = retainerBefore;
+        retainerBefore = null;
+        if (RetainerContents() is { } after) report.AddDiff(tracker.NameOf(current), before, after);
+    }
+
+    /// <summary>Keep the finished run's report and tell the window, if it did anything.</summary>
+    private void Publish()
+    {
+        if (report == null) return;
+        var r = report;
+        report = null;
+        r.Ended = DateTime.Now;
+        r.Summary = Status;
+        if (r.Empty) return;
+        History.Insert(0, r);
+        if (History.Count > 15) History.RemoveAt(History.Count - 1);
+        Reported?.Invoke(r);
     }
 
     private int menuTries;
@@ -262,6 +314,8 @@ public sealed unsafe class Runner : IDisposable
         crystal = null;
         Status = why;
         Plugin.ChatGui.PrintError($"[Stash] {why}");
+        RecordRetainerDiff();
+        Publish();
     }
 
     private void Finish()
@@ -325,6 +379,7 @@ public sealed unsafe class Runner : IDisposable
             }
         }
         Plugin.ChatGui.Print($"[Stash] {Status}");
+        Publish();
     }
 
     // ------------------------------------------------------------------ loop
@@ -464,6 +519,7 @@ public sealed unsafe class Runner : IDisposable
         skipCrystals.Clear(); // per retainer: a crystal tried here is re-checked at the next one
         lastMove = null;
         sortStep = 0;
+        retainerBefore = report != null ? RetainerContents() : null;
         Set(Phase.Work);
     }
 
@@ -505,6 +561,7 @@ public sealed unsafe class Runner : IDisposable
 
     private void TickCloseInventory()
     {
+        RecordRetainerDiff();
         tracker.RecordOpen();
         GameUi.Close("ContextMenu");
         foreach (var name in new[] { "RetainerSellList", "InventoryRetainerLarge", "InventoryRetainer" })
@@ -693,6 +750,7 @@ public sealed unsafe class Runner : IDisposable
             im->MoveToRetainerMarket(s.Type, (ushort)s.Slot, InventoryType.RetainerMarket, (ushort)dst, (uint)qty, (uint)Math.Min(price, uint.MaxValue));
             usedMarketSlots.Add(dst);
             listed++;
+            report?.Listings.Add(new RunReport.Listing(tracker.NameOf(current), s.ItemId, qty, price));
             Plugin.Log.Info($"Stash: listed {Items.Info(s.ItemId)?.Name} x{qty} at {price:N0} on market slot {dst}");
             next = DateTime.UtcNow.AddSeconds(1.2);
             return true;

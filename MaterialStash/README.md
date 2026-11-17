@@ -12,6 +12,13 @@ Common crafting materials onto your retainers, in the order you choose. `/stash`
 
 Nothing runs by itself. It won't start, and stops at once, if AutoRetainer is busy.
 
+## Results window
+When a run ends (Stash, Sell, Tidy, Clean-up, ... including the deposit after AutoRetainer), a **Stash results**
+window opens showing, per retainer, every item put in or taken out and how many (read from the retainer's own
+inventory before and after, so it shows what really moved), plus each market listing with its price and the total.
+The last 15 runs can be picked from the list at the top; **Copy** puts a report on the clipboard. Reopen it with the
+**Results** button at the top of the main window or `/stash results`; turn the automatic opening off under Where things go.
+
 ## What counts
 - **Gathered:** from a mining/botany node, fishing or spearfishing, and used in a recipe.
 - **Other recipe materials:** used in a recipe, not made by one, tradeable, common (white) rarity, not gear:
