@@ -10,9 +10,9 @@ have to dig through `/xlplugins` or remember each plugin's command.
 - Hover: the plugin's name and one-line description, whether it's off, and what each click does.
 - A tile can have its own **command** (run on click instead of opening the window) and
   **label**. Commands must be plugin or Dalamud commands; game commands like `/gearset` aren't supported.
-- Built-in tiles: Plugin installer, Plugin updates, Dalamud settings, Plugin Hub settings.
+- Built-in tiles (the installer tile shows Dalamud's own logo, read from your Dalamud install): Plugin installer, Plugin updates, Dalamud settings, Plugin Hub settings.
 
-**Icons.** Our own plugins' icons are built into the hub. Other plugins' icons are downloaded
+**Icons.** Our own plugins' icons are built into the hub, as are icons for the built-in tiles and stand-ins for a few other plugins that have no usable icon (Dagobert). Other plugins' icons are downloaded
 once from the icon link in their listing and kept in the hub's config folder. A plugin without
 an icon (or with one Dalamud can't read) shows its name, or its initials on small tiles.
 Turned-off plugins are dimmed; uninstalled ones get a red outline (click to search the installer).

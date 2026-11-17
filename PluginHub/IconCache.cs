@@ -34,9 +34,12 @@ public sealed class IconCache : IDisposable
 
     public IDalamudTextureWrap? Get(IExposedPlugin? plugin, string target)
     {
-        var resource = $"PluginHub.Icons.{target}.png";
-        if (assembly.GetManifestResourceInfo(resource) != null &&
-            (plugin == null || string.Equals(plugin.Manifest.Author, "NoFocusLab", StringComparison.OrdinalIgnoreCase)))
+        // The installer tile shows Dalamud's own logo, read from the user's Dalamud install (not shipped
+        // with us); our puzzle-piece icon is the fallback if the file isn't there.
+        if (target == Targets.Installer && DalamudLogo() is { } logo)
+            return logo;
+
+        if (BuiltIn(target, plugin) is { } resource)
             return Plugin.TextureProvider.GetFromManifestResource(assembly, resource).TryGetWrap(out var own, out _) ? own : null;
 
         if (plugin == null || !config.DownloadIcons) return null;
@@ -56,6 +59,46 @@ public sealed class IconCache : IDisposable
         if (!failed.ContainsKey(file) && pending.TryAdd(file, 0)) _ = Download(uri, file);
         return null;
     }
+
+    /// <summary>
+    /// An icon shipped inside the hub, if there is one for this tile: the built-in tiles (installer,
+    /// updates, Dalamud settings, hub settings), our own plugins, and stand-ins for other plugins that
+    /// have no usable icon (PluginHub/Icons/&lt;InternalName&gt;.png, e.g. Dagobert). These win over downloads.
+    /// </summary>
+    private string? BuiltIn(string target, IExposedPlugin? plugin)
+    {
+        var name = target switch
+        {
+            Targets.HubSettings => Plugin.OwnInternalName,
+            Targets.Installer => "Extra.Installer",
+            Targets.Updates => "Extra.Updates",
+            Targets.DalamudSettings => "Extra.DalamudSettings",
+            _ => null,
+        };
+        if (name == null)
+        {
+            var own = plugin == null || string.Equals(plugin.Manifest.Author, "NoFocusLab", StringComparison.OrdinalIgnoreCase);
+            if (own && Has($"PluginHub.Icons.{target}.png")) name = target;
+            else if (Has($"PluginHub.Icons.Extra.{target}.png")) name = $"Extra.{target}";
+        }
+        return name != null && Has($"PluginHub.Icons.{name}.png") ? $"PluginHub.Icons.{name}.png" : null;
+    }
+
+    private IDalamudTextureWrap? DalamudLogo()
+    {
+        try
+        {
+            var file = new FileInfo(Path.Combine(Plugin.PluginInterface.DalamudAssetDirectory.FullName, "UIRes", "logo.png"));
+            if (!file.Exists) return null;
+            return Plugin.TextureProvider.GetFromFile(file).TryGetWrap(out var tex, out _) ? tex : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private bool Has(string resource) => assembly.GetManifestResourceInfo(resource) != null;
 
     private async Task Download(Uri uri, string file)
     {

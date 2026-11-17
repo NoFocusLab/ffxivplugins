@@ -25,4 +25,6 @@ Every plugin gets an icon (a white symbol on a rounded tile, coloured by group):
    then run `python tools/make_icons.py`. It writes `<PluginName>/images/icon.png` (+ `icon.svg`).
 2. Add the icon to Plugin Hub: one `<EmbeddedResource>` line in `PluginHub/PluginHub.csproj`
    (`LogicalName="PluginHub.Icons.<PluginName>.png"`).
-The release workflow points the plugin's `IconUrl` in repo.json at the PNG automatically.
+The release workflow points the plugin's `IconUrl` at the PNG automatically (in repo.json and in the zip's manifest).
+Stand-in icons for other people's plugins go in `HUB_ICONS` (named after the plugin's InternalName) and land in
+`PluginHub/Icons/`, which the hub embeds automatically.

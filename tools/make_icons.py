@@ -108,6 +108,39 @@ GLYPHS = {
 }
 
 
+# Icons that live only in Plugin Hub (PluginHub/Icons/<name>.png, embedded in the hub): its built-in
+# tiles, plus stand-ins for other people's plugins that have no usable icon (key = their InternalName).
+HUB_ICONS = {
+    # Puzzle piece with a down arrow: the plugin installer.
+    "Installer": ("utility", f"""
+      <path d="M70 92 H104 A22 22 0 1 1 140 92 H174 V126 A22 22 0 1 1 174 162 V196 H70 V162 A22 22 0 1 0 70 126 Z" fill="{W}"/>
+      <path d="M122 114 V160 M104 144 L122 162 L140 144" fill="none" stroke="currentColor" stroke-width="12"
+            stroke-linecap="round" stroke-linejoin="round"/>"""),
+    # Two chasing arrows: plugin updates.
+    "Updates": ("utility", f"""
+      <path d="M190 118 A62 62 0 0 0 78 86" fill="none" stroke="{W}" stroke-width="20" stroke-linecap="round"/>
+      <path d="M58 70 L106 66 L84 106 Z" fill="{W}"/>
+      <path d="M66 138 A62 62 0 0 0 178 170" fill="none" stroke="{W}" stroke-width="20" stroke-linecap="round"/>
+      <path d="M198 186 L150 190 L172 150 Z" fill="{W}"/>"""),
+    # Gear: Dalamud settings.
+    "DalamudSettings": ("utility", "".join(
+        f'<rect x="116" y="42" width="24" height="40" rx="6" fill="{W}" transform="rotate({a} 128 128)"/>'
+        for a in range(0, 360, 45)) + f"""
+      <circle cx="128" cy="128" r="58" fill="{W}"/>
+      <circle cx="128" cy="128" r="24" fill="currentColor"/>"""),
+    # Coin in front of a coin stack: Dagobert (market-board auto-pricing).
+    "Dagobert": ("economy", f"""
+      <ellipse cx="166" cy="186" rx="46" ry="16" fill="{SOFT}"/>
+      <rect x="120" y="130" width="92" height="56" fill="{SOFT}"/>
+      <ellipse cx="166" cy="158" rx="46" ry="16" fill="{SOFT}" opacity="0.6"/>
+      <ellipse cx="166" cy="130" rx="46" ry="16" fill="{W}"/>
+      <circle cx="104" cy="142" r="58" fill="{W}"/>
+      <circle cx="104" cy="142" r="44" fill="none" stroke="currentColor" stroke-width="6" opacity="0.6"/>
+      <path d="M120 120 C112 110 88 110 84 124 C80 140 124 140 122 158 C120 174 92 174 84 162 M104 102 V182"
+            fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round"/>"""),
+}
+
+
 def svg(group: str, body: str) -> str:
     top, bottom = COLOURS[group]
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{SIZE}" height="{SIZE}" viewBox="0 0 256 256" color="{bottom}">
@@ -120,14 +153,21 @@ def svg(group: str, body: str) -> str:
 """
 
 
+def render(src: Path, png: Path, group: str, body: str) -> None:
+    src.parent.mkdir(parents=True, exist_ok=True)
+    src.write_text(svg(group, body), encoding="utf-8")
+    subprocess.run(["rsvg-convert", "-w", str(SIZE), "-h", str(SIZE), "-o", str(png), str(src)], check=True)
+
+
 def main() -> None:
     for plugin, (group, body) in GLYPHS.items():
         folder = ROOT / plugin / "images"
-        folder.mkdir(parents=True, exist_ok=True)
-        src = folder / "icon.svg"
-        src.write_text(svg(group, body), encoding="utf-8")
-        subprocess.run(["rsvg-convert", "-w", str(SIZE), "-h", str(SIZE), "-o", str(folder / "icon.png"), str(src)], check=True)
+        render(folder / "icon.svg", folder / "icon.png", group, body)
         print(f"{plugin}: {group}")
+    for name, (group, body) in HUB_ICONS.items():
+        folder = ROOT / "PluginHub" / "Icons"
+        render(folder / f"{name}.svg", folder / f"{name}.png", group, body)
+        print(f"hub {name}: {group}")
 
 
 if __name__ == "__main__":

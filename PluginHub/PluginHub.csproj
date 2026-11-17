@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.1.0.1</Version>
+    <Version>0.1.1.0</Version>
     <Author>NoFocusLab</Author>
     <Name>Plugin Hub</Name>
     <Punchline>Hotbar-style bars of plugin buttons: click to open a plugin, right-click for its settings.</Punchline>
@@ -26,5 +26,7 @@
     <EmbeddedResource Include="..\SaucerRun\images\icon.png" LogicalName="PluginHub.Icons.SaucerRun.png" />
     <EmbeddedResource Include="..\TankStanceManager\images\icon.png" LogicalName="PluginHub.Icons.TankStanceManager.png" />
     <EmbeddedResource Include="..\TurnInManager\images\icon.png" LogicalName="PluginHub.Icons.TurnInManager.png" />
+    <!-- Built-in tiles and stand-ins for other plugins without a usable icon (made by tools/make_icons.py). -->
+    <EmbeddedResource Include="Icons\*.png" LogicalName="PluginHub.Icons.Extra.%(Filename).png" />
   </ItemGroup>
 </Project>

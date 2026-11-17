@@ -125,8 +125,17 @@ public sealed class BarWindow : Window
         draw.AddRectFilled(min, max, ImGui.GetColorU32(new Vector4(0.10f, 0.10f, 0.12f, 0.92f)), rounding);
         if (tex != null)
         {
-            draw.AddImageRounded(tex.Handle, min, max, Vector2.Zero, Vector2.One,
-                ImGui.GetColorU32(new Vector4(1, 1, 1, alpha)), rounding);
+            // Fit non-square pictures (e.g. Dalamud's logo) inside the tile without stretching.
+            var (imin, imax) = (min, max);
+            if (tex.Width > 0 && tex.Height > 0 && tex.Width != tex.Height)
+            {
+                var scale = Math.Min(size.X / tex.Width, size.Y / tex.Height);
+                var fit = new Vector2(tex.Width * scale, tex.Height * scale);
+                imin = min + (size - fit) / 2;
+                imax = imin + fit;
+            }
+            draw.AddImageRounded(tex.Handle, imin, imax, Vector2.Zero, Vector2.One,
+                ImGui.GetColorU32(new Vector4(1, 1, 1, alpha)), imin == min ? rounding : 0);
         }
         else
         {
