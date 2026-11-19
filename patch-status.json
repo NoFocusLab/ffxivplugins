@@ -1,6 +1,6 @@
 {
- "checkedAt": "2026-11-17T07:44:33+00:00",
- "officialDalamud": "15.0.4.0",
+ "checkedAt": "2026-11-19T04:27:54+00:00",
+ "officialDalamud": "15.0.4.1",
  "officialSupportsGame": "2026.11.03.0000.0000",
  "latestGame": "2026.11.03.0000.0000",
  "clientStructs": {
@@ -9,5 +9,5 @@
  },
  "state": "official",
  "safe": null,
- "summary": "Official Dalamud 15.0.4.0 supports 2026.11.03.0000.0000. Nothing to do."
+ "summary": "Official Dalamud 15.0.4.1 supports 2026.11.03.0000.0000. Nothing to do."
 }
