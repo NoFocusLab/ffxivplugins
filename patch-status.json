@@ -1,11 +1,11 @@
 {
- "checkedAt": "2026-11-24T01:51:25+00:00",
+ "checkedAt": "2026-11-24T12:21:37+00:00",
  "officialDalamud": "15.0.4.1",
  "officialSupportsGame": "2026.11.03.0000.0000",
  "latestGame": "2026.11.03.0000.0000",
  "clientStructs": {
   "dalamudBuiltWith": "80cb4a7b7e11a6702e2eb8839afd301a918c638e",
-  "latest": "c9b1f6855e8a74c6acfb5fdf2228fb7b7c311b4c"
+  "latest": "f76f33bdc572d69992ef771ea5a4cd26a8035a6a"
  },
  "state": "official",
  "safe": null,
