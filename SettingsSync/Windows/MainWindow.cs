@@ -361,9 +361,17 @@ public sealed class MainWindow : Window
 
         ImGui.Separator();
         ImGui.TextUnformatted("Screen");
-        changed |= Box("Bring off-screen windows back to the middle", C.RescueOffscreenWindows, v => C.RescueOffscreenWindows = v,
-            "Any plugin's window whose title bar is off the screen (e.g. a position synced from a PC with a bigger screen)\n" +
-            "is moved to the middle so you can drag it where you want. Checked once a second.");
+        ImGui.TextColored(Dim, "Windows whose title bar is off the screen (e.g. a position synced from a bigger screen) are moved to the middle.");
+        if (ImGui.SmallButton("Check windows now")) plugin.Rescue.RequestCheck();
+        ImGui.SameLine();
+        changed |= Box("Check automatically, every", C.RescueOffscreenWindows, v => C.RescueOffscreenWindows = v,
+            "Off = only the button (plus one check shortly after the game starts).");
+        ImGui.SameLine();
+        ImGui.BeginDisabled(!C.RescueOffscreenWindows);
+        var secs = C.RescueIntervalSeconds;
+        ImGui.SetNextItemWidth(100);
+        if (ImGui.InputInt("seconds##rescue", ref secs, 5, 15)) { C.RescueIntervalSeconds = Math.Clamp(secs, 5, 600); changed = true; }
+        ImGui.EndDisabled();
         if (plugin.Rescue.Stubborn.Count > 0)
             ImGui.TextColored(Warn, "Keep moving back off screen (their plugin sets the position; reset it in that plugin): " +
                                     string.Join(", ", plugin.Rescue.Stubborn.Select(WindowRescue.Label)));

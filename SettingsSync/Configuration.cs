@@ -40,8 +40,13 @@ public class Configuration : IPluginConfiguration
     /// <summary>Plugins from other PCs you don't want here: not listed as missing.</summary>
     public List<string> IgnoredMissing { get; set; } = new();
 
-    /// <summary>Move any plugin window that's off the screen (e.g. positions synced from a bigger screen) to the middle.</summary>
+    /// <summary>
+    /// Automatically move any plugin window that's off the screen (e.g. a position synced from a bigger
+    /// screen) to the middle, every <see cref="RescueIntervalSeconds"/>. Off = only the "Check windows now"
+    /// button (plus one check shortly after the game starts).
+    /// </summary>
     public bool RescueOffscreenWindows { get; set; } = true;
+    public int RescueIntervalSeconds { get; set; } = 15;
 
     /// <summary>Files bigger than this are never synced (caches, logs).</summary>
     public int MaxFileMb { get; set; } = 5;

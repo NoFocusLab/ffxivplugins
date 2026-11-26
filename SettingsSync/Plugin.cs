@@ -108,11 +108,12 @@ public sealed class Plugin : IDalamudPlugin
         if (Syncer.ConflictGeneration != seenConflicts) { seenConflicts = Syncer.ConflictGeneration; conflictWindow.Dismissed = false; }
         if (Syncer.Conflicts.Count > 0 && !conflictWindow.Dismissed) conflictWindow.IsOpen = true;
         windowSystem.Draw();
-        if (Configuration.RescueOffscreenWindows)
+        try
         {
-            try { Rescue.Tick(name => Syncer.State.Log("Window", $"Moved \"{name}\" back on screen")); }
-            catch (Exception e) { Log.Debug($"Settings Sync: window check failed: {e.Message}"); }
+            Rescue.Tick(Configuration.RescueOffscreenWindows ? Configuration.RescueIntervalSeconds : 0,
+                        name => Syncer.State.Log("Window", $"Moved \"{name}\" back on screen"));
         }
+        catch (Exception e) { Log.Debug($"Settings Sync: window check failed: {e.Message}"); }
     }
 
     private void OnUpdate(IFramework fw)

@@ -23,11 +23,31 @@ public sealed class WindowRescue
     /// <summary>Windows that keep going back off screen: their plugin sets the position itself every frame.</summary>
     public HashSet<string> Stubborn { get; } = new();
 
-    /// <summary>Called once per frame from the plugin's draw; checks about once a second.</summary>
-    public unsafe void Tick(Action<string> moved)
+    private bool checkRequested;
+    private DateTime firstCheck = DateTime.Now.AddSeconds(10);
+
+    /// <summary>"Check windows now": runs on the next frame (windows can only be moved while drawing).</summary>
+    public void RequestCheck() => checkRequested = true;
+
+    /// <summary>
+    /// Called every frame from the plugin's draw. Checks when asked, once ~10 s after the game starts,
+    /// and, if <paramref name="intervalSeconds"/> &gt; 0, every that many seconds.
+    /// </summary>
+    public void Tick(int intervalSeconds, Action<string> moved)
     {
-        if (DateTime.Now < nextCheck) return;
-        nextCheck = DateTime.Now.AddSeconds(1);
+        var now = DateTime.Now;
+        var due = checkRequested || (firstCheck != DateTime.MaxValue && now >= firstCheck) ||
+                  (intervalSeconds > 0 && now >= nextCheck);
+        if (!due) return;
+        if (checkRequested) { attempts.Clear(); Stubborn.Clear(); }   // a manual check retries everything
+        checkRequested = false;
+        firstCheck = DateTime.MaxValue;
+        nextCheck = now.AddSeconds(Math.Max(5, intervalSeconds));
+        Check(moved);
+    }
+
+    private unsafe void Check(Action<string> moved)
+    {
 
         var vp = ImGui.GetMainViewport();
         var screenMin = vp.Pos;
