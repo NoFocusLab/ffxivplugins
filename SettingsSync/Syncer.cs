@@ -81,6 +81,7 @@ public sealed class Syncer : IDisposable
         pendingDir = Path.Combine(ownDir, "pending");
         State = LocalState.Load(ownDir);
         Token = Secrets.LoadToken(ownDir);
+        RefreshCounts();
     }
 
     public void Dispose()
@@ -282,13 +283,22 @@ public sealed class Syncer : IDisposable
             if (applied > 0) State.Log("Applied", $"{applied} file(s) pulled last session");
             SaveState();
         }
+        RefreshCounts();
         return applied;
     }
 
     private string PendingFile(string key) => Path.Combine(pendingDir, key.Replace('/', Path.DirectorySeparatorChar));
 
-    public int PendingPluginFiles => State.PendingShas.Keys.Count(k => GroupOf(k) == SyncGroups.Plugins);
-    public int PendingDalamud => State.PendingShas.Keys.Count(k => GroupOf(k) == SyncGroups.Dalamud);
+    // Counts for the window, refreshed by the sync thread: the window must never enumerate State itself
+    // while a sync is changing it.
+    public int PendingPluginFiles { get; private set; }
+    public int PendingDalamud { get; private set; }
+
+    private void RefreshCounts()
+    {
+        PendingPluginFiles = State.PendingShas.Keys.Count(k => GroupOf(k) == SyncGroups.Plugins);
+        PendingDalamud = State.PendingShas.Keys.Count(k => GroupOf(k) == SyncGroups.Dalamud);
+    }
 
     /// <summary>Pulled Dalamud settings not applied yet (key -> contents), for the apply-on-exit helper.</summary>
     public Dictionary<string, byte[]> PendingDalamudConfig()
@@ -333,6 +343,7 @@ public sealed class Syncer : IDisposable
         }
         finally
         {
+            RefreshCounts();
             SaveState();
             gate.Release();
         }

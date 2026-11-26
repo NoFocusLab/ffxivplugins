@@ -108,13 +108,14 @@ public sealed class MainWindow : Window
         ImGui.TextUnformatted("Recent activity");
         if (ImGui.BeginChild("##activity", new Vector2(0, 0), true))
         {
-            foreach (var a in S.State.Activity.ToList())
+            var activity = S.State.ActivitySnapshot();
+            foreach (var a in activity)
             {
                 ImGui.TextColored(a.Kind == "Error" || a.Kind == "Conflict" ? Warn : Dim, $"{a.When:g}  {a.Kind,-8}");
                 ImGui.SameLine();
                 ImGui.TextWrapped(a.Detail);
             }
-            if (S.State.Activity.Count == 0) ImGui.TextColored(Dim, "(nothing yet)");
+            if (activity.Count == 0) ImGui.TextColored(Dim, "(nothing yet)");
         }
         ImGui.EndChild();
 

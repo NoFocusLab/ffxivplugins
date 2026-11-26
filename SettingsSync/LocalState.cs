@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
@@ -63,15 +64,27 @@ public sealed class LocalState
         return new LocalState();
     }
 
+    private readonly object activityLock = new();
+
+    /// <summary>A copy of the activity list, safe to read from the window while a sync adds to it.</summary>
+    public List<ActivityEntry> ActivitySnapshot() { lock (activityLock) return Activity.ToList(); }
+
     public void Save(string dir)
     {
         Directory.CreateDirectory(dir);
         var tmp = PathOf(dir) + ".new";
-        File.WriteAllText(tmp, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+        string json;
+        lock (activityLock) json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(tmp, json);
         File.Move(tmp, PathOf(dir), true);
     }
 
     public void Log(string kind, string detail)
+    {
+        lock (activityLock) LogLocked(kind, detail);
+    }
+
+    private void LogLocked(string kind, string detail)
     {
         Activity.Insert(0, new ActivityEntry { When = DateTime.Now, Kind = kind, Detail = detail });
         if (Activity.Count > 30) Activity.RemoveRange(30, Activity.Count - 30);
