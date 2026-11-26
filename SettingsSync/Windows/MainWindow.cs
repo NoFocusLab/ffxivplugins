@@ -1,0 +1,309 @@
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Numerics;
+using System.Threading.Tasks;
+using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Windowing;
+
+namespace SettingsSync.Windows;
+
+public sealed class MainWindow : Window
+{
+    private static readonly Vector4 Dim = new(0.65f, 0.65f, 0.65f, 1f);
+    private static readonly Vector4 Good = new(0.45f, 0.85f, 0.45f, 1f);
+    private static readonly Vector4 Warn = new(1f, 0.75f, 0.3f, 1f);
+
+    private readonly Plugin plugin;
+    private string excludesText = "";
+    private bool excludesLoaded;
+    private string? previewText;
+
+    // History tab
+    private bool historyLoaded;
+    private readonly ConcurrentDictionary<string, List<string>> pluginsBySnapshot = new();
+    private readonly Dictionary<string, int> selectedPlugin = new();
+    private string? confirmKey;
+
+    public MainWindow(Plugin plugin) : base("Settings Sync###SettingsSyncMain")
+    {
+        this.plugin = plugin;
+        SizeConstraints = new WindowSizeConstraints { MinimumSize = new Vector2(520, 380), MaximumSize = new Vector2(1200, 1000) };
+    }
+
+    private Configuration C => plugin.Configuration;
+    private Syncer S => plugin.Syncer;
+
+    public override void Draw()
+    {
+        if (!ImGui.BeginTabBar("##ssynctabs")) return;
+        if (ImGui.BeginTabItem("Sync")) { DrawSync(); ImGui.EndTabItem(); }
+        if (ImGui.BeginTabItem("History")) { DrawHistory(); ImGui.EndTabItem(); }
+        if (ImGui.BeginTabItem("Settings")) { DrawSettings(); ImGui.EndTabItem(); }
+        ImGui.EndTabBar();
+    }
+
+    // ------------------------------------------------------------------ Sync tab
+
+    private void DrawSync()
+    {
+        if (!S.Configured)
+        {
+            ImGui.TextColored(Warn, S.SignedIn ? "Set the repository on the Settings tab." : "Not signed in yet: open the Settings tab to set up.");
+            ImGui.Separator();
+        }
+
+        ImGui.TextUnformatted($"This PC: {C.MachineName}    Repository: {(C.Repository.Length > 0 ? C.Repository : "(not set)")}");
+        ImGui.TextUnformatted($"Last push: {When(S.State.LastPush)}");
+        ImGui.TextUnformatted($"Last pull: {When(S.State.LastPull)}{(string.IsNullOrEmpty(S.State.LastPullFrom) ? "" : $"  (from {S.State.LastPullFrom})")}");
+        ImGui.TextColored(S.Busy ? Warn : Dim, S.Status);
+        if (plugin.StartupNote.Length > 0) ImGui.TextColored(Good, plugin.StartupNote);
+        if (S.PendingCount > 0)
+            ImGui.TextColored(Warn, $"{S.PendingCount} pulled file(s) waiting: restart the game to apply them.");
+        if (S.Conflicts.Count > 0)
+        {
+            ImGui.TextColored(Warn, $"{S.Conflicts.Count} file(s) changed on both PCs.");
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Decide...")) plugin.OpenConflicts();
+        }
+
+        ImGui.Spacing();
+        ImGui.BeginDisabled(S.Busy || !S.Configured);
+        if (ImGui.Button("Sync now", new Vector2(140, 0))) plugin.SyncNow();
+        ImGui.SameLine();
+        if (ImGui.Button("Push only")) plugin.SyncNow(pushOnly: true);
+        ImGui.SameLine();
+        if (ImGui.Button("Pull only")) plugin.SyncNow(pullOnly: true);
+        ImGui.EndDisabled();
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Pulled files are applied the next time the game starts\n(running plugins would overwrite them otherwise).");
+
+        ImGui.Separator();
+        ImGui.TextUnformatted("Plugin settings");
+        var changed = false;
+        changed |= Box("Automatic sync", C.AutoSync, v => C.AutoSync = v,
+            "Off = nothing happens unless you press a button (use this when testing with two PCs open).");
+        ImGui.BeginDisabled(!C.AutoSync);
+        ImGui.Indent();
+        changed |= Box("Pull when the game starts", C.SyncOnOpen, v => C.SyncOnOpen = v,
+            "Runs before your other plugins load, so they start with the newest settings.");
+        changed |= Box("Push when you log out or close the game", C.SyncOnClose, v => C.SyncOnClose = v, null);
+        var mins = C.PushWhilePlayingMinutes;
+        ImGui.SetNextItemWidth(120);
+        if (ImGui.InputInt("Push changes while playing, every N minutes (0 = off)", ref mins, 5, 15))
+        { C.PushWhilePlayingMinutes = Math.Clamp(mins, 0, 240); changed = true; }
+        ImGui.Unindent();
+        ImGui.EndDisabled();
+
+        ImGui.Separator();
+        ImGui.TextColored(Dim, "Dalamud setup (plugin list, repos): coming in the next update.");
+
+        ImGui.Separator();
+        ImGui.TextUnformatted("Recent activity");
+        if (ImGui.BeginChild("##activity", new Vector2(0, 0), true))
+        {
+            foreach (var a in S.State.Activity.ToList())
+            {
+                ImGui.TextColored(a.Kind == "Error" || a.Kind == "Conflict" ? Warn : Dim, $"{a.When:g}  {a.Kind,-8}");
+                ImGui.SameLine();
+                ImGui.TextWrapped(a.Detail);
+            }
+            if (S.State.Activity.Count == 0) ImGui.TextColored(Dim, "(nothing yet)");
+        }
+        ImGui.EndChild();
+
+        if (changed) C.Save();
+    }
+
+    private static string When(DateTime? t) => t == null ? "never" : $"{t.Value:g} ({Ago(t.Value)})";
+
+    private static string Ago(DateTime t)
+    {
+        var d = DateTime.Now - t;
+        if (d.TotalMinutes < 1) return "just now";
+        if (d.TotalHours < 1) return $"{(int)d.TotalMinutes} min ago";
+        if (d.TotalDays < 1) return $"{(int)d.TotalHours} h ago";
+        return $"{(int)d.TotalDays} d ago";
+    }
+
+    private static bool Box(string label, bool v, Action<bool> set, string? tip)
+    {
+        var x = v;
+        var hit = ImGui.Checkbox(label, ref x);
+        if (tip != null && ImGui.IsItemHovered()) ImGui.SetTooltip(tip);
+        if (hit) set(x);
+        return hit;
+    }
+
+    // ------------------------------------------------------------------ History tab
+
+    private void DrawHistory()
+    {
+        if (!S.Configured) { ImGui.TextColored(Warn, "Set up sign-in and the repository first (Settings tab)."); return; }
+        if (!historyLoaded) { historyLoaded = true; _ = Task.Run(() => S.RefreshHistory(plugin.Life)); }
+
+        ImGui.TextWrapped("The last 5 snapshots on GitHub. Restoring makes a new snapshot equal to the old one " +
+                          "(the newer ones stay in history, so a restore can be undone) and pulls it here; restart the game to apply.");
+        if (ImGui.Button("Refresh")) { pluginsBySnapshot.Clear(); _ = Task.Run(() => S.RefreshHistory(plugin.Life)); }
+        ImGui.Separator();
+
+        var history = S.History;
+        if (history.Count == 0) { ImGui.TextColored(Dim, "(no snapshots yet)"); return; }
+        foreach (var c in history)
+        {
+            ImGui.PushID(c.Sha);
+            ImGui.TextUnformatted($"{c.When:g}");
+            ImGui.SameLine();
+            ImGui.TextColored(Dim, c.Message.Split('\n')[0]);
+
+            ImGui.BeginDisabled(S.Busy);
+            if (Confirm($"all{c.Sha}", "Restore everything"))
+                _ = Task.Run(() => S.Restore(c, null, plugin.Life));
+
+            ImGui.SameLine();
+            if (!pluginsBySnapshot.TryGetValue(c.Sha, out var names))
+            {
+                if (ImGui.SmallButton("Restore one plugin..."))
+                {
+                    pluginsBySnapshot[c.Sha] = new List<string>();
+                    _ = Task.Run(async () =>
+                    {
+                        try { pluginsBySnapshot[c.Sha] = await S.PluginsIn(c.Sha, plugin.Life); }
+                        catch (Exception e) { Plugin.Log.Warning(e, "Settings Sync: snapshot list"); pluginsBySnapshot.TryRemove(c.Sha, out _); }
+                    });
+                }
+            }
+            else if (names.Count == 0) ImGui.TextColored(Dim, "loading...");
+            else
+            {
+                var sel = selectedPlugin.GetValueOrDefault(c.Sha);
+                sel = Math.Clamp(sel, 0, names.Count - 1);
+                ImGui.SetNextItemWidth(200);
+                if (ImGui.BeginCombo("##plugin", names[sel]))
+                {
+                    for (var i = 0; i < names.Count; i++)
+                        if (ImGui.Selectable(names[i], i == sel)) sel = i;
+                    ImGui.EndCombo();
+                }
+                selectedPlugin[c.Sha] = sel;
+                ImGui.SameLine();
+                var name = names[sel];
+                if (Confirm($"one{c.Sha}{name}", $"Restore {name}"))
+                    _ = Task.Run(() => S.Restore(c, name, plugin.Life));
+            }
+            ImGui.EndDisabled();
+            ImGui.Separator();
+            ImGui.PopID();
+        }
+    }
+
+    /// <summary>Two-click button: first click arms it, second click within the same item confirms.</summary>
+    private bool Confirm(string key, string label)
+    {
+        if (confirmKey == key)
+        {
+            ImGui.PushStyleColor(ImGuiCol.Button, new Vector4(0.7f, 0.25f, 0.2f, 1f));
+            var go = ImGui.SmallButton($"Click again: {label}##{key}");
+            ImGui.PopStyleColor();
+            if (go) { confirmKey = null; return true; }
+            return false;
+        }
+        if (ImGui.SmallButton($"{label}##{key}")) confirmKey = key;
+        return false;
+    }
+
+    // ------------------------------------------------------------------ Settings tab
+
+    private void DrawSettings()
+    {
+        var changed = false;
+
+        ImGui.TextUnformatted("GitHub");
+        var repo = C.Repository;
+        ImGui.SetNextItemWidth(260);
+        if (ImGui.InputTextWithHint("Repository (owner/name)", "you/ffxiv-settings-sync", ref repo, 100)) { C.Repository = repo.Trim(); changed = true; }
+        var id = C.ClientId;
+        ImGui.SetNextItemWidth(260);
+        if (ImGui.InputTextWithHint("GitHub App Client ID", "Iv23...", ref id, 60)) { C.ClientId = id.Trim(); changed = true; }
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("github.com > Settings > Developer settings > GitHub Apps > your app.\nNot a secret.");
+        var branch = C.Branch;
+        ImGui.SetNextItemWidth(120);
+        if (ImGui.InputText("Branch", ref branch, 60)) { C.Branch = branch.Trim().Length > 0 ? branch.Trim() : "main"; changed = true; }
+
+        if (S.SignedIn)
+        {
+            ImGui.TextColored(Good, "Signed in on this PC.");
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Sign out")) S.SignOut();
+        }
+        else if (S.PendingSignIn is { } code)
+        {
+            ImGui.TextUnformatted("1. Open");
+            ImGui.SameLine();
+            if (ImGui.SmallButton(code.Url)) Dalamud.Utility.Util.OpenLink(code.Url);
+            ImGui.TextUnformatted("2. Log in to GitHub and enter this code:");
+            ImGui.SameLine();
+            ImGui.TextColored(Good, code.Code);
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Copy")) ImGui.SetClipboardText(code.Code);
+            ImGui.TextColored(Dim, "Waiting for GitHub...");
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Cancel")) S.CancelSignIn();
+        }
+        else
+        {
+            ImGui.BeginDisabled(C.ClientId.Length == 0);
+            if (ImGui.Button("Sign in with GitHub")) S.StartSignIn();
+            ImGui.EndDisabled();
+            if (C.ClientId.Length == 0) { ImGui.SameLine(); ImGui.TextColored(Dim, "(enter the Client ID first)"); }
+        }
+        ImGui.TextColored(Dim, S.Status);
+
+        ImGui.Separator();
+        ImGui.TextUnformatted("This PC");
+        var machine = C.MachineName;
+        ImGui.SetNextItemWidth(200);
+        if (ImGui.InputText("Name shown in history", ref machine, 40)) { C.MachineName = machine.Trim(); changed = true; }
+        var wait = C.StartupWaitSeconds;
+        ImGui.SetNextItemWidth(120);
+        if (ImGui.InputInt("Max wait at game start (seconds)", ref wait, 1, 5)) { C.StartupWaitSeconds = Math.Clamp(wait, 2, 30); changed = true; }
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("If GitHub is slow, the game carries on after this long and syncs once it's up.");
+
+        ImGui.Separator();
+        ImGui.TextUnformatted("What syncs");
+        var mb = C.MaxFileMb;
+        ImGui.SetNextItemWidth(120);
+        if (ImGui.InputInt("Skip files bigger than (MB)", ref mb, 1, 5)) { C.MaxFileMb = Math.Clamp(mb, 1, 50); changed = true; }
+
+        if (!excludesLoaded) { excludesText = string.Join("\n", C.Excludes); excludesLoaded = true; }
+        ImGui.TextColored(Dim, "Never sync (one per line, relative to pluginConfigs; * = any name, ** = any folders):");
+        if (ImGui.InputTextMultiline("##excludes", ref excludesText, 8000, new Vector2(-1, 160)))
+        {
+            C.Excludes = excludesText.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+            changed = true;
+        }
+        if (ImGui.SmallButton("Reset to defaults"))
+        {
+            C.Excludes = new List<string>(Configuration.DefaultExcludes);
+            excludesText = string.Join("\n", C.Excludes);
+            changed = true;
+        }
+        ImGui.SameLine();
+        if (ImGui.SmallButton("Preview what would sync"))
+        {
+            previewText = "Scanning...";
+            _ = Task.Run(() =>
+            {
+                var files = S.ScanLocal();
+                var top = files.Values.GroupBy(f => Syncer.PluginOf(f.Rel))
+                    .Select(g => (g.Key, Size: g.Sum(f => f.Size))).OrderByDescending(g => g.Size).Take(8)
+                    .Select(g => $"{g.Key} {g.Size / 1024.0:0} KB");
+                previewText = $"{files.Count} files, {files.Values.Sum(f => f.Size) / 1048576.0:0.0} MB. Biggest: {string.Join(", ", top)}";
+            });
+        }
+        if (previewText != null) ImGui.TextWrapped(previewText);
+        ImGui.TextColored(Dim, "Always skipped: Settings Sync's own settings and sign-in.");
+
+        if (changed) C.Save();
+    }
+}

@@ -99,6 +99,14 @@ GLYPHS = {
       <rect x="72" y="134" width="100" height="16" rx="8" fill="currentColor"/>
       <rect x="116" y="150" width="12" height="30" fill="currentColor"/>
       <path d="M196 54 L222 84 H206 V112 H186 V84 H170 Z" fill="{W}"/>"""),
+    # Floppy disk: Settings Sync (saves your settings).
+    "SettingsSync": ("utility", f"""
+      <path d="M66 50 H170 L206 86 V194 A12 12 0 0 1 194 206 H62 A12 12 0 0 1 50 194 V62 A12 12 0 0 1 62 50 Z" fill="{W}"/>
+      <rect x="84" y="50" width="78" height="52" rx="4" fill="currentColor"/>
+      <rect x="136" y="60" width="16" height="32" rx="3" fill="{W}"/>
+      <rect x="74" y="126" width="108" height="80" rx="8" fill="currentColor"/>
+      <rect x="88" y="144" width="80" height="9" rx="4" fill="{W}" opacity="0.6"/>
+      <rect x="88" y="166" width="80" height="9" rx="4" fill="{W}" opacity="0.6"/>"""),
     # 2x2 tiles: the hub itself.
     "PluginHub": ("utility", f"""
       <rect x="56" y="56" width="66" height="66" rx="14" fill="{W}"/>

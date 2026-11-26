@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <PropertyGroup>
+    <Version>0.1.0.0</Version>
+    <Author>NoFocusLab</Author>
+    <Name>Settings Sync</Name>
+    <Punchline>Keeps your plugin settings the same on every PC, through a private GitHub repo you own.</Punchline>
+    <Description>Backs up the pluginConfigs folder (every plugin, minus an exclude list) to a private GitHub repository and pulls it on your other PCs. Syncs automatically when the game opens and closes, or with a Sync now button. Asks when both PCs changed the same file. History tab keeps the last 5 snapshots, restorable whole or one plugin at a time. Sign in once per PC with your GitHub account (device code); no token to copy around. You create the repository and a small GitHub App yourself; see the README.</Description>
+    <Tags>sync;backup;settings;config;github</Tags>
+    <RepoUrl>https://github.com/NoFocusLab/ffxivplugins</RepoUrl>
+    <!-- Load before every other plugin, on its own, so pulled settings are on disk before the
+         other plugins read them. 2 = no load-state requirement (earliest step). -->
+    <LoadRequiredState>2</LoadRequiredState>
+    <LoadSync>true</LoadSync>
+    <LoadPriority>1000</LoadPriority>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+</Project>

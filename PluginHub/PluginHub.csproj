@@ -24,6 +24,7 @@
     <EmbeddedResource Include="..\RescueHelper\images\icon.png" LogicalName="PluginHub.Icons.RescueHelper.png" />
     <EmbeddedResource Include="..\RetainerGear\images\icon.png" LogicalName="PluginHub.Icons.RetainerGear.png" />
     <EmbeddedResource Include="..\SaucerRun\images\icon.png" LogicalName="PluginHub.Icons.SaucerRun.png" />
+    <EmbeddedResource Include="..\SettingsSync\images\icon.png" LogicalName="PluginHub.Icons.SettingsSync.png" />
     <EmbeddedResource Include="..\TankStanceManager\images\icon.png" LogicalName="PluginHub.Icons.TankStanceManager.png" />
     <EmbeddedResource Include="..\TurnInManager\images\icon.png" LogicalName="PluginHub.Icons.TurnInManager.png" />
     <!-- Built-in tiles and stand-ins for other plugins without a usable icon (made by tools/make_icons.py). -->
