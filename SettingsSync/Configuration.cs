@@ -40,6 +40,9 @@ public class Configuration : IPluginConfiguration
     /// <summary>Plugins from other PCs you don't want here: not listed as missing.</summary>
     public List<string> IgnoredMissing { get; set; } = new();
 
+    /// <summary>Move any plugin window that's off the screen (e.g. positions synced from a bigger screen) to the middle.</summary>
+    public bool RescueOffscreenWindows { get; set; } = true;
+
     /// <summary>Files bigger than this are never synced (caches, logs).</summary>
     public int MaxFileMb { get; set; } = 5;
 

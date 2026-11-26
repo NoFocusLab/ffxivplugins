@@ -327,6 +327,15 @@ public sealed class MainWindow : Window
         if (ImGui.IsItemHovered()) ImGui.SetTooltip("If GitHub is slow, the game carries on after this long and syncs once it's up.");
 
         ImGui.Separator();
+        ImGui.TextUnformatted("Screen");
+        changed |= Box("Bring off-screen windows back to the middle", C.RescueOffscreenWindows, v => C.RescueOffscreenWindows = v,
+            "Any plugin's window whose title bar is off the screen (e.g. a position synced from a PC with a bigger screen)\n" +
+            "is moved to the middle so you can drag it where you want. Checked once a second.");
+        if (plugin.Rescue.Stubborn.Count > 0)
+            ImGui.TextColored(Warn, "Keep moving back off screen (their plugin sets the position; reset it in that plugin): " +
+                                    string.Join(", ", plugin.Rescue.Stubborn.Select(WindowRescue.Label)));
+
+        ImGui.Separator();
         ImGui.TextUnformatted("What syncs");
         var mb = C.MaxFileMb;
         ImGui.SetNextItemWidth(120);

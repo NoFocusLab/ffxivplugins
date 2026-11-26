@@ -34,6 +34,15 @@ the same across PCs:
 
 Everything else in Dalamud's settings (UI scale, fonts, logs, dev options) stays per PC.
 
+## Off-screen windows
+
+Window positions saved in plugin settings come along with the sync, so a position from a PC with a
+bigger screen can land off this one. Once a second Settings Sync checks every open plugin window
+(any plugin, Dalamud's too) and moves one whose title bar is off the screen to the middle, so you
+can drag it where you want. A window whose plugin keeps putting it back off screen is left alone
+after 3 tries and named on the Settings tab, so you can reset it in that plugin. Switch: Settings tab >
+*Bring off-screen windows back to the middle* (on by default).
+
 Commands: `/ssync` opens the window.
 
 ## One-time setup (about 10 minutes)

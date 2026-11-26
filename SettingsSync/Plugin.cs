@@ -38,6 +38,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly MainWindow mainWindow;
     private readonly ConflictWindow conflictWindow;
     private readonly CancellationTokenSource life = new();
+    public WindowRescue Rescue { get; } = new();
     private Services? services;
     private DateTime nextPeriodicCheck = DateTime.Now.AddMinutes(1);
 
@@ -107,6 +108,11 @@ public sealed class Plugin : IDalamudPlugin
         if (Syncer.ConflictGeneration != seenConflicts) { seenConflicts = Syncer.ConflictGeneration; conflictWindow.Dismissed = false; }
         if (Syncer.Conflicts.Count > 0 && !conflictWindow.Dismissed) conflictWindow.IsOpen = true;
         windowSystem.Draw();
+        if (Configuration.RescueOffscreenWindows)
+        {
+            try { Rescue.Tick(name => Syncer.State.Log("Window", $"Moved \"{name}\" back on screen")); }
+            catch (Exception e) { Log.Debug($"Settings Sync: window check failed: {e.Message}"); }
+        }
     }
 
     private void OnUpdate(IFramework fw)
