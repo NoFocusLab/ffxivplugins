@@ -134,11 +134,30 @@ public sealed class MainWindow : Window
             "When the game is up, on logout/close, and with the periodic push.\n" +
             "On/off switches apply right away; repo list, theme etc. apply after you close the game.");
 
+        var repos = S.MissingRepos;
+        if (repos.Count > 0)
+        {
+            ImGui.Spacing();
+            ImGui.TextColored(Warn, $"Custom repos on the other PC but not here ({repos.Count}):");
+            ImGui.TextColored(Dim, "They're added for you after the game closes. To install plugins now, add them yourself:");
+            if (ImGui.SmallButton("Open Dalamud settings")) plugin.OpenDalamudSettings();
+            ImGui.SameLine();
+            ImGui.TextColored(Dim, "Experimental > Custom Plugin Repositories: paste, +, then Save and Close.");
+            foreach (var url in repos.ToList())
+            {
+                ImGui.PushID("repo" + url);
+                if (ImGui.SmallButton("Copy")) ImGui.SetClipboardText(url);
+                ImGui.SameLine();
+                ImGui.TextUnformatted(url);
+                ImGui.PopID();
+            }
+        }
+
         var missing = S.Missing;
         if (missing.Count == 0) return;
         ImGui.Spacing();
         ImGui.TextColored(Warn, $"Installed on another PC but not here ({missing.Count}):");
-        ImGui.TextColored(Dim, "Install opens the plugin installer searched to it. If it isn't found, its repo arrives after the next game restart.");
+        ImGui.TextColored(Dim, "Install opens the plugin installer searched to it. Not found? Add the repos above first.");
         foreach (var m in missing.ToList())
         {
             ImGui.PushID(m.InternalName);

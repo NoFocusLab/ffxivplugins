@@ -140,6 +140,8 @@ public sealed class Plugin : IDalamudPlugin
     public void SyncNow(bool pushOnly = false, bool pullOnly = false, SyncGroups groups = SyncGroups.All) =>
         _ = Task.Run(() => Syncer.Run(SyncMode.Running, life.Token, pushOnly, pullOnly, groups));
 
+    public void OpenDalamudSettings() => services?.Commands.ProcessCommand("/xlsettings");
+
     public void OpenInstaller(string search) =>
         PluginInterface.OpenPluginInstallerTo(Dalamud.Interface.PluginInstallerOpenKind.AllPlugins, search);
 

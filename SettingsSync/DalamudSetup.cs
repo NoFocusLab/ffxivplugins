@@ -127,6 +127,22 @@ public sealed class DalamudSetup
         catch { return (fallbackName, false); }
     }
 
+    /// <summary>Enabled repo URLs in a ThirdRepoList value.</summary>
+    public static HashSet<string> RepoUrls(byte[] data)
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            var node = JsonNode.Parse(data);
+            var list = node?["$values"] as JsonArray ?? node as JsonArray;
+            if (list != null)
+                foreach (var r in list)
+                    if ((string?)r?["Url"] is { Length: > 0 } u && ((bool?)r["IsEnabled"] ?? true)) set.Add(u.Trim());
+        }
+        catch { /* not a repo list */ }
+        return set;
+    }
+
     public bool IsInstalled(string internalName) =>
         Plugin.PluginInterface.InstalledPlugins.Any(p => p.InternalName.Equals(internalName, StringComparison.OrdinalIgnoreCase));
 

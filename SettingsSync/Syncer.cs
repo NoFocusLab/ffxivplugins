@@ -71,6 +71,8 @@ public sealed class Syncer : IDisposable
 
     public DalamudSetup Dalamud { get; }
     public List<MissingPlugin> Missing { get; private set; } = new();
+    /// <summary>Custom repo URLs on GitHub's copy that this PC doesn't have yet (Dalamud only loads repos at start).</summary>
+    public List<string> MissingRepos { get; private set; } = new();
 
     public Syncer(Configuration cfg, string pluginConfigsRoot, string ownDir)
     {
@@ -495,7 +497,11 @@ public sealed class Syncer : IDisposable
         }
         else if (head != null) State.LastCommit = head.CommitSha;
 
-        if (dalamudOn && mode != SyncMode.Closing) UpdateMissing(remote, local);
+        if (dalamudOn && mode != SyncMode.Closing)
+        {
+            UpdateMissing(remote, local);
+            await UpdateMissingRepos(remote, local, ct);
+        }
         // Keep conflicts from groups this run didn't look at.
         conflicts.AddRange(Conflicts.Where(c => (GroupOf(c.Path) & groups) == 0));
         Conflicts = conflicts;
@@ -520,6 +526,19 @@ public sealed class Syncer : IDisposable
             .Where(n => !cfg.IgnoredMissing.Contains(n, StringComparer.OrdinalIgnoreCase))
             .Select(n => State.PluginInfo.TryGetValue(n, out var i) ? new MissingPlugin(n, i.Name, i.On) : new MissingPlugin(n, n, true))
             .OrderBy(m => m.Name, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private const string RepoKey = DalamudSetup.ConfigPrefix + "ThirdRepoList.json";
+
+    private async Task UpdateMissingRepos(Dictionary<string, string> remote, Dictionary<string, LocalFile> local, CancellationToken ct)
+    {
+        try
+        {
+            if (!remote.TryGetValue(RepoKey, out var sha) || (local.TryGetValue(RepoKey, out var lf) && lf.Sha == sha)) { MissingRepos = new(); return; }
+            var mine = local.TryGetValue(RepoKey, out var l) ? DalamudSetup.RepoUrls(l.Data!) : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            MissingRepos = DalamudSetup.RepoUrls(await gh.GetBlob(sha, ct)).Where(u => !mine.Contains(u)).OrderBy(u => u).ToList();
+        }
+        catch (Exception e) { Plugin.Log.Debug($"Settings Sync: repo list compare failed: {e.Message}"); }
     }
 
     private async Task<string> LastPusher(RemoteHead head, CancellationToken ct)
