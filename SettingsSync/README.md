@@ -9,7 +9,8 @@ exclude list) is backed up to a **private GitHub repository you own** and pulled
   *Automatic sync* off when you have two PCs open at once for testing.
 - **Conflicts:** if both PCs changed the same file since they last synced, it asks which copy to keep
   (all, or ticked files). Nothing is deleted automatically on either side.
-- **History:** the last 5 snapshots, each with *Restore everything* or *Restore one plugin*. A restore is
+- **History:** the last 5 snapshots, or the last 5 pushes from one PC (*Pushed from* list, e.g. to put your
+  desktop's settings on your laptop), each with *Restore everything* or *Restore one plugin*. A restore is
   a new snapshot, so it can be undone too.
 - Every push and pull is stamped with the time and this PC's name.
 
@@ -61,6 +62,13 @@ Commands: `/ssync` opens the window.
    **Sign in with GitHub**: open the link, log in, enter the code shown.
 
 ## A new PC
+
+A PC that has never synced is **locked for uploads** until you confirm its first sync, so a half-set-up
+PC can't overwrite the others: it pulls, asks about anything that differs (pick GitHub's copy), and only
+sends files you explicitly chose to keep from it. When everything looks right after a restart, press
+*This PC is set up* on the Sync tab. The very first PC (empty repository) isn't locked.
+
+### Setting it up
 
 Install Settings Sync from the custom repo, enter the repository and Client ID, sign in with your
 GitHub account. Both values can be looked up any time on github.com (repository list; Developer settings >

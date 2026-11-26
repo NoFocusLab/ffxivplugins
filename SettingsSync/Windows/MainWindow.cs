@@ -25,6 +25,7 @@ public sealed class MainWindow : Window
     private readonly ConcurrentDictionary<string, List<string>> pluginsBySnapshot = new();
     private readonly Dictionary<string, int> selectedPlugin = new();
     private string? confirmKey;
+    private string historyPc = "";   // "" = all PCs
 
     public MainWindow(Plugin plugin) : base("Settings Sync###SettingsSyncMain")
     {
@@ -58,6 +59,7 @@ public sealed class MainWindow : Window
         ImGui.TextUnformatted($"Last push: {When(S.State.LastPush)}");
         ImGui.TextUnformatted($"Last pull: {When(S.State.LastPull)}{(string.IsNullOrEmpty(S.State.LastPullFrom) ? "" : $"  (from {S.State.LastPullFrom})")}");
         ImGui.TextColored(S.Busy ? Warn : Dim, S.Status);
+        if (S.Configured && !S.State.FirstSyncDone) DrawFirstSync();
         if (plugin.StartupNote.Length > 0) ImGui.TextColored(Good, plugin.StartupNote);
         if (S.PendingCount > 0)
             ImGui.TextColored(Warn, $"{S.PendingCount} pulled file(s) waiting: restart the game to apply them.");
@@ -120,6 +122,22 @@ public sealed class MainWindow : Window
         ImGui.EndChild();
 
         if (changed) C.Save();
+    }
+
+    private void DrawFirstSync()
+    {
+        ImGui.Separator();
+        ImGui.TextColored(Warn, "New PC: first sync.");
+        ImGui.TextWrapped("Nothing from this PC is uploaded yet, so a half-set-up PC can't overwrite your others. " +
+                          "Press Sync everything now, pick GitHub's copy in the \"changed on both PCs\" window " +
+                          "(unless you really want this PC's), restart the game, and check things look right. Then confirm.");
+        if (S.HeldBack > 0)
+            ImGui.TextColored(Dim, $"{S.HeldBack} file(s) only this PC has are waiting; they go up when you confirm.");
+        ImGui.BeginDisabled(S.Busy || S.Conflicts.Count > 0);
+        if (Confirm("firstsync", "This PC is set up: start uploading its changes")) S.ConfirmFirstSync();
+        ImGui.EndDisabled();
+        if (S.Conflicts.Count > 0) { ImGui.SameLine(); ImGui.TextColored(Dim, "(decide the conflicts first)"); }
+        ImGui.Separator();
     }
 
     private void DrawDalamud(ref bool changed)
@@ -199,12 +217,27 @@ public sealed class MainWindow : Window
         if (!S.Configured) { ImGui.TextColored(Warn, "Set up sign-in and the repository first (Settings tab)."); return; }
         if (!historyLoaded) { historyLoaded = true; _ = Task.Run(() => S.RefreshHistory(plugin.Life)); }
 
-        ImGui.TextWrapped("The last 5 snapshots on GitHub. Restoring makes a new snapshot equal to the old one " +
+        ImGui.TextWrapped("The last 5 snapshots on GitHub, or the last 5 pushes from one PC. A snapshot is everything " +
+                          "as it stood right after that push. Restoring makes a new snapshot equal to the old one " +
                           "(the newer ones stay in history, so a restore can be undone) and pulls it here; restart the game to apply.");
         if (ImGui.Button("Refresh")) { pluginsBySnapshot.Clear(); _ = Task.Run(() => S.RefreshHistory(plugin.Life)); }
+        ImGui.SameLine();
+        var all = S.History;
+        var pcs = all.Select(c => c.PushedBy).Where(n => n != null).Select(n => n!).Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
+        ImGui.SetNextItemWidth(200);
+        if (ImGui.BeginCombo("Pushed from", historyPc.Length == 0 ? "All PCs" : historyPc))
+        {
+            if (ImGui.Selectable("All PCs", historyPc.Length == 0)) historyPc = "";
+            foreach (var pc in pcs)
+                if (ImGui.Selectable(pc + (pc.Equals(C.MachineName, StringComparison.OrdinalIgnoreCase) ? " (this PC)" : ""), pc == historyPc))
+                    historyPc = pc;
+            ImGui.EndCombo();
+        }
         ImGui.Separator();
 
-        var history = S.History;
+        var history = (historyPc.Length == 0 ? all : all.Where(c => string.Equals(c.PushedBy, historyPc, StringComparison.OrdinalIgnoreCase)))
+            .Take(5).ToList();
         if (history.Count == 0) { ImGui.TextColored(Dim, "(no snapshots yet)"); return; }
         foreach (var c in history)
         {

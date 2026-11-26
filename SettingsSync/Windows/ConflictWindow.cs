@@ -35,6 +35,8 @@ public sealed class ConflictWindow : Window
 
         ImGui.TextWrapped("These files changed on this PC and on GitHub since the last sync. Pick which copy to keep. " +
                           "The other copy is not lost: it stays in GitHub history (History tab).");
+        if (!s.State.FirstSyncDone)
+            ImGui.TextColored(new Vector4(1f, 0.75f, 0.3f, 1f), "New PC: you almost certainly want GitHub's copy (from your set-up PC).");
         var from = list[0].RemoteFrom;
         ImGui.TextColored(Dim, $"GitHub's copy is from: {(string.IsNullOrEmpty(from) ? "unknown" : from)}");
 

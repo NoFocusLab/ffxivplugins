@@ -31,6 +31,15 @@ public sealed class ActivityEntry
 public sealed class LocalState
 {
     public string? LastCommit { get; set; }
+
+    /// <summary>
+    /// False on a PC that has never synced: nothing is uploaded until you confirm the first sync, so a
+    /// half-set-up PC can't overwrite the others. PCs that synced before this existed count as done.
+    /// </summary>
+    public bool FirstSyncDone { get; set; }
+
+    /// <summary>While the first sync is open: files you chose "keep this PC's copy" for, allowed up once.</summary>
+    public HashSet<string> AllowedPushes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, string> BaseShas { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public DateTime? LastPush { get; set; }
     public DateTime? LastPull { get; set; }
@@ -56,6 +65,8 @@ public sealed class LocalState
                     s.BaseShas = new Dictionary<string, string>(s.BaseShas, StringComparer.OrdinalIgnoreCase);
                     s.PendingShas = new Dictionary<string, string>(s.PendingShas, StringComparer.OrdinalIgnoreCase);
                     s.PluginInfo = new Dictionary<string, PluginInfo>(s.PluginInfo, StringComparer.OrdinalIgnoreCase);
+                    s.AllowedPushes = new HashSet<string>(s.AllowedPushes, StringComparer.OrdinalIgnoreCase);
+                    if (s.LastCommit != null) s.FirstSyncDone = true;
                     return s;
                 }
             }

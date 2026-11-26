@@ -65,6 +65,17 @@ public sealed class Syncer : IDisposable
     /// <summary>Goes up each time a sync finds conflicts, so a dismissed conflict window can pop up again.</summary>
     public int ConflictGeneration { get; private set; }
     public List<CommitInfo> History { get; private set; } = new();
+    /// <summary>Files only this PC has, not uploaded because the first sync isn't confirmed yet.</summary>
+    public int HeldBack { get; private set; }
+
+    /// <summary>Ends the new-PC lock: from now on this PC pushes like any other.</summary>
+    public void ConfirmFirstSync()
+    {
+        State.FirstSyncDone = true;
+        State.AllowedPushes.Clear();
+        State.Log("First sync", $"Confirmed: {cfg.MachineName} now uploads its changes too");
+        SaveState();
+    }
     public string? Token { get; private set; }
     public bool SignedIn => !string.IsNullOrEmpty(Token);
     public DateTime LastAttempt { get; private set; } = DateTime.MinValue;
@@ -413,6 +424,16 @@ public sealed class Syncer : IDisposable
         }
 
         if (pushOnly) pulls.Clear();
+        var heldBack = 0;
+        // The very first PC (nothing on GitHub yet) has nothing to protect: no lock.
+        if (!State.FirstSyncDone && (head?.Files ?? new List<RemoteFile>()).All(f => !f.Path.StartsWith(Prefix, StringComparison.Ordinal) &&
+                                                        !f.Path.StartsWith(DalamudSetup.Prefix, StringComparison.Ordinal)))
+            State.FirstSyncDone = true;
+        if (!State.FirstSyncDone)
+        {
+            // New PC: only what you explicitly chose to keep from this PC goes up until you confirm.
+            heldBack = pushes.RemoveAll(p => !State.AllowedPushes.Contains(p));
+        }
         if (pullOnly) pushes.Clear();
         if (mode == SyncMode.Closing) pulls.Clear();
         // Already waiting for next start: don't download it again.
@@ -490,7 +511,7 @@ public sealed class Syncer : IDisposable
                 Status = "The other PC pushed at the same moment; comparing again...";
                 return false;
             }
-            foreach (var rel in pushes) State.BaseShas[rel] = local[rel].Sha;
+            foreach (var rel in pushes) { State.BaseShas[rel] = local[rel].Sha; State.AllowedPushes.Remove(rel); }
             State.LastCommit = commit;
             State.LastPush = DateTime.Now;
             State.Log("Push", $"{pushes.Count} file(s): {Summary(pushes)}");
@@ -515,6 +536,8 @@ public sealed class Syncer : IDisposable
                  (pulls.Count > 0 && mode != SyncMode.Startup ? " (restart the game to apply)" : "") +
                  (conflicts.Count > 0 ? $", {conflicts.Count} need your choice" : "") + ".",
         };
+        if (heldBack > 0) Status += $" {heldBack} file(s) from this PC held back until you confirm the first sync.";
+        HeldBack = heldBack;
         return true;
     }
 
@@ -578,9 +601,12 @@ public sealed class Syncer : IDisposable
     public Task Resolve(IEnumerable<Conflict> chosen, bool keepLocal, SyncMode mode, CancellationToken ct)
     {
         var list = chosen.ToList();
+        // Pretend the losing side never changed it; the normal comparison then moves the winner across.
         foreach (var c in list)
-            // Pretend the losing side never changed it; the normal comparison then moves the winner across.
+        {
             State.BaseShas[c.Path] = keepLocal ? c.RemoteSha : c.LocalSha;
+            if (keepLocal) State.AllowedPushes.Add(c.Path);   // an explicit choice goes up even on a new PC
+        }
         State.Log("Conflict", $"Kept {(keepLocal ? "this PC's" : "GitHub's")} copy of {Summary(list.Select(c => c.Path))}");
         Conflicts = Conflicts.Except(list).ToList();
         return Run(mode, ct);
@@ -595,7 +621,7 @@ public sealed class Syncer : IDisposable
         {
             gh.Token = Token!;
             gh.Repo = cfg.Repository.Trim();
-            History = (await gh.RecentCommits(cfg.Branch, 5, ct));
+            History = await gh.RecentCommits(cfg.Branch, 100, ct);
         }
         catch (Exception e) { Status = "History failed: " + e.Message; }
     }

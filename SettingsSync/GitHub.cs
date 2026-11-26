@@ -20,7 +20,12 @@ public sealed class GitHubException : Exception
 
 public sealed record RemoteFile(string Path, string Sha, string Mode);
 public sealed record RemoteHead(string CommitSha, string TreeSha, List<RemoteFile> Files);
-public sealed record CommitInfo(string Sha, string Message, DateTime When);
+public sealed record CommitInfo(string Sha, string Message, DateTime When)
+{
+    /// <summary>The PC that pushed it ("Push from Desktop: ..."), or null for restores and other commits.</summary>
+    public string? PushedBy => Message.StartsWith("Push from ", StringComparison.Ordinal) && Message.IndexOf(':') is var c and > 10
+        ? Message[10..c] : null;
+}
 public sealed record DeviceCode(string Code, string Url, string DeviceCodeValue, int IntervalSeconds, DateTime Expires);
 
 /// <summary>Just the GitHub REST calls the plugin needs (device sign-in and the git data API).</summary>
