@@ -337,7 +337,7 @@
     "Author": "NoFocusLab",
     "Name": "Settings Sync",
     "InternalName": "SettingsSync",
-    "AssemblyVersion": "0.2.0.0",
+    "AssemblyVersion": "0.2.0.1",
     "Description": "Backs up the pluginConfigs folder (every plugin, minus an exclude list) to a private GitHub repository and pulls it on your other PCs. Syncs automatically when the game opens and closes, or with a Sync now button. Asks when both PCs changed the same file. History tab keeps the last 5 snapshots, restorable whole or one plugin at a time. Optionally keeps Dalamud's setup the same too: custom repos, plugin on/off, favourites, theme, server info bar and update preferences, and lists plugins installed on another PC but not this one. Sign in once per PC with your GitHub account (device code); no token to copy around. You create the repository and a small GitHub App yourself; see the README.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/NoFocusLab/ffxivplugins",
@@ -356,9 +356,9 @@
     "Punchline": "Keeps your plugin settings the same on every PC, through a private GitHub repo you own.",
     "AcceptsFeedback": true,
     "IconUrl": "https://raw.githubusercontent.com/NoFocusLab/ffxivplugins/main/SettingsSync/images/icon.png",
-    "DownloadLinkInstall": "https://github.com/NoFocusLab/ffxivplugins/releases/download/SettingsSync-v0.2.0.0/SettingsSync.zip",
-    "DownloadLinkUpdate": "https://github.com/NoFocusLab/ffxivplugins/releases/download/SettingsSync-v0.2.0.0/SettingsSync.zip",
-    "DownloadLinkTesting": "https://github.com/NoFocusLab/ffxivplugins/releases/download/SettingsSync-v0.2.0.0/SettingsSync.zip"
+    "DownloadLinkInstall": "https://github.com/NoFocusLab/ffxivplugins/releases/download/SettingsSync-v0.2.0.1/SettingsSync.zip",
+    "DownloadLinkUpdate": "https://github.com/NoFocusLab/ffxivplugins/releases/download/SettingsSync-v0.2.0.1/SettingsSync.zip",
+    "DownloadLinkTesting": "https://github.com/NoFocusLab/ffxivplugins/releases/download/SettingsSync-v0.2.0.1/SettingsSync.zip"
   },
   {
     "Author": "NoFocusLab",
