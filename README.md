@@ -17,7 +17,7 @@ Personal Dalamud plugins (API 15).
 | [Raise Callouts](RaiseCallouts/README.md) | Says "Raising <name>" in party chat when you raise someone, however it was cast (works with RotationSolver Reborn). |
 | [Rescue Helper](RescueHelper/README.md) | Healers: party panel showing who's in an AoE about to go off (from BossMod); click to Rescue, or automatic. |
 | [Retainer Gear](RetainerGear/README.md) | Tracks retainer gear; lists the best non-raid upgrades (crafted, dungeon, uncapped tomestones) per retainer, plus a shopping list with Universalis prices. |
-| [Settings Sync](SettingsSync/README.md) | Keeps every plugin's settings the same on all your PCs through a private GitHub repo you own: syncs when the game opens/closes or on demand, asks on conflicts, keeps the last 5 snapshots to restore. |
+| [Settings Sync](SettingsSync/README.md) | Keeps every plugin's settings, plus Dalamud's repo list, plugin on/off and theme, the same on all your PCs through a private GitHub repo you own: syncs when the game opens/closes or on demand, asks on conflicts, keeps the last 5 snapshots to restore. |
 | [Tank Stance Manager](TankStanceManager/README.md) | MT: stance always on. OT: holds a configurable enmity band of the MT. |
 
 ## Install on any PC (one-time)

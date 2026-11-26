@@ -22,6 +22,21 @@ public enum SyncMode
     Closing,
 }
 
+/// <summary>Which parts a sync covers.</summary>
+[Flags]
+public enum SyncGroups
+{
+    None = 0,
+    /// <summary>The pluginConfigs folder.</summary>
+    Plugins = 1,
+    /// <summary>Dalamud's repo list, plugin on/off states, theme... (see <see cref="DalamudSetup"/>).</summary>
+    Dalamud = 2,
+    All = Plugins | Dalamud,
+}
+
+/// <summary>A plugin that's on GitHub (installed on another PC) but not installed here.</summary>
+public sealed record MissingPlugin(string InternalName, string Name, bool OnElsewhere);
+
 /// <summary>A file both this PC and GitHub changed since they last agreed.</summary>
 public sealed record Conflict(string Path, string LocalSha, string RemoteSha, DateTime LocalTime, string RemoteFrom);
 
@@ -54,9 +69,13 @@ public sealed class Syncer : IDisposable
     public bool SignedIn => !string.IsNullOrEmpty(Token);
     public DateTime LastAttempt { get; private set; } = DateTime.MinValue;
 
+    public DalamudSetup Dalamud { get; }
+    public List<MissingPlugin> Missing { get; private set; } = new();
+
     public Syncer(Configuration cfg, string pluginConfigsRoot, string ownDir)
     {
         this.cfg = cfg;
+        Dalamud = new DalamudSetup(Directory.GetParent(pluginConfigsRoot.TrimEnd('\\', '/'))!.FullName, ownDir);
         root = pluginConfigsRoot;
         this.ownDir = ownDir;
         pendingDir = Path.Combine(ownDir, "pending");
@@ -159,7 +178,16 @@ public sealed class Syncer : IDisposable
         return sb.ToString();
     }
 
-    public sealed record LocalFile(string Rel, string Full, string Sha, long Size, DateTime Modified);
+    /// <summary>A file here: on disk (Full), or a virtual Dalamud-setup file (Data).</summary>
+    public sealed record LocalFile(string Rel, string Full, string Sha, long Size, DateTime Modified, byte[]? Data = null);
+
+    private static byte[] Bytes(LocalFile f) => f.Data ?? ReadShared(f.Full);
+
+    /// <summary>State keys: pluginConfigs files by their path inside pluginConfigs; Dalamud setup by repo path.</summary>
+    private static string RepoPath(string key) => key.StartsWith(DalamudSetup.Prefix, StringComparison.Ordinal) ? key : Prefix + key;
+
+    private static SyncGroups GroupOf(string key) =>
+        key.StartsWith(DalamudSetup.Prefix, StringComparison.Ordinal) ? SyncGroups.Dalamud : SyncGroups.Plugins;
 
     public Dictionary<string, LocalFile> ScanLocal()
     {
@@ -229,34 +257,51 @@ public sealed class Syncer : IDisposable
 
     // ------------------------------------------------------------------ pending (pulled while running)
 
-    public int PendingCount => State.PendingShas.Count;
+    public int PendingCount => PendingPluginFiles;
 
     /// <summary>Startup only: puts files pulled during the last session into place, before other plugins load.</summary>
     public int ApplyPending()
     {
         var applied = 0;
-        foreach (var (rel, sha) in State.PendingShas.ToList())
+        foreach (var (rel, sha) in State.PendingShas.Where(p => GroupOf(p.Key) == SyncGroups.Plugins).ToList())
         {
             try
             {
-                var src = Path.Combine(pendingDir, rel.Replace('/', Path.DirectorySeparatorChar));
+                var src = PendingFile(rel);
                 if (File.Exists(src)) { WriteLocal(rel, File.ReadAllBytes(src)); State.BaseShas[rel] = sha; applied++; }
             }
             catch (Exception e) { Plugin.Log.Warning(e, $"Settings Sync: couldn't apply pulled {rel}"); }
         }
-        if (State.PendingShas.Count > 0)
+        if (State.PendingShas.Keys.Any(k => GroupOf(k) == SyncGroups.Plugins))
         {
-            State.PendingShas.Clear();
-            try { if (Directory.Exists(pendingDir)) Directory.Delete(pendingDir, true); } catch { /* next time */ }
+            foreach (var k in State.PendingShas.Keys.Where(k => GroupOf(k) == SyncGroups.Plugins).ToList())
+            {
+                State.PendingShas.Remove(k);
+                try { File.Delete(PendingFile(k)); } catch { /* next time */ }
+            }
             if (applied > 0) State.Log("Applied", $"{applied} file(s) pulled last session");
             SaveState();
         }
         return applied;
     }
 
+    private string PendingFile(string key) => Path.Combine(pendingDir, key.Replace('/', Path.DirectorySeparatorChar));
+
+    public int PendingPluginFiles => State.PendingShas.Keys.Count(k => GroupOf(k) == SyncGroups.Plugins);
+    public int PendingDalamud => State.PendingShas.Keys.Count(k => GroupOf(k) == SyncGroups.Dalamud);
+
+    /// <summary>Pulled Dalamud settings not applied yet (key -> contents), for the apply-on-exit helper.</summary>
+    public Dictionary<string, byte[]> PendingDalamudConfig()
+    {
+        var result = new Dictionary<string, byte[]>();
+        foreach (var k in State.PendingShas.Keys.Where(k => k.StartsWith(DalamudSetup.ConfigPrefix, StringComparison.Ordinal)))
+            if (File.Exists(PendingFile(k))) result[k] = File.ReadAllBytes(PendingFile(k));
+        return result;
+    }
+
     private void Stage(string rel, string sha, byte[] data)
     {
-        var dst = Path.Combine(pendingDir, rel.Replace('/', Path.DirectorySeparatorChar));
+        var dst = PendingFile(rel);
         Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
         File.WriteAllBytes(dst, data);
         State.PendingShas[rel] = sha;
@@ -265,7 +310,7 @@ public sealed class Syncer : IDisposable
     // ------------------------------------------------------------------ sync
 
     /// <summary>Runs a sync unless one is already running. Never throws; the outcome is in Status / Activity.</summary>
-    public async Task Run(SyncMode mode, CancellationToken ct, bool pushOnly = false, bool pullOnly = false)
+    public async Task Run(SyncMode mode, CancellationToken ct, bool pushOnly = false, bool pullOnly = false, SyncGroups groups = SyncGroups.All)
     {
         if (!Configured) { Status = SignedIn ? "Set the repository first (Settings tab)." : "Not signed in (Settings tab)."; return; }
         if (!await gate.WaitAsync(0, ct)) return;
@@ -276,7 +321,7 @@ public sealed class Syncer : IDisposable
             gh.Repo = cfg.Repository.Trim();
             // A push can lose a race with the other PC; one retry re-reads GitHub and recompares.
             for (var attempt = 0; attempt < 2; attempt++)
-                if (await SyncOnce(mode, pushOnly, pullOnly, ct)) break;
+                if (await SyncOnce(mode, groups, pushOnly, pullOnly, ct)) break;
         }
         catch (OperationCanceledException) { Status = "Sync stopped (took too long)."; }
         catch (Exception e)
@@ -294,7 +339,7 @@ public sealed class Syncer : IDisposable
     }
 
     /// <returns>False if the push lost a race and the sync should run again.</returns>
-    private async Task<bool> SyncOnce(SyncMode mode, bool pushOnly, bool pullOnly, CancellationToken ct)
+    private async Task<bool> SyncOnce(SyncMode mode, SyncGroups groups, bool pushOnly, bool pullOnly, CancellationToken ct)
     {
         Status = "Checking GitHub...";
         var head = await gh.GetHead(cfg.Branch, ct);
@@ -306,15 +351,35 @@ public sealed class Syncer : IDisposable
         }
         var remote = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (head != null)
-            foreach (var f in head.Files.Where(f => f.Path.StartsWith(Prefix, StringComparison.Ordinal)))
+            foreach (var f in head.Files)
             {
-                var rel = f.Path[Prefix.Length..];
-                if (!IsExcluded(rel)) remote[rel] = f.Sha;
+                string key;
+                if (f.Path.StartsWith(Prefix, StringComparison.Ordinal)) key = f.Path[Prefix.Length..];
+                else if (f.Path.StartsWith(DalamudSetup.Prefix, StringComparison.Ordinal)) key = f.Path;
+                else continue;
+                if ((GroupOf(key) & groups) != 0 && !IsExcluded(key)) remote[key] = f.Sha;
             }
         var remoteFrom = head == null ? "" : await LastPusher(head, ct);
 
         Status = "Comparing files...";
-        var local = ScanLocal();
+        var local = (groups & SyncGroups.Plugins) != 0 ? ScanLocal() : new Dictionary<string, LocalFile>(StringComparer.OrdinalIgnoreCase);
+        var dalamudOn = (groups & SyncGroups.Dalamud) != 0 && Dalamud.Available;
+        if (dalamudOn)
+        {
+            foreach (var (path, data) in Dalamud.Read(IsExcluded, includePlugins: mode != SyncMode.Closing))
+                local[path] = new LocalFile(path, "", GitSha(data), data.Length, DateTime.Now, data);
+            // Dalamud settings applied by the exit helper since the last run: now on disk, so settled.
+            foreach (var (k, sha) in State.PendingShas.Where(p => GroupOf(p.Key) == SyncGroups.Dalamud).ToList())
+                if (local.TryGetValue(k, out var lf0) && lf0.Sha == sha)
+                {
+                    State.BaseShas[k] = sha;
+                    State.PendingShas.Remove(k);
+                    try { File.Delete(PendingFile(k)); } catch { /* harmless */ }
+                }
+        }
+        if (dalamudOn && mode == SyncMode.Closing)
+            remote.Keys.Where(k => k.StartsWith(DalamudSetup.PluginPrefix, StringComparison.Ordinal)).ToList().ForEach(k => remote.Remove(k));
+        else if (!dalamudOn && (groups & SyncGroups.Dalamud) != 0) remote.Keys.Where(k => GroupOf(k) == SyncGroups.Dalamud).ToList().ForEach(k => remote.Remove(k));
         var pulls = new List<string>();
         var pushes = new List<string>();
         var conflicts = new List<Conflict>();
@@ -325,6 +390,8 @@ public sealed class Syncer : IDisposable
             var r = remote.GetValueOrDefault(rel);
             var b = State.BaseShas.GetValueOrDefault(rel);
             if (l == r) { if (l != null) State.BaseShas[rel] = l; continue; }
+            // Another PC's plugin that isn't installed here: nothing to push or compare, it's listed as missing.
+            if (l == null && rel.StartsWith(DalamudSetup.PluginPrefix, StringComparison.Ordinal) && State.BaseShas.GetValueOrDefault(rel) == r) continue;
             if (r == null) { if (b != l) pushes.Add(rel); continue; }          // new or changed here; if b == l GitHub dropped it: leave it
             if (l == null) { if (b != r) pulls.Add(rel); continue; }           // new on GitHub; if b == r deleted here: leave it
             if (l == b) pulls.Add(rel);
@@ -345,20 +412,35 @@ public sealed class Syncer : IDisposable
             var data = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
             if (pulls.Count > 25)
             {
-                var got = await gh.GetFilesFromArchive(head!.CommitSha, pulls.Select(p => Prefix + p).ToHashSet(StringComparer.Ordinal), ct);
-                foreach (var (path, bytes) in got) data[path[Prefix.Length..]] = bytes;
+                var byPath = pulls.ToDictionary(RepoPath, p => p, StringComparer.Ordinal);
+                var got = await gh.GetFilesFromArchive(head!.CommitSha, byPath.Keys.ToHashSet(StringComparer.Ordinal), ct);
+                foreach (var (path, bytes) in got) data[byPath[path]] = bytes;
             }
             foreach (var rel in pulls.Where(r => !data.ContainsKey(r) || GitSha(data[r]) != remote[r]))
                 data[rel] = await gh.GetBlob(remote[rel], ct);
             ct.ThrowIfCancellationRequested();   // at startup: never write after the game moved on
             foreach (var rel in pulls)
             {
-                if (mode == SyncMode.Startup) { WriteLocal(rel, data[rel]); State.BaseShas[rel] = remote[rel]; }
+                if (rel.StartsWith(DalamudSetup.PluginPrefix, StringComparison.Ordinal))
+                {
+                    // On/off state: switch it live if installed here; otherwise it shows in the missing list.
+                    var name = rel[DalamudSetup.PluginPrefix.Length..];
+                    var (display, on) = DalamudSetup.ParseState(data[rel], name);
+                    State.PluginInfo[name] = new PluginInfo { Name = display, On = on };
+                    if (local.ContainsKey(rel)) Dalamud.SwitchPlugin(name, on);
+                    State.BaseShas[rel] = remote[rel];
+                }
+                else if (GroupOf(rel) == SyncGroups.Dalamud) Stage(rel, remote[rel], data[rel]);   // applied after the game closes
+                else if (mode == SyncMode.Startup) { WriteLocal(rel, data[rel]); State.BaseShas[rel] = remote[rel]; }
                 else Stage(rel, remote[rel], data[rel]);
             }
             State.LastPull = DateTime.Now;
             State.LastPullFrom = remoteFrom;
-            State.Log("Pull", $"{pulls.Count} file(s) from {Show(remoteFrom)}{(mode == SyncMode.Startup ? "" : " (apply on next start)")}: {Summary(pulls)}");
+            var waitsForRestart = mode != SyncMode.Startup && pulls.Any(p => GroupOf(p) == SyncGroups.Plugins);
+            var waitsForClose = pulls.Any(p => p.StartsWith(DalamudSetup.ConfigPrefix, StringComparison.Ordinal));
+            State.Log("Pull", $"{pulls.Count} file(s) from {Show(remoteFrom)}" +
+                              (waitsForRestart ? " (settings apply on next start)" : "") +
+                              (waitsForClose ? " (Dalamud settings apply after the game closes)" : "") + $": {Summary(pulls)}");
         }
 
         // ---- pushes
@@ -369,10 +451,10 @@ public sealed class Syncer : IDisposable
             var texts = new List<KeyValuePair<string, string>>();
             foreach (var rel in pushes)
             {
-                var bytes = ReadShared(local[rel].Full);   // re-read: the file may have changed since the scan
+                var bytes = Bytes(local[rel]);   // re-read: the file may have changed since the scan
                 local[rel] = local[rel] with { Sha = GitSha(bytes) };
-                if (AsText(bytes) is { } text) texts.Add(new(Prefix + rel, text));
-                else entries.Add(new(Prefix + rel, await gh.CreateBlob(bytes, ct)));   // binary: its own upload
+                if (AsText(bytes) is { } text) texts.Add(new(RepoPath(rel), text));
+                else entries.Add(new(RepoPath(rel), await gh.CreateBlob(bytes, ct)));   // binary: its own upload
             }
             var meta = JsonSerializer.Serialize(new { machine = cfg.MachineName, time = DateTimeOffset.Now, files = pushes.Count });
             texts.Add(new(MetaPath, meta));
@@ -381,8 +463,8 @@ public sealed class Syncer : IDisposable
             var stored = (await gh.GetTreeFiles(tree, ct)).ToDictionary(f => f.Path, f => f.Sha, StringComparer.Ordinal);
             var fixes = new List<KeyValuePair<string, string?>>();
             foreach (var rel in pushes)
-                if (stored.GetValueOrDefault(Prefix + rel) != local[rel].Sha)
-                    fixes.Add(new(Prefix + rel, await gh.CreateBlob(ReadShared(local[rel].Full), ct)));
+                if (stored.GetValueOrDefault(RepoPath(rel)) != local[rel].Sha)
+                    fixes.Add(new(RepoPath(rel), await gh.CreateBlob(Bytes(local[rel]), ct)));
             if (fixes.Count > 0)
             {
                 Plugin.Log.Warning($"Settings Sync: {fixes.Count} file(s) re-uploaded as exact copies");
@@ -402,6 +484,9 @@ public sealed class Syncer : IDisposable
         }
         else if (head != null) State.LastCommit = head.CommitSha;
 
+        if (dalamudOn && mode != SyncMode.Closing) UpdateMissing(remote, local);
+        // Keep conflicts from groups this run didn't look at.
+        conflicts.AddRange(Conflicts.Where(c => (GroupOf(c.Path) & groups) == 0));
         Conflicts = conflicts;
         if (conflicts.Count > 0) ConflictGeneration++;
         if (conflicts.Count > 0) State.Log("Conflict", $"{conflicts.Count} file(s) changed on both PCs: {Summary(conflicts.Select(c => c.Path))}");
@@ -414,6 +499,16 @@ public sealed class Syncer : IDisposable
                  (conflicts.Count > 0 ? $", {conflicts.Count} need your choice" : "") + ".",
         };
         return true;
+    }
+
+    private void UpdateMissing(Dictionary<string, string> remote, Dictionary<string, LocalFile> local)
+    {
+        Missing = remote.Keys
+            .Where(k => k.StartsWith(DalamudSetup.PluginPrefix, StringComparison.Ordinal) && !local.ContainsKey(k))
+            .Select(k => k[DalamudSetup.PluginPrefix.Length..])
+            .Where(n => !cfg.IgnoredMissing.Contains(n, StringComparer.OrdinalIgnoreCase))
+            .Select(n => State.PluginInfo.TryGetValue(n, out var i) ? new MissingPlugin(n, i.Name, i.On) : new MissingPlugin(n, n, true))
+            .OrderBy(m => m.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     private async Task<string> LastPusher(RemoteHead head, CancellationToken ct)
@@ -440,6 +535,8 @@ public sealed class Syncer : IDisposable
 
     public static string PluginOf(string rel)
     {
+        if (rel.StartsWith(DalamudSetup.ConfigPrefix, StringComparison.Ordinal)) return "Dalamud " + System.IO.Path.GetFileNameWithoutExtension(rel);
+        if (rel.StartsWith(DalamudSetup.PluginPrefix, StringComparison.Ordinal)) return rel[DalamudSetup.PluginPrefix.Length..] + " (on/off)";
         var slash = rel.IndexOf('/');
         var first = slash >= 0 ? rel[..slash] : rel;
         return first.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ? first[..^5] : first;

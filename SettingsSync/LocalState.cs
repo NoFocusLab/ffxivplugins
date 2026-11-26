@@ -7,6 +7,13 @@ using System.Text.Json;
 
 namespace SettingsSync;
 
+/// <summary>Display name and on/off of a plugin as another PC last reported it.</summary>
+public sealed class PluginInfo
+{
+    public string Name { get; set; } = "";
+    public bool On { get; set; }
+}
+
 /// <summary>One line in the activity list: a push, pull, restore or conflict choice.</summary>
 public sealed class ActivityEntry
 {
@@ -28,6 +35,7 @@ public sealed class LocalState
     public DateTime? LastPull { get; set; }
     public string? LastPullFrom { get; set; }
     public List<ActivityEntry> Activity { get; set; } = new();
+    public Dictionary<string, PluginInfo> PluginInfo { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Pulled while the game was running: applied at the next startup, before other plugins load.</summary>
     public Dictionary<string, string> PendingShas { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -46,6 +54,7 @@ public sealed class LocalState
                 {
                     s.BaseShas = new Dictionary<string, string>(s.BaseShas, StringComparer.OrdinalIgnoreCase);
                     s.PendingShas = new Dictionary<string, string>(s.PendingShas, StringComparer.OrdinalIgnoreCase);
+                    s.PluginInfo = new Dictionary<string, PluginInfo>(s.PluginInfo, StringComparer.OrdinalIgnoreCase);
                     return s;
                 }
             }

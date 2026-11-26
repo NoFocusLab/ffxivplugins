@@ -61,6 +61,8 @@ public sealed class MainWindow : Window
         if (plugin.StartupNote.Length > 0) ImGui.TextColored(Good, plugin.StartupNote);
         if (S.PendingCount > 0)
             ImGui.TextColored(Warn, $"{S.PendingCount} pulled file(s) waiting: restart the game to apply them.");
+        if (S.PendingDalamud > 0)
+            ImGui.TextColored(Warn, $"{S.PendingDalamud} Dalamud setting(s) waiting: applied after you close the game.");
         if (S.Conflicts.Count > 0)
         {
             ImGui.TextColored(Warn, $"{S.Conflicts.Count} file(s) changed on both PCs.");
@@ -70,16 +72,20 @@ public sealed class MainWindow : Window
 
         ImGui.Spacing();
         ImGui.BeginDisabled(S.Busy || !S.Configured);
-        if (ImGui.Button("Sync now", new Vector2(140, 0))) plugin.SyncNow();
-        ImGui.SameLine();
-        if (ImGui.Button("Push only")) plugin.SyncNow(pushOnly: true);
-        ImGui.SameLine();
-        if (ImGui.Button("Pull only")) plugin.SyncNow(pullOnly: true);
+        if (ImGui.Button("Sync everything now", new Vector2(180, 0))) plugin.SyncNow();
         ImGui.EndDisabled();
-        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Pulled files are applied the next time the game starts\n(running plugins would overwrite them otherwise).");
 
         ImGui.Separator();
         ImGui.TextUnformatted("Plugin settings");
+        ImGui.SameLine();
+        ImGui.BeginDisabled(S.Busy || !S.Configured);
+        if (ImGui.SmallButton("Sync now##plugins")) plugin.SyncNow(groups: SyncGroups.Plugins);
+        ImGui.SameLine();
+        if (ImGui.SmallButton("Push only")) plugin.SyncNow(pushOnly: true, groups: SyncGroups.Plugins);
+        ImGui.SameLine();
+        if (ImGui.SmallButton("Pull only")) plugin.SyncNow(pullOnly: true, groups: SyncGroups.Plugins);
+        ImGui.EndDisabled();
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Pulled files are applied the next time the game starts\n(running plugins would overwrite them otherwise).");
         var changed = false;
         changed |= Box("Automatic sync", C.AutoSync, v => C.AutoSync = v,
             "Off = nothing happens unless you press a button (use this when testing with two PCs open).");
@@ -96,7 +102,7 @@ public sealed class MainWindow : Window
         ImGui.EndDisabled();
 
         ImGui.Separator();
-        ImGui.TextColored(Dim, "Dalamud setup (plugin list, repos): coming in the next update.");
+        DrawDalamud(ref changed);
 
         ImGui.Separator();
         ImGui.TextUnformatted("Recent activity");
@@ -113,6 +119,37 @@ public sealed class MainWindow : Window
         ImGui.EndChild();
 
         if (changed) C.Save();
+    }
+
+    private void DrawDalamud(ref bool changed)
+    {
+        ImGui.TextUnformatted("Dalamud setup");
+        ImGui.SameLine();
+        ImGui.BeginDisabled(S.Busy || !S.Configured);
+        if (ImGui.SmallButton("Sync now##dalamud")) plugin.SyncNow(groups: SyncGroups.Dalamud);
+        ImGui.EndDisabled();
+        ImGui.TextColored(Dim, "Custom repos, plugin on/off, favourites/hidden/pinned, theme, server info bar, update preferences.");
+        changed |= Box("Sync Dalamud setup automatically", C.DalamudAuto, v => C.DalamudAuto = v,
+            "When the game is up, on logout/close, and with the periodic push.\n" +
+            "On/off switches apply right away; repo list, theme etc. apply after you close the game.");
+
+        var missing = S.Missing;
+        if (missing.Count == 0) return;
+        ImGui.Spacing();
+        ImGui.TextColored(Warn, $"Installed on another PC but not here ({missing.Count}):");
+        ImGui.TextColored(Dim, "Install opens the plugin installer searched to it. If it isn't found, its repo arrives after the next game restart.");
+        foreach (var m in missing.ToList())
+        {
+            ImGui.PushID(m.InternalName);
+            if (ImGui.SmallButton("Install")) plugin.OpenInstaller(m.Name);
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Ignore")) { C.IgnoredMissing.Add(m.InternalName); changed = true; S.Missing.Remove(m); }
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Don't list it on this PC (undo on the Settings tab).");
+            ImGui.SameLine();
+            ImGui.TextUnformatted(m.Name);
+            if (!m.OnElsewhere) { ImGui.SameLine(); ImGui.TextColored(Dim, "(off on the other PC)"); }
+            ImGui.PopID();
+        }
     }
 
     private static string When(DateTime? t) => t == null ? "never" : $"{t.Value:g} ({Ago(t.Value)})";
@@ -303,6 +340,20 @@ public sealed class MainWindow : Window
         }
         if (previewText != null) ImGui.TextWrapped(previewText);
         ImGui.TextColored(Dim, "Always skipped: Settings Sync's own settings and sign-in.");
+
+        if (C.IgnoredMissing.Count > 0)
+        {
+            ImGui.Separator();
+            ImGui.TextUnformatted("Plugins from other PCs not listed as missing here:");
+            foreach (var n in C.IgnoredMissing.ToList())
+            {
+                ImGui.PushID("ign" + n);
+                if (ImGui.SmallButton("List again")) { C.IgnoredMissing.Remove(n); changed = true; }
+                ImGui.SameLine();
+                ImGui.TextUnformatted(n);
+                ImGui.PopID();
+            }
+        }
 
         if (changed) C.Save();
     }

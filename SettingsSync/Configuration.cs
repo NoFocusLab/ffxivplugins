@@ -34,6 +34,12 @@ public class Configuration : IPluginConfiguration
     /// <summary>How long the game may wait at startup for the pull (seconds).</summary>
     public int StartupWaitSeconds { get; set; } = 6;
 
+    // ---- Dalamud setup group (repo list, plugin on/off, favourites, theme, info bar, update prefs) ----
+    /// <summary>Sync Dalamud setup automatically: when the game starts, on logout/close, and with the periodic push.</summary>
+    public bool DalamudAuto { get; set; } = true;
+    /// <summary>Plugins from other PCs you don't want here: not listed as missing.</summary>
+    public List<string> IgnoredMissing { get; set; } = new();
+
     /// <summary>Files bigger than this are never synced (caches, logs).</summary>
     public int MaxFileMb { get; set; } = 5;
 

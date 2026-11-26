@@ -16,6 +16,24 @@ exclude list) is backed up to a **private GitHub repository you own** and pulled
 Pulled files are written immediately at game start. Pulled while the game is running, they wait and are
 applied at the next start (running plugins would overwrite them otherwise).
 
+## Dalamud setup
+
+A second group, with its own *Sync now* button and *automatic* switch (on by default), keeps these
+the same across PCs:
+
+- **Custom plugin repos** (and whether each is enabled), **favourite / hidden / pinned** plugins,
+  the **Dalamud theme**, **server info bar** order and hidden entries, **auto-update** preferences.
+  Dalamud only reads these at start and rewrites them on exit, so pulled changes are applied by a
+  small hidden helper right after the game closes (your current dalamudConfig.json is backed up
+  first; the last 5 backups are in `pluginConfigs/SettingsSync/backups`). They show on the next start.
+- **Plugin on/off:** switched live with Dalamud's `/xlenableplugin` / `/xldisableplugin`. Same rules as
+  settings files: whichever PC changed it wins; both changed = you're asked.
+- **Plugins missing here:** a plugin can't install other plugins, so they're listed with an
+  *Install* button (opens the installer searched to it) and *Ignore*. On a new PC the repos arrive
+  after the first restart, then the Install buttons find everything.
+
+Everything else in Dalamud's settings (UI scale, fonts, logs, dev options) stays per PC.
+
 Commands: `/ssync` opens the window.
 
 ## One-time setup (about 10 minutes)

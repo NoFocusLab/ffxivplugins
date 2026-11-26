@@ -71,7 +71,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         var wait = TimeSpan.FromSeconds(Math.Clamp(Configuration.StartupWaitSeconds, 2, 30));
         var cts = new CancellationTokenSource(wait);   // not disposed: a timed-out task may still hold it
-        var task = Task.Run(() => Syncer.Run(SyncMode.Startup, cts.Token));
+        var task = Task.Run(() => Syncer.Run(SyncMode.Startup, cts.Token, groups: SyncGroups.Plugins));
         if (!task.Wait(wait + TimeSpan.FromSeconds(1)))
         {
             cts.Cancel();
@@ -95,7 +95,10 @@ public sealed class Plugin : IDalamudPlugin
         });
         services.ClientState.Logout += OnLogout;
         services.Framework.Update += OnUpdate;
-        if (pendingRunningSync) SyncNow();
+        // Game is up: Dalamud setup can be read now (it needs the installed-plugin list).
+        var groups = (pendingRunningSync ? SyncGroups.Plugins : SyncGroups.None) |
+                     (Configuration.DalamudAuto && Syncer.Configured ? SyncGroups.Dalamud : SyncGroups.None);
+        if (groups != SyncGroups.None) SyncNow(groups: groups);
     }
 
     private void OnDraw()
@@ -108,22 +111,37 @@ public sealed class Plugin : IDalamudPlugin
 
     private void OnUpdate(IFramework fw)
     {
+        // Plugin on/off switches pulled from the other PC (must run on the game thread).
+        while (Syncer.Dalamud.Commands.TryDequeue(out var cmd))
+        {
+            try { services!.Commands.ProcessCommand(cmd); }
+            catch (Exception e) { Log.Warning(e, $"Settings Sync: {cmd} failed"); }
+        }
+
         if (DateTime.Now < nextPeriodicCheck) return;
         nextPeriodicCheck = DateTime.Now.AddMinutes(1);
         var minutes = Configuration.PushWhilePlayingMinutes;
         if (!Configuration.AutoSync || minutes <= 0 || Syncer.Busy || !Syncer.Configured) return;
         if (DateTime.Now - Syncer.LastAttempt >= TimeSpan.FromMinutes(minutes))
-            _ = Task.Run(() => Syncer.Run(SyncMode.Running, life.Token, pushOnly: true));
+            _ = Task.Run(() => Syncer.Run(SyncMode.Running, life.Token, pushOnly: true, groups: AutoGroups(Configuration.AutoSync)));
     }
 
     private void OnLogout(int type, int code)
     {
-        if (Configuration.AutoSync && Configuration.SyncOnClose && Syncer.Configured)
-            _ = Task.Run(() => Syncer.Run(SyncMode.Running, life.Token, pushOnly: true));
+        var groups = AutoGroups(Configuration.AutoSync && Configuration.SyncOnClose);
+        if (groups != SyncGroups.None && Syncer.Configured)
+            _ = Task.Run(() => Syncer.Run(SyncMode.Running, life.Token, pushOnly: true, groups: groups));
     }
 
-    public void SyncNow(bool pushOnly = false, bool pullOnly = false) =>
-        _ = Task.Run(() => Syncer.Run(SyncMode.Running, life.Token, pushOnly, pullOnly));
+    /// <summary>Groups that sync on their own: plugin settings when <paramref name="plugins"/>, Dalamud setup when its switch is on.</summary>
+    private SyncGroups AutoGroups(bool plugins) =>
+        (plugins ? SyncGroups.Plugins : SyncGroups.None) | (Configuration.DalamudAuto ? SyncGroups.Dalamud : SyncGroups.None);
+
+    public void SyncNow(bool pushOnly = false, bool pullOnly = false, SyncGroups groups = SyncGroups.All) =>
+        _ = Task.Run(() => Syncer.Run(SyncMode.Running, life.Token, pushOnly, pullOnly, groups));
+
+    public void OpenInstaller(string search) =>
+        PluginInterface.OpenPluginInstallerTo(Dalamud.Interface.PluginInstallerOpenKind.AllPlugins, search);
 
     public CancellationToken Life => life.Token;
 
@@ -141,15 +159,19 @@ public sealed class Plugin : IDalamudPlugin
         windowSystem.RemoveAllWindows();
 
         // Game closing (or plugin turned off): push what changed, capped so exit isn't held up long.
-        if (Configuration.AutoSync && Configuration.SyncOnClose && Syncer.Configured)
+        var closeGroups = AutoGroups(Configuration.AutoSync && Configuration.SyncOnClose);
+        if (closeGroups != SyncGroups.None && Syncer.Configured)
         {
             try
             {
                 var cts = new CancellationTokenSource(TimeSpan.FromSeconds(8));
-                Task.Run(() => Syncer.Run(SyncMode.Closing, cts.Token)).Wait(TimeSpan.FromSeconds(9));
+                Task.Run(() => Syncer.Run(SyncMode.Closing, cts.Token, groups: closeGroups)).Wait(TimeSpan.FromSeconds(9));
             }
             catch (Exception e) { Log.Warning(e, "Settings Sync: push on close failed"); }
         }
+        // Dalamud settings pulled this session: merged in by a helper once the game has exited.
+        try { Syncer.Dalamud.ScheduleApply(Syncer.PendingDalamudConfig()); }
+        catch (Exception e) { Log.Warning(e, "Settings Sync: couldn't schedule the Dalamud settings update"); }
         life.Cancel();
         Syncer.Dispose();
         life.Dispose();
