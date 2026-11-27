@@ -90,6 +90,10 @@ public sealed class MainWindow : Window
             ImGui.SameLine();
             if (ImGui.SmallButton(p.Paused ? "Resume" : "Pause")) p.SetPaused(!p.Paused, "button");
         }
+        var up = p.Party.Upcoming(120);
+        ImGui.TextDisabled(up.Count == 0
+            ? "Party buffs: none expected (no buff jobs in party, or not seen yet)"
+            : "Party buffs: " + string.Join(", ", up.OrderBy(u => u.From).Select(u => $"{u.Name} in {u.From:0}s")));
         DrawDecision("Next GCD", p.LastGcd);
         DrawDecision("Last weave check", p.LastWeave);
         if (p.Log.Current is { } f)

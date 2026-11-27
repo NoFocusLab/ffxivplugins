@@ -23,6 +23,7 @@ public sealed unsafe class Pilot : IDisposable
     private readonly MitBridge mit = new();
     private readonly RsrBridge rsr = new();
     public FightLog Log { get; }
+    public PartyBuffTracker Party { get; } = new();
 
     public JobBinding? Job { get; private set; }
     public PilotMode Mode { get; private set; }
@@ -110,7 +111,9 @@ public sealed unsafe class Pilot : IDisposable
             var place = Plugin.DataManager.GetExcelSheet<Lumina.Excel.Sheets.TerritoryType>()
                 .GetRowOrDefault(Plugin.ClientState.TerritoryType)?.PlaceName.ValueNullable?.Name.ExtractText() ?? "";
             Log.Start(Job.Def.Job, Paused && Mode == PilotMode.Live ? "Paused" : Mode.ToString(), place);
+            Party.StartFight();
         }
+        Party.Update();
 
         Observe();
 
@@ -129,7 +132,7 @@ public sealed unsafe class Pilot : IDisposable
         if (DateTime.UtcNow < nextPlan) return;
         nextPlan = DateTime.UtcNow.AddMilliseconds(80);
 
-        var g = GameState.Read(Job);
+        var g = GameState.Read(Job, Party);
         if (g.AnimationLock > 0.05) return;
 
         var forGcd = g.GcdRemaining <= config.QueueWindow;
@@ -311,6 +314,8 @@ public sealed unsafe class Pilot : IDisposable
         }
     }
 
+    private string heldWanted = "";
+
     private void Record(Decision? d, string actual, bool gcd)
     {
         if (d == null) return;
@@ -321,6 +326,13 @@ public sealed unsafe class Pilot : IDisposable
         else if (actual == "(nothing)" && d.RootScores.TryGetValue("(skip)", out var skipped))
             lost = Math.Max(0, d.RootScores.Values.Max() - skipped);
         if (actual == "(nothing)" && wanted == "(skip)") return;
+        // An oGCD left unpressed is counted once per stretch, not again in every weave window.
+        if (!gcd && actual == "(nothing)")
+        {
+            if (wanted == heldWanted) return;
+            heldWanted = wanted;
+        }
+        else if (!gcd || actual == heldWanted) heldWanted = "";
         Log.Add(new DecisionRecord(Log.FightTime, gcd, wanted, actual, lost, string.Join(" > ", d.Path.Take(8)), d.Error ?? ""));
     }
 
@@ -338,6 +350,7 @@ public sealed unsafe class Pilot : IDisposable
         pendingGcd = pendingWeave = null;
         SafeMode = false;
         stallSince = safeSince = null;
+        Party.EndFight();
         Log.End();
     }
 

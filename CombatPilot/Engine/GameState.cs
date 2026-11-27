@@ -31,8 +31,8 @@ public sealed class GameState
     public double ComboRemaining;
     /// <summary>Your statuses (from anyone): name -> (seconds left, stacks). Permanent ones get 999.</summary>
     public Dictionary<string, (double Left, int Stacks)> Statuses = new();
-    /// <summary>Damage multiplier from party buffs on you and debuffs on the target, with seconds left.</summary>
-    public List<(double Mult, double Left)> PartyBuffs = new();
+    /// <summary>Party buffs on you / debuffs on the target now, and predicted ones: multiplier, from, until (s from now).</summary>
+    public List<(double Mult, double From, double Until)> PartyBuffs = new();
     public Dictionary<int, CdState> Cooldowns = new();
     public bool HasTarget;
     public ulong TargetId;
@@ -46,19 +46,7 @@ public sealed class GameState
     /// <summary>Why there's no usable target (for the status line).</summary>
     public string TargetNote = "";
 
-    /// <summary>
-    /// [Estimate] Party damage buffs by status name, as a flat multiplier. Crit/direct-hit rate buffs
-    /// are converted to their average value. Used only while active (no prediction yet).
-    /// </summary>
-    public static readonly Dictionary<string, double> PartyBuffTable = new()
-    {
-        ["Battle Litany"] = 1.04, ["Chain Stratagem"] = 1.04, ["Battle Voice"] = 1.05, ["Devilment"] = 1.09,
-        ["Divination"] = 1.06, ["Brotherhood"] = 1.05, ["Arcane Circle"] = 1.03, ["Embolden"] = 1.05,
-        ["Technical Finish"] = 1.05, ["Searing Light"] = 1.05, ["Starry Muse"] = 1.05, ["Radiant Finale"] = 1.04,
-        ["Dokumori"] = 1.05, ["Mug"] = 1.05,
-    };
-
-    public static unsafe GameState Read(JobBinding job)
+    public static unsafe GameState Read(JobBinding job, PartyBuffTracker? party = null)
     {
         var s = new GameState();
         var me = Plugin.ObjectTable.LocalPlayer;
@@ -94,7 +82,7 @@ public sealed class GameState
             if (name.Length == 0) continue;
             var left = st.RemainingTime > 0 ? st.RemainingTime : 999;
             s.Statuses[name] = (left, Math.Max(1, (int)st.Param));
-            if (PartyBuffTable.TryGetValue(name, out var m)) s.PartyBuffs.Add((m, left));
+            if (PartyBuffTracker.ByName.TryGetValue(name, out var rb)) s.PartyBuffs.Add((rb.Mult, 0, left));
         }
 
         // Cooldowns per recast group (charges included).
@@ -141,7 +129,7 @@ public sealed class GameState
             foreach (var st in target.StatusList)
             {
                 if (st.StatusId == 0) continue;
-                if (PartyBuffTable.TryGetValue(StatusNames.Of(st.StatusId), out var m)) s.PartyBuffs.Add((m, st.RemainingTime));
+                if (PartyBuffTracker.ByName.TryGetValue(StatusNames.Of(st.StatusId), out var rb)) s.PartyBuffs.Add((rb.Mult, 0, st.RemainingTime));
             }
             var src = (GameObjectStruct*)me.Address;
             var dst = (GameObjectStruct*)target.Address;
@@ -158,6 +146,8 @@ public sealed class GameState
         s.EnemiesNearMe = enemies.Count(n => Vector3.Distance(n.Position, me.Position) - n.HitboxRadius <= 5);
         if (s.HasTarget && target != null)
             s.EnemiesNearTarget = enemies.Count(n => Vector3.Distance(n.Position, target.Position) - n.HitboxRadius <= 5);
+        if (party != null)
+            foreach (var (mult, from, until, _) in party.Upcoming()) s.PartyBuffs.Add((mult, from, until));
         return s;
     }
 }

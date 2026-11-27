@@ -30,6 +30,14 @@ press due (`MitPlanner.PressDueIn`), and never presses over the game's animation
 - **Range:** out of melee range, ranged options (Tomahawk, Primal Rend, Onslaught) compete with
   holding the GCD; Tomahawk and gauge spenders don't break the combo (7.0+), so this works itself out.
 
+## Party buffs
+Combat Pilot watches the party's 2-minute buffs (Battle Litany, Brotherhood, Arcane Circle, Embolden,
+Technical Finish, Searing Light, Starry Muse, Radiant Finale, Battle Voice, Divination, Chain
+Stratagem, Dokumori). Each one seen is expected again one cooldown later; ones not seen yet are
+expected in the opener (~7 s in) and dropped if they haven't shown up 30 s into the fight. The
+planner scores damage inside those windows higher, so bursts line up when the buffs are close
+(within its look-ahead). [Estimate] durations, cooldowns and average multipliers. Solo/dummy: none.
+
 ## Safety
 - Something usable but nothing pressed for 2 GCDs (or a planner error): **safe mode**, a fixed
   priority from the job file. Still stalled after 2 more GCDs: **pauses** and says so in chat.
@@ -50,6 +58,11 @@ Every fight is logged (Live and Listen): each decision, what was wanted, what wa
 estimated potency difference. One file per fight in the plugin's config folder (`fights/`), the last
 100 kept; the Reports tab lists them with the biggest differences first.
 
+## Reviewing logs
+`tools/iinact_report.py <Network_*.log> [--split HH:MM]` reviews IINACT/ACT logs per pull: GCD
+rolling, DPS, Inner Release stacks expired, Primal Rend to Ruination delay, Infuriate/Onslaught
+time at full charges. In Listen reports, an oGCD left unpressed counts once per stretch.
+
 ## Jobs
 - **Warrior** (and Marauder): patch 7.55 data from the official job guide.
 
@@ -58,5 +71,5 @@ estimated potency difference. One file per fight in the plugin's config folder (
   detection used for reports, the 0.65 s weave timing.
 - [Estimate] values: guaranteed crit+DH worth 1.65x an average hit, party buff multipliers, the
   leftover-value numbers in the job file (gauge point, procs, buff time).
-- No targeting (uses your current target), no prediction of party buffs or downtime yet, no
+- No targeting (uses your current target), no prediction of downtime yet, no
   time-to-kill (it may start a burst on a dying pack).

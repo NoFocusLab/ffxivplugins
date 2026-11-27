@@ -22,7 +22,7 @@ public sealed class Sim
     public string? Combo;
     public double ComboUntil;
     public Dictionary<string, (double Until, int Stacks)> Statuses = new();
-    public List<(double Mult, double Until)> PartyBuffs = new();
+    public List<(double Mult, double From, double Until)> PartyBuffs = new();
     public Dictionary<int, CdState> Cd = new();
     /// <summary>Per recast group: time spent sitting at full charges (wasted cooldown).</summary>
     public Dictionary<int, double> Idle = new();
@@ -44,7 +44,7 @@ public sealed class Sim
             Gauge = g.Gauge,
             Combo = g.Combo,
             ComboUntil = g.ComboRemaining,
-            PartyBuffs = g.PartyBuffs.Select(b => (b.Mult, b.Left)).ToList(),
+            PartyBuffs = g.PartyBuffs.ToList(),
             Cd = new(g.Cooldowns),
         };
         foreach (var (k, v) in g.Statuses) s.Statuses[k] = (v.Left, v.Stacks);
@@ -108,8 +108,8 @@ public sealed class Sim
         var m = 1.0;
         foreach (var (name, v) in Statuses)
             if (v.Until > T && job.Def.Statuses.TryGetValue(name, out var sd)) m *= sd.DamageMult;
-        foreach (var (mult, until) in PartyBuffs)
-            if (until > T) m *= mult;
+        foreach (var (mult, from, until) in PartyBuffs)
+            if (from <= T && until > T) m *= mult;
         return m;
     }
 
