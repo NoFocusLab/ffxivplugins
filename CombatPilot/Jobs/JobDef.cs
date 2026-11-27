@@ -79,6 +79,10 @@ public sealed class StatusDef
     /// <summary>[Estimate] potency a stack is worth when still up at the end of the look-ahead.</summary>
     public double TerminalValue { get; set; }
     public int MaxStacks { get; set; } = 0;
+    /// <summary>While up, every damaging weaponskill adds this potency and uses a stack (Bunshin's shadow).</summary>
+    public double ExtraPerWeaponskill { get; set; }
+    /// <summary>Gauge each of those extra hits gives.</summary>
+    public int ExtraGauge { get; set; }
     /// <summary>At MaxStacks, this status is replaced by AtMax (Burgeoning Fury -> Wrathful).</summary>
     public string? AtMax { get; set; }
     public double AtMaxDuration { get; set; }
@@ -135,6 +139,23 @@ public sealed class ActionDef
     public string? Moves { get; set; }
     public double MoveDistance { get; set; }
     public Reduce? ReducesRecast { get; set; }
+    /// <summary>
+    /// Pressed as a series of buttons (Ninja: "Ten", "Chi", "Ninjutsu"). Planned as one GCD of GcdTime
+    /// seconds; the Pilot presses the steps in order (each step: a job-file action name).
+    /// </summary>
+    public List<string>? Sequence { get; set; }
+    /// <summary>GCD time this action takes, when fixed (mudras + ninjutsu: 0.5 each + 1.5). 0: your GCD.</summary>
+    public double GcdTime { get; set; }
+    /// <summary>Seconds after starting it before an oGCD can be woven (Raiton: after the two mudras and the lock).</summary>
+    public double WeaveFrom { get; set; }
+    /// <summary>Uses a charge of another action (ninjutsu: a mudra charge), unless one of FreeWith is up.</summary>
+    public ChargeUse? UsesCharge { get; set; }
+    /// <summary>Statuses this uses one stack of (Fleeting Raiju: Raiju Ready).</summary>
+    public List<string> ConsumesStack { get; set; } = new();
+    /// <summary>Number of hits at the tooltip's potency (Dream Within a Dream: 3).</summary>
+    public int Hits { get; set; } = 1;
+    /// <summary>Never chosen by the planner (mudras, the Ninjutsu button): only pressed as a step.</summary>
+    public bool PlanNever { get; set; }
     /// <summary>Cast time in seconds (spells). A boost marked instant removes it (Divine Might, Requiescat).</summary>
     public double CastTime { get; set; }
     /// <summary>The hard cast (no instant boost) is only for when no melee GCD reaches (Paladin's Holy Spirit).</summary>
@@ -160,9 +181,17 @@ public sealed class ActionDef
         previous != null && ComboFrom != null && (comboFroms ??= ComboFrom.Split('|', StringSplitOptions.TrimEntries)).Contains(previous);
 }
 
+public sealed class ChargeUse
+{
+    public string Action { get; set; } = "";
+    public List<string> FreeWith { get; set; } = new();
+}
+
 public sealed class Boost
 {
     public string Status { get; set; } = "";
+    /// <summary>Only when the action lands as a combo step (Kazematoi on Aeolian Edge).</summary>
+    public bool ComboOnly { get; set; }
     public double Potency { get; set; }
     /// <summary>Uses one stack (or the status) up.</summary>
     public bool Consume { get; set; } = true;

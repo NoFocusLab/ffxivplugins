@@ -142,6 +142,13 @@ public sealed unsafe class Pilot : IDisposable
         var am = ActionManager.Instance();
         if (am == null || me.IsCasting) return;
 
+        // A multi-button action in progress (mudras): finish it before anything else.
+        if (Sequence.Running)
+        {
+            if (Mode != PilotMode.Live || Paused) Sequence.Abort("paused");
+            else { planning = null; Sequence.Tick(Job, GameState.Read(Job)); return; }
+        }
+
         // Planning runs off the game thread; its result is used on a later frame if still current.
         if (planning != null)
         {
@@ -274,6 +281,13 @@ public sealed unsafe class Pilot : IDisposable
             if (ok) nextPotionCheck = DateTime.MinValue;
             return ok;
         }
+        if (a.Def.Sequence != null)
+        {
+            if (Sequence.Running) return false;
+            Sequence.Start(a);
+            Sequence.Tick(Job!, g);
+            return true;
+        }
         var id = am->GetAdjustedActionId(a.PressId);
         if (id == lastPressId && (now - lastPress).TotalSeconds < 0.25) return false;
         lastPressId = id;
@@ -289,6 +303,9 @@ public sealed unsafe class Pilot : IDisposable
         if (a.IsGcd) CheckStall(g);
         return ok;
     }
+
+    /// <summary>Multi-button actions (ninjutsu) in progress.</summary>
+    public SequenceRunner Sequence { get; } = new();
 
     /// <summary>Last partner pick per action, for the bar tooltip and Pilot tab.</summary>
     public Dictionary<string, string> PartnerWhy { get; } = new();
@@ -372,7 +389,7 @@ public sealed unsafe class Pilot : IDisposable
         if (am == null) return list;
         foreach (var name in Job!.Def.SafeOrder)
         {
-            if (!Job.ByName.TryGetValue(name, out var a)) continue;
+            if (!Job.ByName.TryGetValue(name, out var a) || a.Def.Sequence != null) continue;
             var id = am->GetAdjustedActionId(a.PressId);
             if (id != a.Id) continue;
             if (!Planner.Reaches(a, g)) continue;
@@ -399,7 +416,13 @@ public sealed unsafe class Pilot : IDisposable
             var restarted = gcd->ActionId != lastGcdAction ? gcd->Elapsed < 0.5f : gcd->Elapsed + 0.05f < lastGcdElapsed;
             if (restarted)
             {
-                var used = NameOf(gcd->ActionId);
+                if (Sequence.Running)
+                {
+                    lastGcdAction = gcd->ActionId;
+                    lastGcdElapsed = gcd->Elapsed;
+                    goto ogcds;
+                }
+                var used = Sequence.TakeFinished() ?? NameOf(gcd->ActionId);
                 Opener.OnGcdUsed(used);
                 Record(pendingGcd, used, true);
                 pendingGcd = null;
@@ -418,6 +441,7 @@ public sealed unsafe class Pilot : IDisposable
             lastGcdElapsed = gcd->Elapsed;
         }
 
+        ogcds:
         foreach (var a in Job.Actions)
         {
             if (a.IsGcd || a.IsItem || a.CooldownGroup < 0) continue;

@@ -108,12 +108,15 @@ public sealed class Sim
         var d = a.Def;
         if (d.Requires.Any(c => !Meets(c, job))) return false;
         if (d.RequiresCombo && !(d.Follows(Combo) && ComboUntil > T)) return false;
+        if (d.UsesCharge is { } u && !u.FreeWith.Any(Has) && job.ByName.TryGetValue(u.Action, out var src) &&
+            Cd.TryGetValue(src.CooldownGroup, out var sc) && sc.Charges <= 0) return false;
         if (d.GaugeCost > 0 && Gauge < d.GaugeCost && !(d.FreeWith != null && Has(d.FreeWith))) return false;
         return true;
     }
 
     /// <summary>The boost this action would get now, if any (first listed status that's up).</summary>
-    public Boost? BoostFor(BoundAction a) => a.Def.Boosts.FirstOrDefault(b => Has(b.Status));
+    public Boost? BoostFor(BoundAction a, bool combo = false) =>
+        a.Def.Boosts.FirstOrDefault(b => Has(b.Status) && (!b.ComboOnly || combo));
 
     /// <summary>Cast time if pressed now (0 = instant).</summary>
     public double CastFor(BoundAction a) =>
@@ -138,7 +141,9 @@ public sealed class Sim
         var d = a.Def;
         var combo = d.Follows(Combo) && ComboUntil > T;
         var potency = combo && a.ComboPotency > 0 ? a.ComboPotency : a.Potency;
-        var boost = BoostFor(a);
+        // Decided before anything is used up (Kassatsu both boosts and frees the ninjutsu).
+        var freeCharge = d.UsesCharge != null && d.UsesCharge.FreeWith.Any(Has);
+        var boost = BoostFor(a, combo);
         LastCast = CastFor(a);
         if (boost != null) potency = boost.Potency;
         // Positional: lands under True North, on a target without positionals, if you're already on
@@ -187,6 +192,29 @@ public sealed class Sim
         }
         if (stackUsed != null && stackUsed != d.FreeWith) UseStack(stackUsed);
         if (boost is { Consume: true }) UseStack(boost.Status);
+        foreach (var c in d.ConsumesStack) UseStack(c);
+        // Shadows (Bunshin): an extra hit on each damaging weaponskill (not ninjutsu).
+        if (a.IsGcd && d.Sequence == null && potency > 0 && hits > 0)
+            foreach (var (name, sd) in job.Def.Statuses)
+            {
+                if (sd.ExtraPerWeaponskill <= 0 || !Has(name)) continue;
+                if (!down)
+                {
+                    var extra = sd.ExtraPerWeaponskill * DamageMult(job);
+                    dmg += extra;
+                    Damage += extra * Math.Max(0.5, 1 - TimePreference * T);
+                }
+                Gauge = Math.Min(job.Def.Gauge?.Max ?? 100, Gauge + sd.ExtraGauge);
+                UseStack(name);
+            }
+        // A charge of another action (a mudra), unless something makes it free (Kassatsu).
+        if (d.UsesCharge is { } use && !freeCharge && job.ByName.TryGetValue(use.Action, out var chargeOf) &&
+            Cd.TryGetValue(chargeOf.CooldownGroup, out var mc))
+        {
+            if (mc.Charges >= mc.MaxCharges) mc.NextChargeIn = mc.RecastPerCharge;
+            mc.Charges = Math.Max(0, mc.Charges - 1);
+            Cd[chargeOf.CooldownGroup] = mc;
+        }
         foreach (var c in d.Consumes) Statuses.Remove(c);
 
         foreach (var g in d.Grants)

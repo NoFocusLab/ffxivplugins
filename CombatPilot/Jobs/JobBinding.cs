@@ -86,14 +86,17 @@ public sealed class JobBinding
                 Id = row.RowId,
                 PressId = press.RowId,
                 Level = row.ClassJobLevel,
-                IsGcd = row.CooldownGroup == GcdGroup || row.AdditionalCooldownGroup == GcdGroup,
-                CooldownGroup = row.CooldownGroup == GcdGroup ? -1 : row.CooldownGroup,
+                // A sequence (ninjutsu, Ten Chi Jin) takes the GCD slot whatever its last button is.
+                IsGcd = row.CooldownGroup == GcdGroup || row.AdditionalCooldownGroup == GcdGroup || a.Sequence != null,
+                // Ninjutsu are limited by mudra charges (UsesCharge), not a recast of their own.
+                CooldownGroup = row.CooldownGroup == GcdGroup || a.UsesCharge != null ? -1 : row.CooldownGroup,
                 Icon = row.Icon,
                 Potency = a.Potency,
                 ComboPotency = a.ComboPotency,
             };
             var tip = TooltipAtLevel(transient.GetRowOrDefault(row.RowId)?.Description);
             ReadTooltip(bound, tip);
+            if (a.Hits > 1) bound.Potency *= a.Hits; // Dream Within a Dream: three hits at the tooltip's potency
             ReadShape(bound, row, a, tip);
             Actions.Add(bound);
             ByName[a.Name] = bound;
@@ -213,6 +216,7 @@ public sealed class JobBinding
             {
                 "WAR" => Plugin.JobGauges.Get<WARGauge>().BeastGauge,
                 "DRG" => Plugin.JobGauges.Get<DRGGauge>().FirstmindsFocusCount,
+                "NIN" => Plugin.JobGauges.Get<NINGauge>().Ninki,
                 _ => 0,
             };
         }
@@ -232,6 +236,12 @@ public sealed class JobBinding
                 var g = Plugin.JobGauges.Get<DRGGauge>();
                 if (g.IsLOTDActive && !statuses.ContainsKey("Life of the Dragon"))
                     statuses["Life of the Dragon"] = (g.LOTDTimer / 1000.0, 1);
+            }
+            else if (Def.Job == "NIN")
+            {
+                // Kazematoi is a second gauge (0-5), handled as stacks of a status.
+                var k = Plugin.JobGauges.Get<NINGauge>().Kazematoi;
+                if (k > 0) statuses["Kazematoi"] = (999, k);
             }
         }
         catch (Exception) { }

@@ -130,6 +130,7 @@ public static class Planner
     {
         if (set.Held.Contains(a.Name) || !c.Ready(a) || !c.Allowed(a, job)) return false;
         if (a.Def.AllyTarget && !set.HasPartner) return false;
+        if (a.Def.PlanNever) return false;
         // Pure movement (Elusive Jump, Winged Glide) is never planned: only the bar's queue presses it.
         if (a.Def.Moves != null || (a.Def.MovesToTarget && a.Def.Potency <= 0 && a.Def.Grants.Count == 0)) return false;
         if (set.ReserveAction == a.Name && a.CooldownGroup >= 0 && c.Cd.TryGetValue(a.CooldownGroup, out var cd) && cd.Charges <= set.ReserveKeep)
@@ -160,9 +161,10 @@ public static class Planner
                     (!nearNow || job.Actions.Any(x => x.IsGcd && !x.Def.Ranged && !x.Def.RangedOk && Reaches(x, g, set)))) continue;
                 var c = at0.Clone();
                 c.Apply(a, job, Hits(a, g, set, c.T), set.CritDhFactor, set.CritFactor);
-                c.GcdReadyAt = t + g.GcdLength;
-                // Casting: no weaving until the cast (plus slide-cast margin) is done.
-                c.LockUntil = t + Math.Max(Sim.GcdLock, c.LastCast > 0 ? c.LastCast + 0.1 : 0);
+                c.GcdReadyAt = t + (a.Def.GcdTime > 0 ? a.Def.GcdTime : g.GcdLength);
+                // Casting: no weaving until the cast (plus slide-cast margin) is done. Sequences
+                // (mudras): not until the last button.
+                c.LockUntil = t + Math.Max(Math.Max(Sim.GcdLock, a.Def.WeaveFrom), c.LastCast > 0 ? c.LastCast + 0.1 : 0);
                 any = true;
                 yield return After(n, c, gcd: true);
             }

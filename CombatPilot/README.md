@@ -9,7 +9,7 @@ the new starting point.
 `/pilot pause | resume` (or the kill-switch key, Ctrl+Shift+End by default) stops and restarts it,
 `/pilot report` opens the reports.
 
-**Jobs:** Warrior, Dragoon, Paladin (7.55, level-aware). Dragoon notes: both combo branches, Draconian Fire into
+**Jobs:** Warrior, Dragoon, Paladin, Ninja (7.55, level-aware). Dragoon notes: both combo branches, Draconian Fire into
 Raiden Thrust / Draconian Fury, Firstminds' Focus for Wyrmwind Thrust, Life Surge (a guaranteed crit
 on the next weaponskill, valued from your crit stats), Chaotic Spring's damage over time (refreshes
 are valued by the ticks they actually add), Life of the Dragon windows for Stardiver/Nastrond, and
@@ -21,6 +21,13 @@ Paladin notes: the Royal Authority combo with Atonement/Supplication/Sepulchre a
 or Flight with Goring Blade, Imperator into Confiteor and the Blade chain (Requiescat-boosted) and Blade
 of Honor. Holy Spirit is hard-cast only when nothing melee reaches. Opener: The Balance's standard
 (Holy Spirit at -1.75 s).
+
+Ninja notes: each ninjutsu is planned as one GCD (Raiton = Ten, Chi, Ninjutsu: 2.5 s) and pressed
+button by button; nothing else is pressed until it's done (gives up after 6 s). Mudra charges are
+tracked, Kassatsu makes the next one free and 30% stronger (Hyosho Ranryu), Ten Chi Jin is Fuma, Raiton,
+Suiton (don't move). Raiju stacks, Kazematoi (Armor Crush / Aeolian Edge), Bunshin's shadows, Higi into
+Zesho Meppo, Meisui, and your own Kunai's Bane / Dokumori on the target are all valued. Opener: The
+Balance's standard (4th GCD Kunai's Bane), mudras from -2.4 s so Suiton lands at about -0.9 s.
 
 **Partners:** actions cast on a party member (Dancer's Closed Position, Astrologian cards) go on the
 player picked by Settings > Partners, per action: a named player, or the best job present by a job order

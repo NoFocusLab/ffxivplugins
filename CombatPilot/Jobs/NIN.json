@@ -1,0 +1,230 @@
+{
+  "job": "NIN",
+  "classJobs": ["NIN", "ROG"],
+  "patch": "7.55",
+  "source": "Official job guide (na.finalfantasyxiv.com/jobguide/ninja), level 100 values; opener and priorities from The Balance Ninja basic guide. Potencies are re-read from the game's tooltips when they parse cleanly.",
+  "gauge": { "name": "Ninki", "max": 100, "valuePerUnit": 7.0 },
+  "potencyPerSecond": 260,
+  "statuses": {
+    "Kunai's Bane": { "damageMult": 1.1 },
+    "Trick Attack": { "damageMult": 1.1 },
+    "Dokumori": { "damageMult": 1.05 },
+    "Kazematoi": { "maxStacks": 5, "terminalValue": 90 },
+    "Raiju Ready": { "maxStacks": 3, "terminalValue": 600 },
+    "Bunshin": { "maxStacks": 5, "extraPerWeaponskill": 160, "extraGauge": 5, "terminalValue": 150 },
+    "Phantom Kamaitachi Ready": { "terminalValue": 700 },
+    "Kassatsu": { "terminalValue": 800 },
+    "Shadow Walker": { "terminalValue": 250 },
+    "Meisui": { "terminalValue": 150 },
+    "Higi": { "terminalValue": 300 },
+    "Tenri Jindo Ready": { "terminalValue": 1100 }
+  },
+  "actions": [
+    { "name": "Spinning Edge", "potency": 300, "consumes": ["Raiju Ready"], "grants": [ { "gauge": 5 } ] },
+    {
+      "name": "Gust Slash", "potency": 240, "comboFrom": "Spinning Edge", "comboPotency": 400,
+      "consumes": ["Raiju Ready"], "grants": [ { "gauge": 5, "comboOnly": true } ]
+    },
+    {
+      "name": "Aeolian Edge", "potency": 220, "comboFrom": "Gust Slash", "comboPotency": 400,
+      "positional": "rear", "positionalBonus": 60,
+      "consumes": ["Raiju Ready"],
+      "boosts": [ { "status": "Kazematoi", "potency": 500, "comboOnly": true } ],
+      "grants": [ { "gauge": 15, "comboOnly": true } ]
+    },
+    {
+      "name": "Armor Crush", "potency": 240, "comboFrom": "Gust Slash", "comboPotency": 440,
+      "positional": "flank", "positionalBonus": 60,
+      "consumes": ["Raiju Ready"],
+      "grants": [
+        { "gauge": 15, "comboOnly": true },
+        { "status": "Kazematoi", "stacks": 2, "duration": 999, "comboOnly": true }
+      ]
+    },
+    { "name": "Throwing Dagger", "potency": 200, "ranged": true, "keepsCombo": true, "grants": [ { "gauge": 5 } ] },
+    { "name": "Death Blossom", "potency": 100, "aoe": "self", "radius": 5, "consumes": ["Raiju Ready"], "grants": [ { "gauge": 5 } ] },
+    {
+      "name": "Hakke Mujinsatsu", "potency": 100, "comboFrom": "Death Blossom", "comboPotency": 120,
+      "aoe": "self", "radius": 5, "consumes": ["Raiju Ready"], "grants": [ { "gauge": 5, "comboOnly": true } ]
+    },
+    {
+      "name": "Phantom Kamaitachi", "press": "Bunshin", "potency": 700, "rangedOk": true, "keepsCombo": true,
+      "aoe": "target", "radius": 5,
+      "requires": [ { "status": "Phantom Kamaitachi Ready" } ],
+      "consumes": ["Phantom Kamaitachi Ready"],
+      "grants": [ { "gauge": 10 } ]
+    },
+    {
+      "name": "Fleeting Raiju", "potency": 700, "keepsCombo": true,
+      "requires": [ { "status": "Raiju Ready" } ],
+      "consumesStack": ["Raiju Ready"],
+      "grants": [ { "gauge": 5 } ]
+    },
+    {
+      "name": "Forked Raiju", "potency": 700, "keepsCombo": true, "rangedOk": true, "movesToTarget": true,
+      "requires": [ { "status": "Raiju Ready" } ],
+      "consumesStack": ["Raiju Ready"],
+      "grants": [ { "gauge": 5 } ]
+    },
+
+    { "name": "Ten", "planNever": true },
+    { "name": "Chi", "planNever": true },
+    { "name": "Jin", "planNever": true },
+    { "name": "Ninjutsu", "planNever": true },
+    {
+      "name": "Fuma Shuriken", "potency": 500, "ranged": true, "keepsCombo": true,
+      "sequence": ["Ten", "Ninjutsu"], "gcdTime": 2.0, "weaveFrom": 1.15,
+      "usesCharge": { "action": "Ten", "freeWith": ["Kassatsu"] },
+      "boosts": [ { "status": "Kassatsu", "potency": 650 } ]
+    },
+    {
+      "name": "Raiton", "potency": 740, "ranged": true, "keepsCombo": true,
+      "sequence": ["Ten", "Chi", "Ninjutsu"], "gcdTime": 2.5, "weaveFrom": 1.65,
+      "usesCharge": { "action": "Ten", "freeWith": ["Kassatsu"] },
+      "boosts": [ { "status": "Kassatsu", "potency": 962 } ],
+      "grants": [ { "status": "Raiju Ready", "stacks": 1, "duration": 30, "minLevel": 90 } ]
+    },
+    {
+      "name": "Katon", "potency": 350, "ranged": true, "keepsCombo": true, "aoe": "target", "radius": 5,
+      "sequence": ["Chi", "Ten", "Ninjutsu"], "gcdTime": 2.5, "weaveFrom": 1.65,
+      "usesCharge": { "action": "Ten", "freeWith": ["Kassatsu"] },
+      "boosts": [ { "status": "Kassatsu", "potency": 455 } ]
+    },
+    {
+      "name": "Suiton", "potency": 580, "ranged": true, "keepsCombo": true,
+      "sequence": ["Ten", "Chi", "Jin", "Ninjutsu"], "gcdTime": 3.0, "weaveFrom": 2.15,
+      "usesCharge": { "action": "Ten", "freeWith": ["Kassatsu"] },
+      "boosts": [ { "status": "Kassatsu", "potency": 754 } ],
+      "grants": [ { "status": "Shadow Walker", "duration": 20 } ]
+    },
+    {
+      "name": "Huton", "potency": 240, "ranged": true, "keepsCombo": true, "aoe": "target", "radius": 5,
+      "sequence": ["Jin", "Chi", "Ten", "Ninjutsu"], "gcdTime": 3.0, "weaveFrom": 2.15,
+      "usesCharge": { "action": "Ten", "freeWith": ["Kassatsu"] },
+      "boosts": [ { "status": "Kassatsu", "potency": 312 } ],
+      "grants": [ { "status": "Shadow Walker", "duration": 20 } ]
+    },
+    {
+      "name": "Hyosho Ranryu", "potency": 1300, "ranged": true, "keepsCombo": true,
+      "sequence": ["Ten", "Jin", "Ninjutsu"], "gcdTime": 2.5, "weaveFrom": 1.65,
+      "requires": [ { "status": "Kassatsu" } ],
+      "boosts": [ { "status": "Kassatsu", "potency": 1690 } ]
+    },
+    {
+      "name": "Goka Mekkyaku", "potency": 850, "ranged": true, "keepsCombo": true, "aoe": "target", "radius": 5,
+      "sequence": ["Chi", "Ten", "Ninjutsu"], "gcdTime": 2.5, "weaveFrom": 1.65,
+      "requires": [ { "status": "Kassatsu" } ],
+      "boosts": [ { "status": "Kassatsu", "potency": 1105 } ]
+    },
+    {
+      "name": "Ten Chi Jin", "potency": 1820, "ranged": true, "keepsCombo": true,
+      "sequence": ["Ten Chi Jin", "Ten", "Chi", "Jin"], "gcdTime": 3.0, "castTime": 2.9,
+      "requires": [ { "not": { "status": "Kassatsu" } } ],
+      "grants": [
+        { "status": "Raiju Ready", "stacks": 1, "duration": 30, "minLevel": 90 },
+        { "status": "Shadow Walker", "duration": 20 },
+        { "status": "Tenri Jindo Ready", "duration": 30, "minLevel": 100 }
+      ]
+    },
+
+    { "name": "Kassatsu", "grants": [ { "status": "Kassatsu", "duration": 15 } ] },
+    {
+      "name": "Mug", "upgradedTo": "Dokumori", "potency": 150,
+      "grants": [ { "gauge": 40 } ]
+    },
+    {
+      "name": "Dokumori", "potency": 400,
+      "grants": [
+        { "gauge": 40 },
+        { "status": "Dokumori", "duration": 20 },
+        { "status": "Higi", "duration": 30, "minLevel": 96 }
+      ]
+    },
+    {
+      "name": "Trick Attack", "upgradedTo": "Kunai's Bane", "potency": 300,
+      "positional": "rear", "positionalBonus": 100,
+      "requires": [ { "status": "Shadow Walker" } ],
+      "consumes": ["Shadow Walker"],
+      "grants": [ { "status": "Trick Attack", "duration": 15 } ]
+    },
+    {
+      "name": "Kunai's Bane", "potency": 700, "aoe": "target", "radius": 5,
+      "requires": [ { "status": "Shadow Walker" } ],
+      "consumes": ["Shadow Walker"],
+      "grants": [ { "status": "Kunai's Bane", "duration": 15 } ]
+    },
+    { "name": "Assassinate", "upgradedTo": "Dream Within a Dream", "potency": 200 },
+    { "name": "Dream Within a Dream", "potency": 180, "hits": 3 },
+    {
+      "name": "Bunshin", "gaugeCost": 50,
+      "grants": [
+        { "status": "Bunshin", "stacks": 5, "duration": 30 },
+        { "status": "Phantom Kamaitachi Ready", "duration": 45, "minLevel": 82 }
+      ]
+    },
+    {
+      "name": "Meisui",
+      "requires": [ { "status": "Shadow Walker" } ],
+      "consumes": ["Shadow Walker"],
+      "grants": [ { "gauge": 50 }, { "status": "Meisui", "duration": 30, "minLevel": 88 } ]
+    },
+    {
+      "name": "Bhavacakra", "potency": 400, "gaugeCost": 50,
+      "boosts": [ { "status": "Meisui", "potency": 550 } ]
+    },
+    {
+      "name": "Zesho Meppo", "press": "Bhavacakra", "potency": 700, "gaugeCost": 50,
+      "requires": [ { "status": "Higi" } ],
+      "consumes": ["Higi"],
+      "boosts": [ { "status": "Meisui", "potency": 850 } ]
+    },
+    { "name": "Hellfrog Medium", "potency": 250, "gaugeCost": 50, "aoe": "target", "radius": 6 },
+    {
+      "name": "Deathfrog Medium", "press": "Hellfrog Medium", "potency": 400, "gaugeCost": 50, "aoe": "target", "radius": 6,
+      "requires": [ { "status": "Higi" } ],
+      "consumes": ["Higi"]
+    },
+    {
+      "name": "Tenri Jindo", "press": "Ten Chi Jin", "potency": 1100, "rangedOk": true, "aoe": "target", "radius": 5,
+      "requires": [ { "status": "Tenri Jindo Ready" } ],
+      "consumes": ["Tenri Jindo Ready"]
+    },
+    {
+      "name": "True North",
+      "requires": [ { "not": { "status": "True North" } } ],
+      "grants": [ { "status": "True North", "duration": 10 } ]
+    }
+  ],
+  "burst": ["Kunai's Bane", "Trick Attack", "Dokumori", "Mug", "Kassatsu", "Ten Chi Jin", "Bunshin"],
+  "mainStat": "Dexterity",
+  "bar": [
+    "Kunai's Bane", "Trick Attack", "Dokumori", "Mug", "Kassatsu", "Ten Chi Jin", "Bunshin", "Meisui",
+    "Dream Within a Dream", "Bhavacakra", "Throwing Dagger", "Forked Raiju", "True North"
+  ],
+  "openers": [
+    {
+      "name": "Standard (4th GCD Kunai's Bane)",
+      "prepull": 2.4,
+      "minLevel": 100,
+      "source": "The Balance, Ninja Standard - 4th GCD (Dawntrail 7.0 graphic). The Balance pre-casts the mudras at -6.5 s and holds Suiton to -0.9 s; here Ten-Chi-Jin start at -2.4 s so Suiton still lands at about -0.9 s. Ten Chi Jin = Fuma Shuriken, Raiton, Suiton. After step 13 the planner takes over.",
+      "steps": [
+        ["Suiton", "Kassatsu"],
+        ["Spinning Edge", "Potion"],
+        ["Gust Slash", "Dokumori", "Bunshin"],
+        ["Phantom Kamaitachi"],
+        ["Armor Crush", "Kunai's Bane"],
+        ["Hyosho Ranryu", "Dream Within a Dream"],
+        ["Raiton"],
+        ["Ten Chi Jin", "Meisui"],
+        ["Fleeting Raiju", "Zesho Meppo", "Tenri Jindo"],
+        ["Fleeting Raiju", "Bhavacakra"],
+        ["Raiton"],
+        ["Fleeting Raiju"]
+      ]
+    }
+  ],
+  "safeOrder": [
+    "Fleeting Raiju", "Phantom Kamaitachi", "Armor Crush", "Aeolian Edge", "Gust Slash", "Spinning Edge", "Throwing Dagger"
+  ],
+  "levelNotes": "Ninjutsu are planned as one GCD and pressed mudra by mudra; Kassatsu makes the next one free and 30% stronger (boost potencies are 1.3x). [Assumption] Ten Chi Jin's three ninjutsu take about 1 s each and you must not move during it; Phantom Kamaitachi is on Bunshin's button, Zesho Meppo on Bhavacakra's, Tenri Jindo on Ten Chi Jin's; Fleeting/Forked Raiju are pressed by their own ids. Kunai's Bane needs Shadow Walker (Suiton/Huton), not Hide. Mudra-only openers below level 100 are left to the planner."
+}

@@ -300,9 +300,12 @@ public sealed class GameState
             {
                 if (st.StatusId == 0) continue;
                 var tname = StatusNames.Of(st.StatusId);
-                if (PartyBuffTracker.ByName.TryGetValue(tname, out var rb)) s.PartyBuffs.Add((rb.Mult, 0, st.RemainingTime));
-                // Your damage over time on the target (Chaotic Spring): the planner knows when to refresh it.
-                if (st.SourceId == me.EntityId && job.Actions.Any(a => a.Def.Dot?.Status == tname))
+                var mine = st.SourceId == me.EntityId;
+                // Your own debuffs (Dokumori, Kunai's Bane) are valued by the job file, not as party buffs.
+                if (PartyBuffTracker.ByName.TryGetValue(tname, out var rb) && !(mine && job.Def.Statuses.ContainsKey(tname)))
+                    s.PartyBuffs.Add((rb.Mult, 0, st.RemainingTime));
+                // Your damage over time and debuffs on the target (Chaotic Spring, Kunai's Bane).
+                if (mine && (job.Def.Statuses.ContainsKey(tname) || job.Actions.Any(a => a.Def.Dot?.Status == tname)))
                     s.Statuses[tname] = (st.RemainingTime, 1);
             }
             var src = (GameObjectStruct*)me.Address;
