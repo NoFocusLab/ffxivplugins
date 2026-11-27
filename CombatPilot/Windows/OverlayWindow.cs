@@ -38,14 +38,5 @@ public sealed class OverlayWindow : Window
             ImGui.SameLine();
         }
         if (ImGui.SmallButton("Open")) plugin.OpenMain();
-        ImGui.SameLine();
-        var c = plugin.Configuration;
-        var short_ = c.Engage switch { EngageMode.WaitForCombat => "Engage: wait", EngageMode.EngagedOnly => "Engage: fighting", _ => "Engage: any" };
-        if (ImGui.SmallButton(short_ + "##engage"))
-        {
-            c.Engage = (EngageMode)(((int)c.Engage + 1) % 3);
-            c.Save();
-        }
-        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Click to cycle: wait for combat / attack targets already fighting / attack any target (pulls, dummies)");
     }
 }

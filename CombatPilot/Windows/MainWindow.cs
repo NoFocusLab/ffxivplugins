@@ -222,10 +222,35 @@ public sealed class MainWindow : Window
     private void DrawSettings()
     {
         var changed = false;
-        ImGui.TextUnformatted("Starting a fight (once you're in combat it always fights):");
-        foreach (var (m, label) in EngageLabels)
-            if (ImGui.RadioButton(label, C.Engage == m)) { C.Engage = m; changed = true; }
-        var b = C.TurnOffRsr;
+        ImGui.TextDisabled("Engage, burst, AoE, travel reserve and potion toggles are on the job bar (/pilot bar).");
+        var b = C.ShowBars;
+        if (ImGui.Checkbox("Show the job bar", ref b)) { C.ShowBars = b; changed = true; }
+        var size = C.BarIconSize;
+        ImGui.SetNextItemWidth(120);
+        if (ImGui.SliderFloat("Bar icon size", ref size, 24, 72, "%.0f")) { C.BarIconSize = size; changed = true; }
+        var qs = C.QueueSeconds;
+        ImGui.SetNextItemWidth(120);
+        if (ImGui.SliderFloat("A clicked action waits for its slot (s)", ref qs, 1, 15, "%.0f")) { C.QueueSeconds = qs; changed = true; }
+
+        ImGui.Separator();
+        ImGui.TextUnformatted("Potions (turned on per job on the bar):");
+        if (ImGui.RadioButton("Highest one in my bags", C.Potion == PotionChoice.Highest)) { C.Potion = PotionChoice.Highest; changed = true; plugin.Pilot.PotionSettingsChanged(); }
+        if (ImGui.RadioButton("This one:", C.Potion == PotionChoice.Specific)) { C.Potion = PotionChoice.Specific; changed = true; plugin.Pilot.PotionSettingsChanged(); }
+        ImGui.SameLine();
+        var owned = plugin.Pilot.Job == null ? new List<OwnedPotion>() : Potions.Owned(plugin.Pilot.Job.Def.MainStat);
+        var current = owned.FirstOrDefault(o => o.ItemId == C.PotionItemId);
+        ImGui.SetNextItemWidth(320);
+        if (ImGui.BeginCombo("##potion", current?.Label ?? (C.PotionItemId == 0 ? "(pick a potion)" : $"item #{C.PotionItemId} (none in bags)")))
+        {
+            foreach (var o in owned)
+                if (ImGui.Selectable(o.Label, o.ItemId == C.PotionItemId))
+                { C.PotionItemId = o.ItemId; C.Potion = PotionChoice.Specific; changed = true; plugin.Pilot.PotionSettingsChanged(); }
+            ImGui.EndCombo();
+        }
+        ImGui.TextDisabled("Now: " + plugin.Pilot.PotionStatus + ". [Estimate] valued at +6% damage for 30 s; placed by the planner (lines up with party buffs it can see coming).");
+
+        ImGui.Separator();
+        b = C.TurnOffRsr;
         if (ImGui.Checkbox("Turn RotationSolver off when a job is Live", ref b)) { C.TurnOffRsr = b; changed = true; }
         b = C.HandBackToRsr;
         if (ImGui.Checkbox("Turn RotationSolver back on for jobs that aren't Live", ref b)) { C.HandBackToRsr = b; changed = true; }
@@ -263,12 +288,6 @@ public sealed class MainWindow : Window
         if (changed) C.Save();
     }
 
-    public static readonly (EngageMode, string)[] EngageLabels =
-    {
-        (EngageMode.WaitForCombat, "Wait until I'm in combat"),
-        (EngageMode.EngagedOnly, "Attack my target if it's already fighting"),
-        (EngageMode.AnyTarget, "Attack any target I select (pulls, striking dummies)"),
-    };
 
     private static readonly VirtualKey[] KillKeys =
     {

@@ -88,6 +88,13 @@ public sealed class GameState
         // Cooldowns per recast group (charges included).
         foreach (var a in job.Actions)
         {
+            if (a.IsItem)
+            {
+                var rem = am->IsRecastTimerActive(ActionType.Item, a.Id)
+                    ? Math.Max(0, am->GetRecastTime(ActionType.Item, a.Id) - am->GetRecastTimeElapsed(ActionType.Item, a.Id)) : 0;
+                s.Cooldowns[a.CooldownGroup] = new CdState { MaxCharges = 1, RecastPerCharge = 270, Charges = rem > 0 ? 0 : 1, NextChargeIn = rem };
+                continue;
+            }
             if (a.CooldownGroup < 0 || s.Cooldowns.ContainsKey(a.CooldownGroup)) continue;
             // The action's own id, not the button's current form: while Wrathful, Inner Release's
             // button is Primal Wrath (1 s recast), and reading that made Inner Release look ready
@@ -134,7 +141,7 @@ public sealed class GameState
             var src = (GameObjectStruct*)me.Address;
             var dst = (GameObjectStruct*)target.Address;
             foreach (var a in job.Actions)
-                if (ActionManager.GetActionInRangeOrLoS(a.Id, src, dst) == 0) s.InRange.Add(a.Id);
+                if (!a.IsItem && ActionManager.GetActionInRangeOrLoS(a.Id, src, dst) == 0) s.InRange.Add(a.Id);
         }
 
         var enemies = Plugin.ObjectTable.OfType<IBattleNpc>()

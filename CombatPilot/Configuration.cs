@@ -26,6 +26,21 @@ public enum EngageMode
     AnyTarget,
 }
 
+public enum AoeMode { Auto, SingleTarget, Force }
+public enum PotionChoice { Highest, Specific }
+
+/// <summary>Per-job toggles on the bar.</summary>
+[Serializable]
+public class JobToggles
+{
+    /// <summary>Hold burst cooldowns (the job file's Burst list).</summary>
+    public bool HoldBurst { get; set; }
+    public AoeMode Aoe { get; set; } = AoeMode.Auto;
+    /// <summary>Keep the job file's travel charges in reserve (Warrior: 1 Onslaught).</summary>
+    public bool KeepTravel { get; set; } = true;
+    public bool Potions { get; set; } = false;
+}
+
 [Serializable]
 public class Configuration : IPluginConfiguration
 {
@@ -39,6 +54,24 @@ public class Configuration : IPluginConfiguration
     public EngageMode Engage { get; set; } = EngageMode.EngagedOnly;
     /// <summary>Seconds before the GCD comes back to press the next one (the game queues it).</summary>
     public float QueueWindow { get; set; } = 0.5f;
+
+    public Dictionary<string, JobToggles> Toggles { get; set; } = new();
+    public JobToggles TogglesFor(string job)
+    {
+        if (!Toggles.TryGetValue(job, out var t)) Toggles[job] = t = new JobToggles();
+        return t;
+    }
+
+    // ---- potions
+    public PotionChoice Potion { get; set; } = PotionChoice.Highest;
+    /// <summary>For Specific: the item id (NQ id; HQ is used first if you have it).</summary>
+    public uint PotionItemId { get; set; }
+
+    // ---- bars
+    public bool ShowBars { get; set; } = true;
+    public float BarIconSize { get; set; } = 40;
+    /// <summary>A clicked action waits this long for its slot before it's dropped.</summary>
+    public float QueueSeconds { get; set; } = 6;
 
     // ---- RotationSolver Reborn
     public bool TurnOffRsr { get; set; } = true;

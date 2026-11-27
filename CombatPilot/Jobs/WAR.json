@@ -64,5 +64,9 @@
     { "name": "Orogeny", "potency": 150, "aoe": "self", "radius": 5 },
     { "name": "Onslaught", "potency": 150, "rangedOk": true }
   ],
+  "travel": { "action": "Onslaught", "keep": 1 },
+  "burst": ["Inner Release", "Infuriate"],
+  "mainStat": "Strength",
+  "bar": ["Inner Release", "Infuriate", "Upheaval", "Onslaught", "Primal Rend", "Orogeny", "Tomahawk"],
   "safeOrder": ["Inner Chaos", "Primal Ruination", "Primal Rend", "Fell Cleave", "Storm's Eye", "Storm's Path", "Maim", "Heavy Swing", "Tomahawk"]
 }

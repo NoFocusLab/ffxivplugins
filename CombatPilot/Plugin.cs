@@ -1,3 +1,4 @@
+using System.Linq;
 using CombatPilot.Engine;
 using CombatPilot.Windows;
 using Dalamud.Game.Command;
@@ -21,6 +22,7 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static ITargetManager TargetManager { get; private set; } = null!;
     [PluginService] internal static IJobGauges JobGauges { get; private set; } = null!;
     [PluginService] internal static IPartyList PartyList { get; private set; } = null!;
+    [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
     [PluginService] internal static IKeyState KeyState { get; private set; } = null!;
     [PluginService] internal static IPluginLog Log { get; private set; } = null!;
 
@@ -32,6 +34,9 @@ public sealed class Plugin : IDalamudPlugin
     private readonly WindowSystem windows = new("CombatPilot");
     private readonly MainWindow main;
     private readonly OverlayWindow overlay;
+    private readonly BarsWindow bars;
+    /// <summary>"CombatPilot.Queue"(actionId): queue an action by id (e.g. from Mit Planner). False if it isn't one of the job's.</summary>
+    private readonly Dalamud.Plugin.Ipc.ICallGateProvider<uint, bool> queueIpc;
 
     public Plugin()
     {
@@ -41,10 +46,20 @@ public sealed class Plugin : IDalamudPlugin
         overlay = new OverlayWindow(this) { IsOpen = Configuration.ShowOverlay };
         windows.AddWindow(main);
         windows.AddWindow(overlay);
+        bars = new BarsWindow(this) { IsOpen = true };
+        windows.AddWindow(bars);
+        queueIpc = PluginInterface.GetIpcProvider<uint, bool>("CombatPilot.Queue");
+        queueIpc.RegisterFunc(id =>
+        {
+            var a = Pilot.Job?.Actions.FirstOrDefault(x => x.Id == id || x.PressId == id);
+            if (a == null) return false;
+            Pilot.Queue(a);
+            return true;
+        });
 
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Combat Pilot. /pilot (window) | live | listen | off (for your current job) | pause | resume | report | engage wait|fighting|any",
+            HelpMessage = "Combat Pilot. /pilot (window) | live | listen | off (for your current job) | pause | resume | report | engage wait|fighting|any | bar (show/hide the bar)",
         });
         PluginInterface.UiBuilder.Draw += windows.Draw;
         PluginInterface.UiBuilder.OpenMainUi += main.Toggle;
@@ -57,6 +72,7 @@ public sealed class Plugin : IDalamudPlugin
         PluginInterface.UiBuilder.OpenMainUi -= main.Toggle;
         PluginInterface.UiBuilder.OpenConfigUi -= main.Toggle;
         windows.RemoveAllWindows();
+        queueIpc.UnregisterFunc();
         CommandManager.RemoveHandler(CommandName);
         Pilot.Dispose();
     }
@@ -81,6 +97,7 @@ public sealed class Plugin : IDalamudPlugin
             case "pause": Pilot.SetPaused(true, "/pilot pause"); return;
             case "resume": Pilot.SetPaused(false, "/pilot resume"); return;
             case "report": main.ShowReports(); return;
+            case "bar": Configuration.ShowBars = !Configuration.ShowBars; Configuration.Save(); return;
             case "engage wait": SetEngage(EngageMode.WaitForCombat); return;
             case "engage fighting": SetEngage(EngageMode.EngagedOnly); return;
             case "engage any": SetEngage(EngageMode.AnyTarget); return;

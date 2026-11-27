@@ -43,9 +43,22 @@ planner scores damage inside those windows higher, so bursts line up when the bu
   priority from the job file. Still stalled after 2 more GCDs: **pauses** and says so in chat.
 - Kill switch: hotkey or `/pilot pause`.
 
+## Job bar
+A bar for your current job (`/pilot bar` shows/hides it):
+- **Toggles:** mode (Live/Listen/Off), pause, Engage (below), Burst auto/HOLD (holds the job file's
+  burst list, Warrior: Inner Release and Infuriate), AoE auto/off/force, travel reserve (Warrior: keep
+  1 Onslaught charge for getting back in), potions on/off.
+- **Action buttons** with cooldowns and charges. Clicking one **queues** it: in Live it goes into the
+  next slot it fits (next weave for an oGCD, next GCD otherwise), ahead of the plan, and the plan
+  continues around it; it waits up to 6 s (Settings). Not Live: used right away. Other plugins can
+  queue an action too (IPC `CombatPilot.Queue(actionId)`).
+- **Potions** (off by default, per job): the highest potion for your main stat in your bags, or a
+  specific one (Settings). [Estimate] valued at +6% damage for 30 s; the planner places it, lining
+  it up with party buffs it can see coming.
+
 ## Starting a fight
-Once you're in combat it always fights. Before that, the **Engage** setting decides (Settings tab,
-the small panel's Engage button, or `/pilot engage wait|fighting|any`):
+Once you're in combat it always fights. Before that, the **Engage** toggle decides (job bar, or
+`/pilot engage wait|fighting|any`):
 - **Wait** until you're in combat.
 - **Fighting** (default): attack your target only if it's already fighting someone.
 - **Any**: attack any attackable target you select, starting the fight (pulls, striking dummies).

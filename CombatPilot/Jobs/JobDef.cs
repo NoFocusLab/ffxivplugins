@@ -24,8 +24,22 @@ public sealed class JobDef
     public List<ActionDef> Actions { get; set; } = new();
     /// <summary>Simple fixed priority used if the planner fails (safe mode).</summary>
     public List<string> SafeOrder { get; set; } = new();
+    /// <summary>Gap closer whose charges can be kept in reserve (bar toggle).</summary>
+    public TravelDef? Travel { get; set; }
+    /// <summary>Actions held while the bar's Burst toggle is on Hold.</summary>
+    public List<string> Burst { get; set; } = new();
+    /// <summary>Main stat, for picking potions (Strength, Dexterity, Intelligence, Mind).</summary>
+    public string MainStat { get; set; } = "Strength";
+    /// <summary>Actions shown as buttons on the bar (click = queue it). Empty: every oGCD.</summary>
+    public List<string> Bar { get; set; } = new();
 
     public ActionDef? Find(string name) => Actions.FirstOrDefault(a => a.Name == name);
+}
+
+public sealed class TravelDef
+{
+    public string Action { get; set; } = "";
+    public int Keep { get; set; } = 1;
 }
 
 public sealed class GaugeDef

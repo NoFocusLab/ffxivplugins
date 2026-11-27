@@ -27,6 +27,12 @@ public sealed class PlannerSettings
     public double CritDhFactor = 1.65;
     /// <summary>Weave slots to leave free in the current window (Mit Planner has a press due).</summary>
     public int ReservedWeaves;
+    /// <summary>Burst actions held by the bar's toggle.</summary>
+    public HashSet<string> Held = new();
+    public AoeMode Aoe = AoeMode.Auto;
+    /// <summary>Travel action whose charges above Keep are all the planner may spend.</summary>
+    public string? ReserveAction;
+    public int ReserveKeep;
 }
 
 /// <summary>
@@ -114,10 +120,19 @@ public static class Planner
         return keep;
     }
 
+    private static bool Usable(Sim c, BoundAction a, JobBinding job, PlannerSettings set)
+    {
+        if (set.Held.Contains(a.Name) || !c.Ready(a) || !c.Allowed(a, job)) return false;
+        if (set.ReserveAction == a.Name && a.CooldownGroup >= 0 && c.Cd.TryGetValue(a.CooldownGroup, out var cd) && cd.Charges <= set.ReserveKeep)
+            return false;
+        return true;
+    }
+
     private static IEnumerable<Node> Expand(Node n, GameState g, JobBinding job, PlannerSettings set)
     {
         var s = n.Sim;
         var nearNow = s.Path.Count == 0;
+
 
         if (n.NextIsGcd)
         {
@@ -128,10 +143,10 @@ public static class Planner
             foreach (var a in job.Actions)
             {
                 if (!a.IsGcd) continue;
-                if (!at0.Ready(a) || !at0.Allowed(a, job)) continue;
+                if (!Usable(at0, a, job, set)) continue;
                 if (nearNow && (!g.HasTarget || !Reaches(a, g))) continue;
                 var c = at0.Clone();
-                c.Apply(a, job, Hits(a, g), set.CritDhFactor);
+                c.Apply(a, job, Hits(a, g, set), set.CritDhFactor);
                 c.GcdReadyAt = t + g.GcdLength;
                 c.LockUntil = t + Sim.GcdLock;
                 any = true;
@@ -160,11 +175,11 @@ public static class Planner
         foreach (var a in job.Actions)
         {
             if (a.IsGcd) continue;
-            if (!w0.Ready(a) || !w0.Allowed(a, job)) continue;
+            if (!Usable(w0, a, job, set)) continue;
             if (a.Def.Potency > 0 && nearNow && (!g.HasTarget || !Reaches(a, g))) continue;
             if (a.Def.Potency > 0 && !g.HasTarget) continue;
             var c = w0.Clone();
-            c.Apply(a, job, Hits(a, g), set.CritDhFactor);
+            c.Apply(a, job, Hits(a, g, set), set.CritDhFactor);
             c.LockUntil = at + Sim.OgcdLock;
             var left = n.WeavesLeft - 1;
             yield return new Node { Sim = c, NextIsGcd = left <= 0, WeavesLeft = left, Gcds = n.Gcds, Root = n.Root };
@@ -187,12 +202,17 @@ public static class Planner
     public static bool Reaches(BoundAction a, GameState g) =>
         a.Def.Aoe == "self" ? g.EnemiesNearMe > 0 : g.InRange.Contains(a.Id);
 
-    private static int Hits(BoundAction a, GameState g) => a.Def.Aoe switch
+    private static int Hits(BoundAction a, GameState g, PlannerSettings set)
     {
-        "self" => Math.Max(1, g.EnemiesNearMe),
-        "target" => Math.Max(1, g.EnemiesNearTarget),
-        _ => 1,
-    };
+        if (a.Def.Aoe == null) return 1;
+        var n = a.Def.Aoe == "self" ? Math.Max(1, g.EnemiesNearMe) : Math.Max(1, g.EnemiesNearTarget);
+        return set.Aoe switch
+        {
+            AoeMode.SingleTarget => 1,
+            AoeMode.Force => Math.Max(3, n),
+            _ => n,
+        };
+    }
 
     /// <summary>Damage so far plus what's left in hand, minus cooldown time wasted.</summary>
     public static double Score(Sim s, JobBinding job)

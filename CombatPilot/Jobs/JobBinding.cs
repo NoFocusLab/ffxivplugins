@@ -25,6 +25,8 @@ public sealed class BoundAction
     /// <summary>"game" when read from the tooltip, "data" when from the job file.</summary>
     public string PotencySource { get; set; } = "data";
     public double? TooltipPotency { get; set; }
+    /// <summary>An inventory item (potion), used with the item's id (HQ: id + 1,000,000).</summary>
+    public bool IsItem { get; init; }
     public string Name => Def.Name;
 }
 
@@ -120,6 +122,33 @@ public sealed class JobBinding
             CategoryProps[abbreviation] = prop;
         }
         return prop?.GetValue(category.Value) is true;
+    }
+
+    public const string PotionName = "Potion";
+    public const string MedicatedName = "Medicated";
+    /// <summary>Recast group key used for the potion (items have no action recast group).</summary>
+    public const int PotionGroup = 100_000;
+
+    /// <summary>Add (or replace) the potion as an oGCD the planner can place. 0 removes it.</summary>
+    public void SetPotion(uint itemIdWithHq, string itemName)
+    {
+        Actions.RemoveAll(a => a.IsItem);
+        ByName.Remove(PotionName);
+        if (itemIdWithHq == 0) return;
+        // [Estimate] a current-tier strength potion is worth about +6% damage for 30 s.
+        Def.Statuses.TryAdd(MedicatedName, new StatusDef { DamageMult = 1.06 });
+        var def = new ActionDef
+        {
+            Name = PotionName,
+            Grants = new() { new Grant { Status = MedicatedName, Duration = 30 } },
+        };
+        var bound = new BoundAction
+        {
+            Def = def, Id = itemIdWithHq, PressId = itemIdWithHq, Level = 1, IsGcd = false,
+            CooldownGroup = PotionGroup, IsItem = true, PotencySource = itemName,
+        };
+        Actions.Add(bound);
+        ByName[PotionName] = bound;
     }
 
     /// <summary>The job's gauge value now (one small reader per job: gauges are job-specific).</summary>

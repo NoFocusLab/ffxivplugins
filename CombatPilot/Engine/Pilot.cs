@@ -96,6 +96,7 @@ public sealed unsafe class Pilot : IDisposable
             var abbr = me.ClassJob.ValueNullable?.Abbreviation.ExtractText() ?? "";
             var def = JobLibrary.For(abbr);
             Job = def == null ? null : new JobBinding(def, abbr, level);
+            nextPotionCheck = DateTime.MinValue;
             var mode = Job == null ? PilotMode.Off : config.ModeFor(Job.Def.Job);
             if (mode == PilotMode.Live && config.TurnOffRsr && !Paused) rsr.TurnOff();
             else if (mode != PilotMode.Live && config.HandBackToRsr) rsr.HandBack();
@@ -139,12 +140,29 @@ public sealed unsafe class Pilot : IDisposable
         if (!forGcd && g.GcdRemaining < Sim.OgcdLock + 0.05) return; // too late to weave, too early to queue
         if (!forGcd && weaveUsedThisWindow && Planner.WeavesBetween(0, g.GcdRemaining) == 0) return;
 
+        // You clicked something on the bar: it goes in this slot if it fits, before any planning.
+        if (Queued is { } q && Mode == PilotMode.Live && !Paused)
+        {
+            if (DateTime.UtcNow > queuedUntil) { Queued = null; }
+            else if (q.IsGcd == forGcd)
+            {
+                if (Press(q, g)) { Plugin.Log.Debug($"[Pilot] queued {q.Name} pressed"); Log.Note($"you queued {q.Name}"); Queued = null; }
+                return;
+            }
+        }
+
+        RefreshPotion();
+        var t = config.TogglesFor(Job.Def.Job);
         var set = new PlannerSettings
         {
             HorizonGcds = Math.Clamp(config.HorizonGcds, 2, 12),
             BeamWidth = Math.Clamp(config.BeamWidth, 8, 256),
             CritDhFactor = config.CritDhFactor,
             ReservedWeaves = !forGcd && mit.PressDueIn() <= g.GcdRemaining + 0.3f ? 1 : 0,
+            Held = t.HoldBurst ? Job.Def.Burst.ToHashSet() : new HashSet<string>(),
+            Aoe = t.Aoe,
+            ReserveAction = t.KeepTravel ? Job.Def.Travel?.Action : null,
+            ReserveKeep = Job.Def.Travel?.Keep ?? 0,
         };
         var job = Job;
         var started = DateTime.UtcNow;
@@ -196,19 +214,66 @@ public sealed unsafe class Pilot : IDisposable
 
     // ================================================================ pressing
 
-    private void Press(BoundAction a, GameState g)
+    private bool Press(BoundAction a, GameState g)
     {
         var am = ActionManager.Instance();
-        var id = am->GetAdjustedActionId(a.PressId);
         var now = DateTime.UtcNow;
-        if (id == lastPressId && (now - lastPress).TotalSeconds < 0.25) return;
+        bool ok;
+        if (a.IsItem)
+        {
+            if (a.Id == lastPressId && (now - lastPress).TotalSeconds < 0.5) return false;
+            lastPressId = a.Id;
+            lastPress = now;
+            ok = am->UseAction(ActionType.Item, a.Id, 0xE000_0000, 65535);
+            Plugin.Log.Debug($"[Pilot] potion #{a.Id} -> {(ok ? "ok" : "refused")}");
+            if (ok) nextPotionCheck = DateTime.MinValue;
+            return ok;
+        }
+        var id = am->GetAdjustedActionId(a.PressId);
+        if (id == lastPressId && (now - lastPress).TotalSeconds < 0.25) return false;
         lastPressId = id;
         lastPress = now;
         var target = a.Def.Potency > 0 && g.HasTarget ? g.TargetId : 0xE000_0000UL;
-        var ok = am->UseAction(ActionType.Action, id, target);
+        ok = am->UseAction(ActionType.Action, id, target);
         Plugin.Log.Debug($"[Pilot] press {a.Name} (#{id}) -> {(ok ? "ok" : "refused")}; gcd {g.GcdRemaining:0.00}s");
         if (a.IsGcd) CheckStall(g);
+        return ok;
     }
+
+    // ================================================================ bar: queue, potions
+
+    /// <summary>Clicked on the bar. Live: goes into the next slot it fits. Otherwise: used now.</summary>
+    public BoundAction? Queued { get; private set; }
+    private DateTime queuedUntil;
+
+    public void Queue(BoundAction a)
+    {
+        if (Mode == PilotMode.Live && !Paused)
+        {
+            Queued = a;
+            queuedUntil = DateTime.UtcNow.AddSeconds(Math.Clamp(config.QueueSeconds, 1, 30));
+            return;
+        }
+        if (Job != null) Press(a, GameState.Read(Job));
+    }
+
+    public void ClearQueue() => Queued = null;
+
+    private DateTime nextPotionCheck = DateTime.MinValue;
+    public string PotionStatus { get; private set; } = "";
+
+    /// <summary>Keep the potion action in step with the toggle and your inventory (every 10 s).</summary>
+    private void RefreshPotion()
+    {
+        if (Job == null || DateTime.UtcNow < nextPotionCheck) return;
+        nextPotionCheck = DateTime.UtcNow.AddSeconds(10);
+        if (!config.TogglesFor(Job.Def.Job).Potions) { Job.SetPotion(0, ""); PotionStatus = "off"; return; }
+        var pick = Potions.Pick(config, Job.Def.MainStat);
+        Job.SetPotion(pick?.UseId ?? 0, pick?.Name ?? "");
+        PotionStatus = pick == null ? (config.Potion == PotionChoice.Specific ? "chosen potion not in your bags" : $"no {Job.Def.MainStat} potion in your bags") : pick.Label;
+    }
+
+    public void PotionSettingsChanged() => nextPotionCheck = DateTime.MinValue;
 
     /// <summary>Something usable sat unpressed for two GCDs: safe mode; two more: pause.</summary>
     private void CheckStall(GameState g)
@@ -294,7 +359,7 @@ public sealed unsafe class Pilot : IDisposable
 
         foreach (var a in Job.Actions)
         {
-            if (a.IsGcd || a.CooldownGroup < 0) continue;
+            if (a.IsGcd || a.IsItem || a.CooldownGroup < 0) continue;
             var id = am->GetAdjustedActionId(a.Id);
             var charges = (int)am->GetCurrentCharges(id);
             var elapsed = am->GetRecastTimeElapsed(ActionType.Action, id);
