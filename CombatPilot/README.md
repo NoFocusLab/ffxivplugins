@@ -38,6 +38,15 @@ expected in the opener (~7 s in) and dropped if they haven't shown up 30 s into 
 planner scores damage inside those windows higher, so bursts line up when the buffs are close
 (within its look-ahead). [Estimate] durations, cooldowns and average multipliers. Solo/dummy: none.
 
+**Per fight** (any fight Mit Planner runs a timeline for, e.g. the current tier: M9S-M12S, Hell on
+Rails (Extreme), The Unmaking (Extreme)):
+- **Learned schedule:** every pull records when your party's buffs went out, by Mit Planner's synced
+  timeline clock (so phase pushes and branches line up). Once two pulls agree within 8 s, that's the
+  expected time (last 8 pulls kept, `bursts.json`).
+- **Downtime rule:** a buff expected while the boss is untargetable is expected when it comes back
+  ([Assumption] parties hold 2-minute buffs through downtime).
+- The Pilot tab shows each expected buff and its basis (learned / cycle / opener, after downtime).
+
 ## Boss downtime (from Mit Planner)
 When Mit Planner is running a fight timeline (bundled cactbot or one it learned), Combat Pilot asks it
 for the upcoming untargetable windows (`MitPlanner.Downtime`). Damage planned inside a window counts

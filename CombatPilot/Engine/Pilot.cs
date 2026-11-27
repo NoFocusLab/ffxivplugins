@@ -115,7 +115,7 @@ public sealed unsafe class Pilot : IDisposable
             Log.Start(Job.Def.Job, Paused && Mode == PilotMode.Live ? "Paused" : Mode.ToString(), place);
             Party.StartFight();
         }
-        Party.Update();
+        Party.Update(mit);
 
         Observe();
 

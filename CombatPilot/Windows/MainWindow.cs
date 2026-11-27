@@ -90,10 +90,12 @@ public sealed class MainWindow : Window
             ImGui.SameLine();
             if (ImGui.SmallButton(p.Paused ? "Resume" : "Pause")) p.SetPaused(!p.Paused, "button");
         }
-        var up = p.Party.Upcoming(120);
+        var up = p.Party.Upcoming(120, p.Mit.Downtime());
         ImGui.TextDisabled(up.Count == 0
             ? "Party buffs: none expected (no buff jobs in party, or not seen yet)"
-            : "Party buffs: " + string.Join(", ", up.OrderBy(u => u.From).Select(u => $"{u.Name} in {u.From:0}s")));
+            : "Party buffs: " + string.Join(", ", up.OrderBy(u => u.From).Select(u => $"{u.Name} in {u.From:0}s ({p.Party.Basis.GetValueOrDefault(u.Name, "?")})")));
+        var terr = p.Mit.FightTerritory();
+        if (terr != 0) ImGui.TextDisabled($"Learned burst schedule for this fight: {p.Party.Learner.PullsFor(terr)} pull(s) recorded (used once 2+ agree).");
         var dt = p.Mit.Downtime();
         var tlt = p.Mit.TimelineTime();
         ImGui.TextDisabled(tlt < 0 ? "Fight timeline: none (Mit Planner not running one)"

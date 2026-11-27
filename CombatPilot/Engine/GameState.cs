@@ -157,7 +157,7 @@ public sealed class GameState
             s.EnemiesNearTarget = enemies.Count(n => Vector3.Distance(n.Position, target.Position) - n.HitboxRadius <= 5);
         if (mit != null) s.Downtime = mit.Downtime();
         if (party != null)
-            foreach (var (mult, from, until, _) in party.Upcoming()) s.PartyBuffs.Add((mult, from, until));
+            foreach (var (mult, from, until, _) in party.Upcoming(60, s.Downtime)) s.PartyBuffs.Add((mult, from, until));
         return s;
     }
 }
