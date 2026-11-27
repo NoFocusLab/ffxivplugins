@@ -14,7 +14,19 @@ import argparse
 import datetime as dt
 
 GCD = {"Heavy Swing", "Maim", "Storm's Path", "Storm's Eye", "Fell Cleave", "Inner Chaos", "Primal Rend",
-       "Primal Ruination", "Decimate", "Tomahawk", "Overpower", "Mythril Tempest", "Chaotic Cyclone"}
+       "Primal Ruination", "Decimate", "Tomahawk", "Overpower", "Mythril Tempest", "Chaotic Cyclone",
+       # Dragoon
+       "True Thrust", "Raiden Thrust", "Lance Barrage", "Heavens' Thrust", "Spiral Blow", "Chaotic Spring",
+       "Wheeling Thrust", "Fang and Claw", "Drakesbane", "Piercing Talon", "Doom Spike", "Draconian Fury",
+       "Sonic Thrust", "Coerthan Torment",
+       # Paladin
+       "Fast Blade", "Riot Blade", "Royal Authority", "Atonement", "Supplication", "Sepulchre", "Holy Spirit",
+       "Goring Blade", "Confiteor", "Blade of Faith", "Blade of Truth", "Blade of Valor", "Total Eclipse",
+       "Prominence", "Holy Circle", "Shield Lob",
+       # Ninja (ninjutsu count as one GCD each; mudras aren't listed)
+       "Spinning Edge", "Gust Slash", "Aeolian Edge", "Armor Crush", "Throwing Dagger", "Death Blossom",
+       "Hakke Mujinsatsu", "Phantom Kamaitachi", "Fleeting Raiju", "Forked Raiju", "Fuma Shuriken", "Raiton",
+       "Katon", "Suiton", "Huton", "Hyosho Ranryu", "Goka Mekkyaku"}
 SPENDERS = {"Fell Cleave", "Inner Chaos", "Decimate", "Chaotic Cyclone"}
 
 

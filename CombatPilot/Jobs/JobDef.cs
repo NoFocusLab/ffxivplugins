@@ -20,6 +20,12 @@ public sealed class JobDef
     public GaugeDef? Gauge { get; set; }
     /// <summary>[Estimate] average potency per second, used to value buffs that outlast the look-ahead.</summary>
     public double PotencyPerSecond { get; set; } = 220;
+    /// <summary>
+    /// Look at least this many GCDs ahead (Settings can go higher). Jobs whose combos or DoTs cycle
+    /// slower than the default look-ahead need it: Dragoon's two combos take 10 GCDs, and with 6
+    /// it clipped Power Surge and Chaotic Spring because the cost fell past the end of the plan.
+    /// </summary>
+    public int MinHorizonGcds { get; set; }
     public Dictionary<string, StatusDef> Statuses { get; set; } = new();
     public List<ActionDef> Actions { get; set; } = new();
     /// <summary>Simple fixed priority used if the planner fails (safe mode).</summary>

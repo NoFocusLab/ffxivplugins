@@ -9,6 +9,7 @@
     "valuePerUnit": 200.0
   },
   "potencyPerSecond": 240,
+  "minHorizonGcds": 11,
   "statuses": {
     "Power Surge": { "damageMult": 1.1 },
     "Lance Charge": { "damageMult": 1.1 },

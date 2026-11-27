@@ -202,7 +202,7 @@ public sealed unsafe class Pilot : IDisposable
         var t = config.TogglesFor(Job.Def.Job);
         var set = new PlannerSettings
         {
-            HorizonGcds = Math.Clamp(config.HorizonGcds, 2, 12),
+            HorizonGcds = Math.Clamp(Math.Max(config.HorizonGcds, Job.Def.MinHorizonGcds), 2, 12),
             BeamWidth = Math.Clamp(config.BeamWidth, 8, 256),
             CritDhFactor = config.CritDhFromStats && StatsNow()?.CritDhFactor is { } f ? f : config.CritDhFactor,
             CritFactor = config.CritDhFromStats && StatsNow()?.CritFactor is { } cf ? cf : 1.35,
