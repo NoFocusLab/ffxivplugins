@@ -94,6 +94,21 @@ Every action that moves you is checked before the planner uses it: dashes/jumps 
 - Held actions aren't used by the planner and an opener step that would use one is skipped; the Pilot
   tab says which and why. Clicking it on the bar still uses it (your call).
 
+## Positionals (melee jobs)
+Job files mark positional actions (`"positional": "rear"` or `"flank"`, `"positionalBonus"`: the
+extra potency) and include True North (`{"name": "True North", "grants": [{"status": "True North",
+"duration": 10}]}`). The planner counts the bonus only when it will land:
+- **No positionals on this target:** [Assumption] the game's BNpcBase "IsOmnidirectional" flag (many
+  trial bosses): every positional counts, nothing moves.
+- **Already there** (rear = within 45 degrees of its back, flank = 45-135 degrees), or **True North up**.
+- **Auto-move on** (bar toggle, off by default): the planner counts on walking there if the spot is
+  reachable before that GCD ([Estimate] 6 y/s) and safe: floor at the spot, and no BossMod danger zone
+  on the way. Then it walks you there with vnavmesh (just outside the target's hitbox), starting when
+  a positional is within the next two GCDs; it stops when you're there, after 3 s, or if you move
+  yourself (it won't fight your movement).
+- Otherwise the planner weighs using a True North charge, or just takes the miss.
+The Pilot tab shows your side, how far the rear/flank are, and what the mover is doing.
+
 ## Your stats
 GCD length (and so opener step timing) comes from your actual recast: skill/spell speed and haste
 included. The value of a guaranteed critical direct hit is worked out from your Critical Hit and

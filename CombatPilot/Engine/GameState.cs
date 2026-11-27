@@ -77,6 +77,8 @@ public sealed class GameState
     /// <summary>Dash/jump actions that would land you (or take you through) a danger zone right now.</summary>
     public HashSet<uint> UnsafeDash = new();
     public Dictionary<uint, string> UnsafeWhy = new();
+    /// <summary>Positionals: where you are vs. the target, and whether you could get to its rear/flank.</summary>
+    public PositionInfo? Position;
     /// <summary>Danger info: "BossMod: N zones", or why there's none.</summary>
     public string DangerNote = "";
     /// <summary>Per AoE action: it would hit something other than your target.</summary>
@@ -192,7 +194,7 @@ public sealed class GameState
         catch (Exception) { return true; }
     }
 
-    public static unsafe GameState Read(JobBinding job, PartyBuffTracker? party = null, MitBridge? mit = null, DangerBridge? danger = null)
+    public static unsafe GameState Read(JobBinding job, PartyBuffTracker? party = null, MitBridge? mit = null, DangerBridge? danger = null, bool autoMove = false)
     {
         var s = new GameState();
         var me = Plugin.ObjectTable.LocalPlayer;
@@ -316,6 +318,9 @@ public sealed class GameState
             if (danger != null && zones > 0 && !danger.DashSafe(me.Position, land, out var known) && known)
             { s.UnsafeDash.Add(a.Id); s.UnsafeWhy[a.Id] = "danger zone"; }
         }
+
+        if (s.HasTarget && target != null && job.Actions.Any(a => a.Def.Positional != null))
+            s.Position = Positionals.Read(me, target, autoMove, danger);
 
         if (mit != null) s.Downtime = mit.Downtime();
         if (party != null)

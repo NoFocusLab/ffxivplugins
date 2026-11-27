@@ -32,6 +32,8 @@ public sealed class JobDef
     public string MainStat { get; set; } = "Strength";
     /// <summary>Actions shown as buttons on the bar (click = queue it). Empty: every oGCD.</summary>
     public List<string> Bar { get; set; } = new();
+    /// <summary>Status that makes every positional land (role action True North).</summary>
+    public string TrueNorthStatus { get; set; } = "True North";
     /// <summary>Openers, first = default. Run from a countdown (or the bar).</summary>
     public List<OpenerDef> Openers { get; set; } = new();
 
@@ -116,6 +118,10 @@ public sealed class ActionDef
     public Extend? Extends { get; set; }
     /// <summary>Moves you to the target (dash/jump): checked against danger zones and for floor first.</summary>
     public bool MovesToTarget { get; set; }
+    /// <summary>"rear" or "flank": bonus potency when hit from there (or under True North).</summary>
+    public string? Positional { get; set; }
+    /// <summary>Extra potency when the positional lands (applies to the combo potency too).</summary>
+    public double PositionalBonus { get; set; }
     /// <summary>Moves you a fixed distance from where you face: "back" (Elusive Jump, Displacement) or "forward".</summary>
     public string? Moves { get; set; }
     public double MoveDistance { get; set; }

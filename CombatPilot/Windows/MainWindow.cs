@@ -115,6 +115,10 @@ public sealed class MainWindow : Window
                                string.Join(", ", gs.Enemies.Take(6).Select(e => e.Ttk >= 999 ? "TTK ?" : $"TTK {e.Ttk:0}s")) + ")");
             ImGui.TextDisabled("AoE would hit: " + string.Join(", ", aoe));
         }
+        if (p.LastState?.Position is { } pi)
+            ImGui.TextDisabled(pi.Omni ? "Positionals: target has none (all land)"
+                : $"Positionals: you're at the {pi.Side}" + (C.AutoMove ? $"; rear {Eta(pi.RearEta)}, flank {Eta(pi.FlankEta)}" : "; auto-move off (True North covers)") +
+                  (pi.Note.Length > 0 ? $" ({pi.Note})" : "") + (p.Mover.Status.Length > 0 ? $" - {p.Mover.Status}" : ""));
         if (p.LastState is { } ds && ds.DangerNote.Length > 0)
             ImGui.TextDisabled(ds.DangerNote + (ds.UnsafeDash.Count > 0
                 ? " - held: " + string.Join(", ", p.Job.Actions.Where(a => ds.UnsafeDash.Contains(a.Id)).Select(a => $"{a.Name} ({ds.UnsafeWhy.GetValueOrDefault(a.Id, "?")})"))
@@ -125,6 +129,8 @@ public sealed class MainWindow : Window
             ImGui.TextDisabled($"This fight: {f.Decisions} decisions, {f.Mismatches} differed, est. {f.Lost:N0} potency lost" +
                                (f.SafeModePresses > 0 ? $", {f.SafeModePresses} safe-mode presses" : ""));
     }
+
+    private static string Eta(double s) => double.IsInfinity(s) ? "can't" : $"{s:0.0}s away";
 
     private static void DrawDecision(string title, Decision? d)
     {

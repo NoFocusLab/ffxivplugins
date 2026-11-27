@@ -22,6 +22,7 @@ public sealed unsafe class Pilot : IDisposable
     private readonly Configuration config;
     private readonly MitBridge mit = new();
     private readonly DangerBridge danger = new();
+    public Mover Mover { get; } = new();
     private readonly RsrBridge rsr = new();
     public FightLog Log { get; }
     public PartyBuffTracker Party { get; } = new();
@@ -77,7 +78,7 @@ public sealed unsafe class Pilot : IDisposable
         if (Paused == paused) return;
         Paused = paused;
         Plugin.ChatGui.Print($"[Combat Pilot] {(paused ? "Paused" : "Resumed")}{(why.Length > 0 ? $": {why}" : "")}.");
-        if (paused) { SafeMode = false; stallSince = safeSince = null; }
+        if (paused) { SafeMode = false; stallSince = safeSince = null; Mover.Halt("paused"); }
     }
 
     private void OnUpdate(IFramework fw)
@@ -133,6 +134,11 @@ public sealed unsafe class Pilot : IDisposable
 
         Observe();
 
+        // Auto-move for positionals (Live, not paused, bar toggle on).
+        var target = Plugin.TargetManager.Target;
+        Mover.Update(me, target, Job, LastGcd, LastState?.Position,
+            Mode == PilotMode.Live && !Paused && config.AutoMove && !me.IsCasting);
+
         var am = ActionManager.Instance();
         if (am == null || me.IsCasting) return;
 
@@ -148,7 +154,7 @@ public sealed unsafe class Pilot : IDisposable
         if (DateTime.UtcNow < nextPlan) return;
         nextPlan = DateTime.UtcNow.AddMilliseconds(80);
 
-        var g = GameState.Read(Job, Party, mit, danger);
+        var g = GameState.Read(Job, Party, mit, danger, config.AutoMove);
         if (g.AnimationLock > 0.05) return;
 
         var forGcd = g.GcdRemaining <= config.QueueWindow;
@@ -455,6 +461,7 @@ public sealed unsafe class Pilot : IDisposable
         stallSince = safeSince = null;
         Party.EndFight();
         Opener.Stop("ended (fight over)");
+        Mover.Halt("");
         Log.End();
     }
 

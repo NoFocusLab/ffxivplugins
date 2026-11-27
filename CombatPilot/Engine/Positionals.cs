@@ -1,0 +1,168 @@
+using System;
+using System.Linq;
+using System.Numerics;
+using System.Reflection;
+using CombatPilot.Jobs;
+using Dalamud.Game.ClientState.Objects.Types;
+using Dalamud.Plugin.Ipc;
+using Lumina.Excel.Sheets;
+
+namespace CombatPilot.Engine;
+
+/// <summary>Where you stand relative to the target, and whether you could get to its rear / flank in time, safely.</summary>
+public sealed class PositionInfo
+{
+    /// <summary>The target has no positionals (omnidirectional: many trial bosses): every positional lands.</summary>
+    public bool Omni;
+    /// <summary>"rear", "flank" or "front": where you are now.</summary>
+    public string Side = "front";
+    /// <summary>Seconds to walk to the rear / nearest flank; +inf when auto-move is off or the spot isn't safe.</summary>
+    public double RearEta = double.PositiveInfinity, FlankEta = double.PositiveInfinity;
+    public Vector3 RearSpot, FlankSpot;
+    public string Note = "";
+
+    public bool Satisfied(string positional, double t) =>
+        Omni || Side == positional || (positional == "rear" ? RearEta : FlankEta) <= t;
+}
+
+/// <summary>
+/// Positionals: reading where you are against the target's facing, whether the target has
+/// positionals at all, and (auto-move on) walking you to the rear/flank in time for the GCD that
+/// needs it, with vnavmesh. Destinations get the same checks as dashes (floor, BossMod danger
+/// zones on the path and spot). If that can't be done, the planner's alternative is True North.
+/// </summary>
+public static class Positionals
+{
+    /// <summary>[Estimate] run speed, yalms per second.</summary>
+    public const double RunSpeed = 6.0;
+    /// <summary>How far outside the target's hitbox to stand (well inside 3 y melee range).</summary>
+    private const float Stand = 1.2f;
+
+    private static readonly PropertyInfo? OmniProp = typeof(BNpcBase).GetProperty("IsOmnidirectional");
+
+    /// <summary>[Assumption] BNpcBase.IsOmnidirectional marks targets without positionals.</summary>
+    public static bool IsOmni(IGameObject target)
+    {
+        if (OmniProp == null) return false;
+        var row = Plugin.DataManager.GetExcelSheet<BNpcBase>().GetRowOrDefault(target.BaseId);
+        return row != null && OmniProp.GetValue(row.Value) is true;
+    }
+
+    /// <summary>Which side of the target a point is on: rear within 45° of its back, flank 45-135°, else front.</summary>
+    public static string SideOf(Vector3 point, IGameObject target)
+    {
+        var facing = new Vector3((float)Math.Sin(target.Rotation), 0, (float)Math.Cos(target.Rotation));
+        var v = point - target.Position;
+        v.Y = 0;
+        if (v.LengthSquared() < 0.0001f) return "rear";
+        var angle = Math.Acos(Math.Clamp(Vector3.Dot(Vector3.Normalize(v), facing), -1, 1)) * 180 / Math.PI;
+        return angle >= 135 ? "rear" : angle >= 45 ? "flank" : "front";
+    }
+
+    public static PositionInfo Read(IGameObject me, IGameObject target, bool autoMove, DangerBridge? danger)
+    {
+        var p = new PositionInfo { Omni = IsOmni(target), Side = SideOf(me.Position, target) };
+        if (p.Omni) { p.Note = "target has no positionals"; return p; }
+        var facing = new Vector3((float)Math.Sin(target.Rotation), 0, (float)Math.Cos(target.Rotation));
+        var right = new Vector3(facing.Z, 0, -facing.X);
+        var r = target.HitboxRadius + Stand;
+        p.RearSpot = target.Position - facing * r;
+        // The flank on your side.
+        var toMe = me.Position - target.Position;
+        var side = Vector3.Dot(toMe, right) >= 0 ? right : -right;
+        p.FlankSpot = target.Position + side * r;
+        if (!autoMove) { p.Note = "auto-move off"; return p; }
+        p.RearEta = Eta(me.Position, p.RearSpot, danger, out var whyRear);
+        p.FlankEta = Eta(me.Position, p.FlankSpot, danger, out var whyFlank);
+        p.Note = (whyRear ?? "") + (whyFlank != null && whyFlank != whyRear ? (whyRear != null ? ", " : "") + whyFlank : "");
+        return p;
+    }
+
+    private static double Eta(Vector3 from, Vector3 to, DangerBridge? danger, out string? why)
+    {
+        why = null;
+        if (!GameState.FloorAt(to, from.Y)) { why = "no floor there"; return double.PositiveInfinity; }
+        if (danger != null && danger.Zones() > 0 && !danger.DashSafe(from, to, out var known) && known)
+        { why = "danger zone on the way"; return double.PositiveInfinity; }
+        var d = Vector3.Distance(new Vector3(from.X, 0, from.Z), new Vector3(to.X, 0, to.Z));
+        return d / RunSpeed + 0.2;
+    }
+}
+
+/// <summary>
+/// Walks you to the rear/flank for an upcoming positional (auto-move on, Live). Starts when the plan
+/// has a positional in the next two GCDs and you're not there; stops when you are, when the plan
+/// changes, after 3 s, or if you start moving yourself.
+/// </summary>
+public sealed class Mover
+{
+    private readonly ICallGateSubscriber<Vector3, bool, float, bool> moveCloseTo =
+        Plugin.PluginInterface.GetIpcSubscriber<Vector3, bool, float, bool>("vnavmesh.SimpleMove.PathfindAndMoveCloseTo");
+    private readonly ICallGateSubscriber<object> stop = Plugin.PluginInterface.GetIpcSubscriber<object>("vnavmesh.Path.Stop");
+
+    public bool Moving { get; private set; }
+    public string Status { get; private set; } = "";
+    private DateTime startedAt;
+    private Vector3 dest;
+    private Vector3 lastPos;
+    private DateTime lastPosAt = DateTime.MinValue;
+    private bool youMoved;
+
+    /// <summary>Call every tick with the latest plan. Returns true while it is moving you.</summary>
+    public bool Update(IGameObject me, IGameObject? target, JobBinding job, Decision? plan, PositionInfo? pos, bool allowed)
+    {
+        // Your own movement: if you moved while we weren't moving you, keep out of it for a moment.
+        var now = DateTime.UtcNow;
+        if (!Moving && lastPosAt != DateTime.MinValue && Vector3.Distance(me.Position, lastPos) > 0.3f) { youMoved = true; youMovedAt = now; }
+        if (youMoved && (now - youMovedAt).TotalSeconds > 1.5) youMoved = false;
+        lastPos = me.Position;
+        lastPosAt = now;
+
+        if (!allowed || target == null || pos == null || pos.Omni || plan == null) { Halt(""); return false; }
+        if (job.Def.TrueNorthStatus.Length > 0 && Plugin.ObjectTable.LocalPlayer?.StatusList.Any(s => StatusNames.Of(s.StatusId) == job.Def.TrueNorthStatus) == true)
+        { Halt("True North up"); return false; }
+
+        // The first positional in the next two GCDs of the plan.
+        string? need = null;
+        var gcds = 0;
+        foreach (var name in plan.Path)
+        {
+            if (!job.ByName.TryGetValue(name, out var a) || !a.IsGcd) continue;
+            if (a.Def.Positional != null) { need = a.Def.Positional; break; }
+            if (++gcds >= 2) break;
+        }
+        if (need == null || pos.Side == need) { Halt(need == null ? "" : $"in position ({need})"); return false; }
+
+        var eta = need == "rear" ? pos.RearEta : pos.FlankEta;
+        if (double.IsInfinity(eta)) { Halt($"can't get to the {need}: {pos.Note}"); return false; }
+        if (youMoved) { Halt("you're moving: not taking over"); return false; }
+
+        var spot = need == "rear" ? pos.RearSpot : pos.FlankSpot;
+        if (Moving && (now - startedAt).TotalSeconds > 3) { Halt("gave up (3 s)"); return false; }
+        if (!Moving || Vector3.Distance(spot, dest) > 1f)
+        {
+            try
+            {
+                if (moveCloseTo.InvokeFunc(spot, false, 0.3f))
+                {
+                    if (!Moving) startedAt = now;
+                    Moving = true;
+                    dest = spot;
+                    Status = $"moving to the {need}";
+                }
+                else Halt("vnavmesh refused the move");
+            }
+            catch (Exception) { Halt("vnavmesh not loaded"); }
+        }
+        return Moving;
+    }
+
+    private DateTime youMovedAt;
+
+    public void Halt(string why)
+    {
+        if (Moving) { try { stop.InvokeAction(); } catch (Exception) { } }
+        Moving = false;
+        Status = why;
+    }
+}

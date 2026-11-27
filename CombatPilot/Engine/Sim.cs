@@ -24,6 +24,8 @@ public sealed class Sim
     public Dictionary<string, (double Until, int Stacks)> Statuses = new();
     public List<(double Mult, double From, double Until)> PartyBuffs = new();
     public Dictionary<int, CdState> Cd = new();
+    /// <summary>Positionals (null: none to worry about).</summary>
+    public PositionInfo? Pos;
     /// <summary>Boss downtime (no damage lands): from, until.</summary>
     public List<(double From, double Until)> Downtime = new();
     /// <summary>Per recast group: time spent sitting at full charges (wasted cooldown).</summary>
@@ -34,7 +36,7 @@ public sealed class Sim
     public Sim Clone() => new()
     {
         T = T, GcdReadyAt = GcdReadyAt, LockUntil = LockUntil, Gauge = Gauge, Combo = Combo, ComboUntil = ComboUntil,
-        Statuses = new(Statuses), PartyBuffs = PartyBuffs, Downtime = Downtime, Cd = new(Cd), Idle = new(Idle), Damage = Damage, Path = new(Path),
+        Statuses = new(Statuses), PartyBuffs = PartyBuffs, Downtime = Downtime, Pos = Pos, Cd = new(Cd), Idle = new(Idle), Damage = Damage, Path = new(Path),
     };
 
     public static Sim From(GameState g)
@@ -48,6 +50,7 @@ public sealed class Sim
             ComboUntil = g.ComboRemaining,
             PartyBuffs = g.PartyBuffs.ToList(),
             Downtime = g.Downtime,
+            Pos = g.Position,
             Cd = new(g.Cooldowns),
         };
         foreach (var (k, v) in g.Statuses) s.Statuses[k] = (v.Left, v.Stacks);
@@ -125,6 +128,11 @@ public sealed class Sim
         var d = a.Def;
         var combo = d.ComboFrom != null && Combo == d.ComboFrom && ComboUntil > T;
         var potency = combo && a.ComboPotency > 0 ? a.ComboPotency : a.Potency;
+        // Positional: lands under True North, on a target without positionals, if you're already on
+        // that side, or if auto-move can get you there before this GCD.
+        if (d.Positional != null && d.PositionalBonus > 0 && potency > 0 &&
+            (Has(job.Def.TrueNorthStatus) || (Pos != null && Pos.Satisfied(d.Positional, T))))
+            potency += d.PositionalBonus;
 
         // Guaranteed crit+DH: the action's own, or a stack of a status that grants it to this action.
         var critDh = d.CritDh;
