@@ -3,7 +3,7 @@
     "Author": "NoFocusLab",
     "Name": "Combat Pilot",
     "InternalName": "CombatPilot",
-    "AssemblyVersion": "0.2.0.0",
+    "AssemblyVersion": "0.2.1.0",
     "Description": "A damage rotation engine that doesn't follow a fixed priority list. Each job is described as data (actions, combos, gauge, buffs; potencies read from the game's tooltips where possible), and the engine looks a few GCDs ahead, scores the possible sequences and presses the first move of the best one. It re-plans every GCD, so a missed GCD, walking out for a mechanic or being out of range just becomes the new starting point. Live mode presses the buttons (RotationSolver is turned off for that job); Listen mode lets RotationSolver fly and logs where Combat Pilot would have differed. Every fight is logged with an after-action report. Mitigation stays with Mit Planner. Warrior first.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/NoFocusLab/ffxivplugins",
@@ -22,15 +22,15 @@
     "Punchline": "Your own damage rotation: plans a few GCDs ahead from what's happening now and re-plans every GCD.",
     "AcceptsFeedback": true,
     "IconUrl": "https://raw.githubusercontent.com/NoFocusLab/ffxivplugins/main/CombatPilot/images/icon.png",
-    "DownloadLinkInstall": "https://github.com/NoFocusLab/ffxivplugins/releases/download/CombatPilot-v0.2.0.0/CombatPilot.zip",
-    "DownloadLinkUpdate": "https://github.com/NoFocusLab/ffxivplugins/releases/download/CombatPilot-v0.2.0.0/CombatPilot.zip",
-    "DownloadLinkTesting": "https://github.com/NoFocusLab/ffxivplugins/releases/download/CombatPilot-v0.2.0.0/CombatPilot.zip"
+    "DownloadLinkInstall": "https://github.com/NoFocusLab/ffxivplugins/releases/download/CombatPilot-v0.2.1.0/CombatPilot.zip",
+    "DownloadLinkUpdate": "https://github.com/NoFocusLab/ffxivplugins/releases/download/CombatPilot-v0.2.1.0/CombatPilot.zip",
+    "DownloadLinkTesting": "https://github.com/NoFocusLab/ffxivplugins/releases/download/CombatPilot-v0.2.1.0/CombatPilot.zip"
   },
   {
     "Author": "NoFocusLab",
     "Name": "Combat Recorder",
     "InternalName": "CombatRecorder",
-    "AssemblyVersion": "0.4.3.1",
+    "AssemblyVersion": "0.4.4.0",
     "Description": "Writes one compressed JSON-lines file per duty: every action you, your party and enemies use (with damage/heal numbers), buffs and debuffs gained and lost, HP/MP and positions twice a second, casts, deaths and target changes. Party members are recorded by job and slot, never by name. /crec mark <note> drops a marker you can point to later (\"downtime here\"). Nothing leaves your PC. Also a DPS meter in game: party DPS, rDPS and aDPS (raid buffs credited to whoever gave them), HPS, damage taken, crit and direct hit rates, deaths and per-skill breakdowns, counted the way ACT does (encounter DPS, DoTs and pets included), with the last 10 fights kept.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/NoFocusLab/ffxivplugins",
@@ -51,9 +51,9 @@
     "Punchline": "Records your fights (actions, damage, heals, buffs, HP, movement) to compact local files for review.",
     "AcceptsFeedback": true,
     "IconUrl": "https://raw.githubusercontent.com/NoFocusLab/ffxivplugins/main/CombatRecorder/images/icon.png",
-    "DownloadLinkInstall": "https://github.com/NoFocusLab/ffxivplugins/releases/download/CombatRecorder-v0.4.3.1/CombatRecorder.zip",
-    "DownloadLinkUpdate": "https://github.com/NoFocusLab/ffxivplugins/releases/download/CombatRecorder-v0.4.3.1/CombatRecorder.zip",
-    "DownloadLinkTesting": "https://github.com/NoFocusLab/ffxivplugins/releases/download/CombatRecorder-v0.4.3.1/CombatRecorder.zip"
+    "DownloadLinkInstall": "https://github.com/NoFocusLab/ffxivplugins/releases/download/CombatRecorder-v0.4.4.0/CombatRecorder.zip",
+    "DownloadLinkUpdate": "https://github.com/NoFocusLab/ffxivplugins/releases/download/CombatRecorder-v0.4.4.0/CombatRecorder.zip",
+    "DownloadLinkTesting": "https://github.com/NoFocusLab/ffxivplugins/releases/download/CombatRecorder-v0.4.4.0/CombatRecorder.zip"
   },
   {
     "Author": "NoFocusLab",
@@ -175,7 +175,7 @@
     "Author": "NoFocusLab",
     "Name": "Mit Planner",
     "InternalName": "MitPlanner",
-    "AssemblyVersion": "0.11.2.0",
+    "AssemblyVersion": "0.11.3.0",
     "Description": "Detects your duty, runs the fight's timeline (cactbot format, synced to the boss's actual abilities), and shows the next mechanics with countdowns and type (tank buster, raid-wide, ...). Attach your cooldowns to specific mechanics per job (tanks and healers get an automatic Default plan; keep several plans per fight), and get a callout a few seconds before each one. Optional per-cooldown auto-use. Ships with every fight cactbot has a timeline for (300+ dungeons, trials, raids and ultimates, refreshed weekly), with tank busters and raid-wides pre-tagged.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/NoFocusLab/ffxivplugins",
@@ -194,9 +194,9 @@
     "Punchline": "Boss timeline with countdowns, plus a per-job cooldown plan that tells you what to press and when.",
     "AcceptsFeedback": true,
     "IconUrl": "https://raw.githubusercontent.com/NoFocusLab/ffxivplugins/main/MitPlanner/images/icon.png",
-    "DownloadLinkInstall": "https://github.com/NoFocusLab/ffxivplugins/releases/download/MitPlanner-v0.11.2.0/MitPlanner.zip",
-    "DownloadLinkUpdate": "https://github.com/NoFocusLab/ffxivplugins/releases/download/MitPlanner-v0.11.2.0/MitPlanner.zip",
-    "DownloadLinkTesting": "https://github.com/NoFocusLab/ffxivplugins/releases/download/MitPlanner-v0.11.2.0/MitPlanner.zip"
+    "DownloadLinkInstall": "https://github.com/NoFocusLab/ffxivplugins/releases/download/MitPlanner-v0.11.3.0/MitPlanner.zip",
+    "DownloadLinkUpdate": "https://github.com/NoFocusLab/ffxivplugins/releases/download/MitPlanner-v0.11.3.0/MitPlanner.zip",
+    "DownloadLinkTesting": "https://github.com/NoFocusLab/ffxivplugins/releases/download/MitPlanner-v0.11.3.0/MitPlanner.zip"
   },
   {
     "Author": "NoFocusLab",
