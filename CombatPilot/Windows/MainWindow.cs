@@ -96,6 +96,13 @@ public sealed class MainWindow : Window
             : "Party buffs: " + string.Join(", ", up.OrderBy(u => u.From).Select(u => $"{u.Name} in {u.From:0}s ({p.Party.Basis.GetValueOrDefault(u.Name, "?")})")));
         var terr = p.Mit.FightTerritory();
         if (terr != 0) ImGui.TextDisabled($"Learned burst schedule for this fight: {p.Party.Learner.PullsFor(terr)} pull(s) recorded (used once 2+ agree).");
+        if (p.StatsNow() is { } st)
+        {
+            ImGui.TextDisabled($"Your stats (level {st.Level}): Skill Speed {st.Sks}, crit {st.CritRate:P1} x{st.CritMult:0.000}, " +
+                               $"direct hit {st.DhRate:P1} -> a guaranteed crit+DH is worth x{st.CritDhFactor:0.00} an average hit" +
+                               (C.CritDhFromStats ? "" : " (not used: fixed value in Settings)"));
+            ImGui.TextDisabled("GCD length and opener step timing come from your actual recast (skill/spell speed and haste included).");
+        }
         var dt = p.Mit.Downtime();
         var tlt = p.Mit.TimelineTime();
         ImGui.TextDisabled(tlt < 0 ? "Fight timeline: none (Mit Planner not running one)"
@@ -285,9 +292,13 @@ public sealed class MainWindow : Window
         i = C.BeamWidth;
         ImGui.SetNextItemWidth(120);
         if (ImGui.SliderInt("Sequences kept per step", ref i, 8, 256)) { C.BeamWidth = i; changed = true; }
+        b = C.CritDhFromStats;
+        if (ImGui.Checkbox("Value guaranteed crit+DH from my Critical Hit / Direct Hit stats", ref b)) { C.CritDhFromStats = b; changed = true; }
         var f = C.CritDhFactor;
+        if (C.CritDhFromStats) ImGui.BeginDisabled();
         ImGui.SetNextItemWidth(120);
-        if (ImGui.SliderFloat("Guaranteed crit+DH value (x average hit)", ref f, 1.2f, 2.2f, "%.2f")) { C.CritDhFactor = f; changed = true; }
+        if (ImGui.SliderFloat("Fixed value instead (x average hit)", ref f, 1.2f, 2.2f, "%.2f")) { C.CritDhFactor = f; changed = true; }
+        if (C.CritDhFromStats) ImGui.EndDisabled();
         f = C.QueueWindow;
         ImGui.SetNextItemWidth(120);
         if (ImGui.SliderFloat("Queue the next GCD this early (s)", ref f, 0.1f, 0.6f, "%.2f")) { C.QueueWindow = f; changed = true; }

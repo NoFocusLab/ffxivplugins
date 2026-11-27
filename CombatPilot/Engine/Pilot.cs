@@ -106,6 +106,8 @@ public sealed unsafe class Pilot : IDisposable
         Mode = Job == null ? PilotMode.Off : config.ModeFor(Job.Def.Job);
         if (Job == null || Mode == PilotMode.Off) { Status = Job == null ? "No job file for this job" : "Off"; EndFight(); return; }
 
+        Opener.WatchCountdown(Plugin.Condition[ConditionFlag.InCombat]);
+
         // Countdown: the opener's first action goes out at its prepull time (Live only).
         if (Mode == PilotMode.Live && !Paused && OpenerRunner.Countdown() != null)
         {
@@ -180,7 +182,7 @@ public sealed unsafe class Pilot : IDisposable
         {
             HorizonGcds = Math.Clamp(config.HorizonGcds, 2, 12),
             BeamWidth = Math.Clamp(config.BeamWidth, 8, 256),
-            CritDhFactor = config.CritDhFactor,
+            CritDhFactor = config.CritDhFromStats && StatsNow()?.CritDhFactor is { } f ? f : config.CritDhFactor,
             ReservedWeaves = !forGcd && mit.PressDueIn() <= g.GcdRemaining + 0.3f ? 1 : 0,
             Held = t.HoldBurst ? Job.Def.Burst.ToHashSet() : new HashSet<string>(),
             Aoe = t.Aoe,
@@ -228,6 +230,7 @@ public sealed unsafe class Pilot : IDisposable
     private bool MayEngage()
     {
         if (config.Engage == EngageMode.WaitForCombat) { Status = "Waiting for combat (engage: wait)"; return false; }
+        if (Opener.CancelHold) { Status = "Countdown cancelled: waiting (combat or a new countdown)"; return false; }
         var g = GameState.Read(Job!);
         if (!g.HasTarget) { Status = $"Out of combat: {g.TargetNote}"; return false; }
         if (config.Engage == EngageMode.EngagedOnly && !g.TargetEngaged)
@@ -467,6 +470,20 @@ public sealed unsafe class Pilot : IDisposable
     }
 
     public void Rebind() => Job = null;
+
+    private Stats.Snapshot? stats;
+    private DateTime statsAt = DateTime.MinValue;
+
+    /// <summary>Your substats, re-read every 5 s (gear swaps, level sync).</summary>
+    public Stats.Snapshot? StatsNow()
+    {
+        if (DateTime.UtcNow - statsAt > TimeSpan.FromSeconds(5))
+        {
+            stats = Stats.Read(level);
+            statsAt = DateTime.UtcNow;
+        }
+        return stats;
+    }
 
     /// <summary>Bar button: run the opener from the next GCD.</summary>
     public void StartOpenerNow()

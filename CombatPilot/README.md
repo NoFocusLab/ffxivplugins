@@ -47,6 +47,12 @@ Rails (Extreme), The Unmaking (Extreme)):
   ([Assumption] parties hold 2-minute buffs through downtime).
 - The Pilot tab shows each expected buff and its basis (learned / cycle / opener, after downtime).
 
+## Your stats
+GCD length (and so opener step timing) comes from your actual recast: skill/spell speed and haste
+included. The value of a guaranteed critical direct hit is worked out from your Critical Hit and
+Direct Hit stats (as the game shows them, so level sync counts), using the Allagan Studies formulas;
+the Pilot tab shows your rates and the result. A fixed value can be used instead (Settings).
+
 ## Boss downtime (from Mit Planner)
 When Mit Planner is running a fight timeline (bundled cactbot or one it learned), Combat Pilot asks it
 for the upcoming untargetable windows (`MitPlanner.Downtime`). Damage planned inside a window counts
@@ -79,7 +85,9 @@ an enemy targeted fires the first action at the opener's prepull time (Warrior: 
 and then plays the steps: each GCD with its oGCDs. It overrides the travel reserve (the opener uses
 all three Onslaughts) and skips "Potion" when potions are off. It hands back to the planner when
 done, or if it goes off script (a step can't be pressed for 2 GCDs, or different GCDs went out
-twice). Right-click the toggle to run the opener now (from the next GCD). The toggle's tooltip
+twice). If the countdown is **cancelled**, nothing is pulled: the opener doesn't fire, and Combat
+Pilot won't start a fight on its own (whatever the Engage setting) until combat starts some other way
+or a new countdown begins. Right-click the toggle to run the opener now (from the next GCD). The toggle's tooltip
 lists the steps.
 
 ## Starting a fight
@@ -108,7 +116,7 @@ time at full charges. In Listen reports, an oGCD left unpressed counts once per 
 ## Not done yet / unverified
 - Unverified in game: tooltip potency parsing, RSR's `/rotation off|auto` commands, the oGCD-use
   detection used for reports, the 0.65 s weave timing.
-- [Estimate] values: guaranteed crit+DH worth 1.65x an average hit, party buff multipliers, the
+- [Estimate] values: party buff multipliers, the
   leftover-value numbers in the job file (gauge point, procs, buff time).
 - No targeting (uses your current target), no prediction of downtime yet, no
   time-to-kill (it may start a burst on a dying pack).

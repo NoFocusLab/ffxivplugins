@@ -25,6 +25,29 @@ public sealed unsafe class OpenerRunner
     private int offScript;
     private DateTime slotSince = DateTime.MaxValue;
     private bool firedThisCountdown;
+    private float lastCountdown;
+
+    /// <summary>
+    /// A countdown was called off (it vanished with time still left). Until combat starts some other
+    /// way or a new countdown begins, Combat Pilot won't start a fight on its own.
+    /// </summary>
+    public bool CancelHold { get; private set; }
+
+    /// <summary>Call every frame: spots a countdown being cancelled.</summary>
+    public void WatchCountdown(bool inCombat)
+    {
+        var cd = Countdown();
+        if (cd != null) { CancelHold = false; lastCountdown = cd.Value; return; }
+        if (lastCountdown > 0.3f && !inCombat)
+        {
+            CancelHold = true;
+            Status = "Countdown cancelled: not pulling";
+            Plugin.ChatGui.Print("[Combat Pilot] Countdown cancelled: not pulling.");
+            if (Active) { Active = false; Plugin.Log.Debug("[Pilot] opener stopped: countdown cancelled"); }
+        }
+        lastCountdown = 0;
+        if (inCombat) CancelHold = false;
+    }
 
     /// <summary>The countdown's seconds left, or null when none is running.</summary>
     public static float? Countdown()

@@ -84,8 +84,10 @@ public class Configuration : IPluginConfiguration
     // ---- planner
     public int HorizonGcds { get; set; } = 6;
     public int BeamWidth { get; set; } = 48;
-    /// <summary>[Estimate] guaranteed crit+DH vs an average hit.</summary>
+    /// <summary>[Estimate] guaranteed crit+DH vs an average hit (used when not computed from your stats).</summary>
     public float CritDhFactor { get; set; } = 1.65f;
+    /// <summary>Work it out from your Critical Hit / Direct Hit stats instead.</summary>
+    public bool CritDhFromStats { get; set; } = true;
 
     // ---- kill switch (pause/resume)
     public VirtualKey KillKey { get; set; } = VirtualKey.END;
