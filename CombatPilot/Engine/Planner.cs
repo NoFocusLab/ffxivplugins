@@ -33,6 +33,8 @@ public sealed class PlannerSettings
     /// <summary>Travel action whose charges above Keep are all the planner may spend.</summary>
     public string? ReserveAction;
     public int ReserveKeep;
+    /// <summary>Don't use an AoE that would hit an enemy that isn't fighting yet.</summary>
+    public bool NoPull = true;
 }
 
 /// <summary>
@@ -144,16 +146,16 @@ public static class Planner
             {
                 if (!a.IsGcd) continue;
                 if (!Usable(at0, a, job, set)) continue;
-                if (nearNow && (!g.HasTarget || !Reaches(a, g))) continue;
+                if (nearNow && (!g.HasTarget || !Reaches(a, g, set))) continue;
                 var c = at0.Clone();
-                c.Apply(a, job, Hits(a, g, set), set.CritDhFactor);
+                c.Apply(a, job, Hits(a, g, set, c.T), set.CritDhFactor);
                 c.GcdReadyAt = t + g.GcdLength;
                 c.LockUntil = t + Sim.GcdLock;
                 any = true;
                 yield return After(n, c, gcd: true);
             }
             // Holding the GCD: only worth considering when nothing reaches the target right now.
-            if (!any || (nearNow && !job.Actions.Any(a => a.IsGcd && Reaches(a, g) && !a.Def.Ranged && !a.Def.RangedOk)))
+            if (!any || (nearNow && !job.Actions.Any(a => a.IsGcd && Reaches(a, g, set) && !a.Def.Ranged && !a.Def.RangedOk)))
             {
                 var c = s.Clone();
                 c.AdvanceTo(t + g.GcdLength);
@@ -176,10 +178,10 @@ public static class Planner
         {
             if (a.IsGcd) continue;
             if (!Usable(w0, a, job, set)) continue;
-            if (a.Def.Potency > 0 && nearNow && (!g.HasTarget || !Reaches(a, g))) continue;
+            if (a.Def.Potency > 0 && nearNow && (!g.HasTarget || !Reaches(a, g, set))) continue;
             if (a.Def.Potency > 0 && !g.HasTarget) continue;
             var c = w0.Clone();
-            c.Apply(a, job, Hits(a, g, set), set.CritDhFactor);
+            c.Apply(a, job, Hits(a, g, set, c.T), set.CritDhFactor);
             c.LockUntil = at + Sim.OgcdLock;
             var left = n.WeavesLeft - 1;
             yield return new Node { Sim = c, NextIsGcd = left <= 0, WeavesLeft = left, Gcds = n.Gcds, Root = n.Root };
@@ -196,22 +198,28 @@ public static class Planner
     };
 
     /// <summary>
-    /// Can it hit something right now: AoEs around you need an enemy within their radius; everything
-    /// else asks the game (range and line of sight to your target).
+    /// Can it hit something right now. Single-target: the game's range/line-of-sight check on your
+    /// target. AoE: something that counts is inside its area, it doesn't pull a new enemy (setting),
+    /// and with AoE off it hits nothing but your target.
     /// </summary>
-    public static bool Reaches(BoundAction a, GameState g) =>
-        a.Def.Aoe == "self" ? g.EnemiesNearMe > 0 : g.InRange.Contains(a.Id);
-
-    private static int Hits(BoundAction a, GameState g, PlannerSettings set)
+    public static bool Reaches(BoundAction a, GameState g, PlannerSettings? set = null)
     {
-        if (a.Def.Aoe == null) return 1;
-        var n = a.Def.Aoe == "self" ? Math.Max(1, g.EnemiesNearMe) : Math.Max(1, g.EnemiesNearTarget);
-        return set.Aoe switch
-        {
-            AoeMode.SingleTarget => 1,
-            AoeMode.Force => Math.Max(3, n),
-            _ => n,
-        };
+        if (!a.IsAoe) return g.InRange.Contains(a.Id);
+        if (set != null && set.NoPull && g.WouldPull.Contains(a.Id)) return false;
+        if (set?.Aoe == AoeMode.SingleTarget && g.HitsOthers.Contains(a.Id)) return false;
+        if (a.Shape is Shape.CircleTarget or Shape.Cone or Shape.Line && !g.InRange.Contains(a.Id)) return false;
+        return g.HitTtks.TryGetValue(a.Id, out var h) && h.Length > 0;
+    }
+
+    /// <summary>
+    /// How many enemies an action hits at time t (seconds from now): the ones inside its area that
+    /// are expected to still be alive then. AoE force: at least 3.
+    /// </summary>
+    private static int Hits(BoundAction a, GameState g, PlannerSettings set, double t)
+    {
+        if (!a.IsAoe) return g.TargetTtk > t || g.TargetTtk >= 999 ? 1 : 0;
+        var n = g.HitTtks.TryGetValue(a.Id, out var h) ? h.Count(x => x > t) : 0;
+        return set.Aoe == AoeMode.Force ? Math.Max(3, n) : n;
     }
 
     /// <summary>Damage so far plus what's left in hand, minus cooldown time wasted.</summary>

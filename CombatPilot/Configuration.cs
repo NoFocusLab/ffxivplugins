@@ -76,6 +76,8 @@ public class Configuration : IPluginConfiguration
     public float BarIconSize { get; set; } = 40;
     /// <summary>A clicked action waits this long for its slot before it's dropped.</summary>
     public float QueueSeconds { get; set; } = 6;
+    /// <summary>Never use an AoE that would hit an enemy that isn't fighting yet (no accidental pulls).</summary>
+    public bool NoPullWithAoe { get; set; } = true;
 
     // ---- RotationSolver Reborn
     public bool TurnOffRsr { get; set; } = true;

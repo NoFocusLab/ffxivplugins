@@ -134,10 +134,10 @@ public sealed class Sim
 
         var dmg = 0.0;
         var down = Downtime.Any(w => w.From <= T && w.Until > T);
-        if (potency > 0 && !down)
+        if (potency > 0 && !down && hits > 0)
         {
-            var h = Math.Max(1, hits);
-            var total = potency * (d.Aoe == null ? 1 : 1 + (h - 1) * (1 - d.Falloff));
+            var h = hits;
+            var total = potency * (!a.IsAoe ? 1 : 1 + (h - 1) * (1 - a.Falloff));
             dmg = total * DamageMult(job) * (critDh ? critDhFactor : 1);
         }
         // Earlier damage is worth slightly more: without this, sequences that do the same things in a

@@ -93,10 +93,17 @@ public sealed class ActionDef
     public bool RangedOk { get; set; }
     /// <summary>A GCD that doesn't break the current combo (since 7.0 most don't).</summary>
     public bool KeepsCombo { get; set; }
-    /// <summary>"self" (around you) or "target" (around the target); null = single target.</summary>
+    /// <summary>
+    /// Override of the shape read from game data: "self" (circle around you), "target" (circle around
+    /// the target), "cone" or "line" (from you toward the target). Null: use the game's data.
+    /// </summary>
     public string? Aoe { get; set; }
     public double Radius { get; set; }
-    /// <summary>Potency lost per additional target (0.5 = 50% less).</summary>
+    /// <summary>Cone angle in degrees (game data has no angle; default 90).</summary>
+    public double Angle { get; set; }
+    /// <summary>Line width (default: the game's).</summary>
+    public double Width { get; set; }
+    /// <summary>Potency lost per additional target (0.5 = 50% less). Read from the tooltip when it says so.</summary>
     public double Falloff { get; set; }
     public int GaugeCost { get; set; }
     /// <summary>Status whose stack makes this free (and is used up by it).</summary>

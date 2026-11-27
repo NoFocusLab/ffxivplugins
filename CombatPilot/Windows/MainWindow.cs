@@ -107,6 +107,14 @@ public sealed class MainWindow : Window
         var tlt = p.Mit.TimelineTime();
         ImGui.TextDisabled(tlt < 0 ? "Fight timeline: none (Mit Planner not running one)"
             : $"Fight timeline {tlt:0}s; downtime: " + (dt.Count == 0 ? "none in the next 90 s" : string.Join(", ", dt.Select(w => $"{w.From:0}-{w.Until:0}s"))));
+        if (p.LastState is { } gs && gs.Enemies.Count > 0)
+        {
+            var aoe = p.Job.Actions.Where(a => a.IsAoe && a.Def.Potency > 0)
+                .Select(a => $"{a.Name} {(gs.HitTtks.TryGetValue(a.Id, out var h) ? h.Length : 0)}{(gs.WouldPull.Contains(a.Id) ? " (would pull)" : "")}");
+            ImGui.TextDisabled($"Enemies fighting: {gs.Enemies.Count} (" +
+                               string.Join(", ", gs.Enemies.Take(6).Select(e => e.Ttk >= 999 ? "TTK ?" : $"TTK {e.Ttk:0}s")) + ")");
+            ImGui.TextDisabled("AoE would hit: " + string.Join(", ", aoe));
+        }
         DrawDecision("Next GCD", p.LastGcd);
         DrawDecision("Last weave check", p.LastWeave);
         if (p.Log.Current is { } f)
@@ -141,7 +149,7 @@ public sealed class MainWindow : Window
             ImGui.TextColored(Bad, "Not found in game data: " + string.Join(", ", job.Unresolved));
         if (ImGui.Button("Re-read")) plugin.Pilot.Rebind();
 
-        if (!ImGui.BeginTable("##actions", 7, ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.SizingStretchProp, new Vector2(0, 0))) return;
+        if (!ImGui.BeginTable("##actions", 8, ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.SizingStretchProp, new Vector2(0, 0))) return;
         ImGui.TableSetupScrollFreeze(0, 1);
         ImGui.TableSetupColumn("Action");
         ImGui.TableSetupColumn("Lv", ImGuiTableColumnFlags.WidthFixed, 30);
@@ -149,6 +157,7 @@ public sealed class MainWindow : Window
         ImGui.TableSetupColumn("Potency", ImGuiTableColumnFlags.WidthFixed, 60);
         ImGui.TableSetupColumn("Combo", ImGuiTableColumnFlags.WidthFixed, 50);
         ImGui.TableSetupColumn("Source", ImGuiTableColumnFlags.WidthFixed, 50);
+        ImGui.TableSetupColumn("Area", ImGuiTableColumnFlags.WidthFixed, 130);
         ImGui.TableSetupColumn("Check");
         ImGui.TableHeadersRow();
         foreach (var a in job.Actions)
@@ -160,6 +169,14 @@ public sealed class MainWindow : Window
             ImGui.TableNextColumn(); ImGui.TextUnformatted(a.Potency > 0 ? a.Potency.ToString("0") : "");
             ImGui.TableNextColumn(); ImGui.TextUnformatted(a.ComboPotency > 0 ? a.ComboPotency.ToString("0") : "");
             ImGui.TableNextColumn(); ImGui.TextUnformatted(a.Def.Potency > 0 ? a.PotencySource : "");
+            ImGui.TableNextColumn(); ImGui.TextUnformatted(a.Shape switch
+            {
+                Shape.CircleSelf => $"circle {a.Radius:0}y (you)",
+                Shape.CircleTarget => $"circle {a.Radius:0}y (target)",
+                Shape.Cone => $"cone {a.Radius:0}y {a.Angle:0}°",
+                Shape.Line => $"line {a.Radius:0}x{a.Width:0}y",
+                _ => "",
+            } + (a.Falloff > 0 ? $", -{a.Falloff:P0}" : ""));
             ImGui.TableNextColumn();
             if (a.TooltipPotency is { } t && Math.Abs(t - a.Def.Potency) > 0.5)
                 ImGui.TextColored(Warn, $"file says {a.Def.Potency:0}");
@@ -244,6 +261,9 @@ public sealed class MainWindow : Window
         var qs = C.QueueSeconds;
         ImGui.SetNextItemWidth(120);
         if (ImGui.SliderFloat("A clicked action waits for its slot (s)", ref qs, 1, 15, "%.0f")) { C.QueueSeconds = qs; changed = true; }
+
+        b = C.NoPullWithAoe;
+        if (ImGui.Checkbox("Never use an AoE that would hit an enemy that isn't fighting yet", ref b)) { C.NoPullWithAoe = b; changed = true; }
 
         ImGui.Separator();
         ImGui.TextUnformatted("Potions (turned on per job on the bar):");

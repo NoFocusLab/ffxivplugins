@@ -9,6 +9,8 @@ using Action = Lumina.Excel.Sheets.Action;
 
 namespace CombatPilot.Jobs;
 
+public enum Shape { Single, CircleSelf, CircleTarget, Cone, Line }
+
 /// <summary>One job-file action matched to the game: ids, timing and potency.</summary>
 public sealed class BoundAction
 {
@@ -25,6 +27,14 @@ public sealed class BoundAction
     /// <summary>"game" when read from the tooltip, "data" when from the job file.</summary>
     public string PotencySource { get; set; } = "data";
     public double? TooltipPotency { get; set; }
+    // ---- area of effect (from game data: CastType, EffectRange, XAxisModifier; the job file can override)
+    public Shape Shape { get; set; } = Shape.Single;
+    public double Radius { get; set; }
+    public double Width { get; set; }
+    public double Angle { get; set; } = 90;
+    public double Falloff { get; set; }
+    public bool IsAoe => Shape != Shape.Single;
+
     /// <summary>An inventory item (potion), used with the item's id (HQ: id + 1,000,000).</summary>
     public bool IsItem { get; init; }
     public string Name => Def.Name;
@@ -82,7 +92,9 @@ public sealed class JobBinding
                 Potency = a.Potency,
                 ComboPotency = a.ComboPotency,
             };
-            ReadTooltip(bound, transient.GetRowOrDefault(row.RowId)?.Description.ExtractText());
+            var tip = transient.GetRowOrDefault(row.RowId)?.Description.ExtractText();
+            ReadTooltip(bound, tip);
+            ReadShape(bound, row, a, tip);
             Actions.Add(bound);
             ByName[a.Name] = bound;
         }
@@ -106,6 +118,34 @@ public sealed class JobBinding
         a.PotencySource = "game";
         var combos = ComboRe.Matches(text).Select(m => Num(m.Groups[1].Value)).Distinct().ToList();
         if (combos.Count == 1 && a.Def.ComboPotency > 0) a.ComboPotency = combos[0];
+    }
+
+    private static readonly Regex FalloffRe = new(@"(\d+)% less for all remaining enemies", RegexOptions.Compiled);
+
+    /// <summary>
+    /// The action's area from game data. [Assumption] CastType 1 = single target, 2/5 = circle
+    /// (around you when the action has no range, else around the target), 3/13 = cone, 4/12 = line
+    /// (XAxisModifier = width). Job file fields override (shape, radius, angle, width, falloff).
+    /// </summary>
+    private static void ReadShape(BoundAction b, Action row, ActionDef a, string? tip)
+    {
+        b.Radius = row.EffectRange;
+        b.Width = row.XAxisModifier;
+        b.Shape = row.CastType switch
+        {
+            2 or 5 => row.Range == 0 ? Shape.CircleSelf : Shape.CircleTarget,
+            3 or 13 => Shape.Cone,
+            4 or 12 => Shape.Line,
+            _ => Shape.Single,
+        };
+        if (row.EffectRange == 0 && b.Shape != Shape.Single) b.Shape = Shape.Single;
+        if (a.Aoe != null)
+            b.Shape = a.Aoe switch { "self" => Shape.CircleSelf, "target" => Shape.CircleTarget, "cone" => Shape.Cone, "line" => Shape.Line, _ => Shape.Single };
+        if (a.Radius > 0) b.Radius = a.Radius;
+        if (a.Width > 0) b.Width = a.Width;
+        if (a.Angle > 0) b.Angle = a.Angle;
+        b.Falloff = a.Falloff;
+        if (tip != null && FalloffRe.Match(tip) is { Success: true } m && double.TryParse(m.Groups[1].Value, out var pct)) b.Falloff = pct / 100;
     }
 
     private static double Num(string s) => double.TryParse(s.Replace(",", ""), out var v) ? v : 0;

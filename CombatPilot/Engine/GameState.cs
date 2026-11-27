@@ -20,6 +20,33 @@ public struct CdState
     public double NextChargeIn;
 }
 
+/// <summary>An enemy the AoE math considers.</summary>
+public sealed record EnemyInfo(ulong Id, string Name, Vector3 Position, float Hitbox, bool InCombat, bool IsTarget, double Ttk);
+
+/// <summary>
+/// Time to live per enemy, from how fast its HP has been dropping over the last few seconds.
+/// No drop seen (or too little data) = 999 s (treated as "lives through the look-ahead").
+/// </summary>
+public static class HpHistory
+{
+    private static readonly Dictionary<ulong, Queue<(DateTime At, uint Hp)>> samples = new();
+    private const double Window = 6;
+
+    public static double Ttk(ulong id, uint hp, uint maxHp)
+    {
+        var now = DateTime.UtcNow;
+        if (!samples.TryGetValue(id, out var q)) samples[id] = q = new();
+        if (q.Count == 0 || (now - q.Last().At).TotalSeconds >= 0.25) q.Enqueue((now, hp));
+        while (q.Count > 0 && (now - q.Peek().At).TotalSeconds > Window) q.Dequeue();
+        if (samples.Count > 200) samples.Clear();
+        var first = q.Peek();
+        var dt = (now - first.At).TotalSeconds;
+        if (dt < 1.5 || first.Hp <= hp) return 999;
+        var rate = (first.Hp - hp) / dt;
+        return Math.Min(999, hp / rate);
+    }
+}
+
 /// <summary>Everything the planner needs, read from the game once per decision.</summary>
 public sealed class GameState
 {
@@ -38,8 +65,16 @@ public sealed class GameState
     public ulong TargetId;
     /// <summary>Actions the game says can reach the target right now (range and line of sight).</summary>
     public HashSet<uint> InRange = new();
-    public int EnemiesNearMe;
-    public int EnemiesNearTarget;
+    /// <summary>Enemies that count (in combat, or your target), with how long they're expected to live.</summary>
+    public List<EnemyInfo> Enemies = new();
+    /// <summary>Your target's expected time to live (s).</summary>
+    public double TargetTtk = 999;
+    /// <summary>Per AoE action: expected time to live of each enemy it would hit now.</summary>
+    public Dictionary<uint, double[]> HitTtks = new();
+    /// <summary>Per AoE action: it would also hit an enemy that isn't fighting yet (pulls it).</summary>
+    public HashSet<uint> WouldPull = new();
+    /// <summary>Per AoE action: it would hit something other than your target.</summary>
+    public HashSet<uint> HitsOthers = new();
     public bool InCombat;
     /// <summary>Boss downtime ahead (from Mit Planner's timeline): seconds from now.</summary>
     public List<(double From, double Until)> Downtime = new();
@@ -47,6 +82,93 @@ public sealed class GameState
     public bool TargetEngaged;
     /// <summary>Why there's no usable target (for the status line).</summary>
     public string TargetNote = "";
+
+    /// <summary>[Assumption] statuses that make an enemy take no damage, by name.</summary>
+    private static bool Invulnerable(IBattleChara n)
+    {
+        foreach (var st in n.StatusList)
+        {
+            if (st.StatusId == 0) continue;
+            var name = StatusNames.Of(st.StatusId);
+            if (name.Contains("Invincib", StringComparison.OrdinalIgnoreCase) || name.Contains("Invulnerab", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Which enemies count, and for each AoE action which of them it would hit from where you
+    /// stand now (shape and size from game data, hitboxes included), with their time to live.
+    /// Enemies that can't be damaged are left out; enemies not fighting yet are noted as "would pull".
+    /// </summary>
+    private static unsafe void ReadEnemies(GameState s, JobBinding job, IBattleChara me, IBattleChara? target, uint starterId)
+    {
+        var others = new List<(EnemyInfo Info, bool Counts)>();
+        foreach (var n in Plugin.ObjectTable.OfType<IBattleNpc>())
+        {
+            if (n.CurrentHp == 0 || !n.IsTargetable || Vector3.Distance(n.Position, me.Position) > 30) continue;
+            var isTarget = s.HasTarget && n.GameObjectId == s.TargetId;
+            if (!isTarget && !ActionManager.CanUseActionOnTarget(starterId, (GameObjectStruct*)n.Address)) continue;
+            if (Invulnerable(n)) continue;
+            var inCombat = (n.StatusFlags & StatusFlags.InCombat) != 0;
+            var info = new EnemyInfo(n.GameObjectId, n.Name.TextValue, n.Position, n.HitboxRadius, inCombat, isTarget,
+                HpHistory.Ttk(n.GameObjectId, n.CurrentHp, n.MaxHp));
+            if (isTarget) s.TargetTtk = info.Ttk;
+            others.Add((info, inCombat || isTarget));
+        }
+        s.Enemies = others.Where(o => o.Counts).Select(o => o.Info).ToList();
+
+        var from = me.Position;
+        var toward = target != null && s.HasTarget ? target.Position - me.Position : new Vector3((float)Math.Sin(me.Rotation), 0, (float)Math.Cos(me.Rotation));
+        toward.Y = 0;
+        if (toward.LengthSquared() < 0.0001f) toward = new Vector3(0, 0, 1);
+        toward = Vector3.Normalize(toward);
+        foreach (var a in job.Actions)
+        {
+            if (!a.IsAoe) continue;
+            var hit = new List<double>();
+            foreach (var (e, counts) in others)
+            {
+                if (!Inside(a, e, from, target?.Position, toward, s.HasTarget)) continue;
+                if (!counts) { s.WouldPull.Add(a.Id); continue; }
+                hit.Add(e.Ttk);
+                if (!e.IsTarget) s.HitsOthers.Add(a.Id);
+            }
+            s.HitTtks[a.Id] = hit.ToArray();
+        }
+    }
+
+    private static bool Inside(BoundAction a, EnemyInfo e, Vector3 me, Vector3? target, Vector3 dir, bool hasTarget)
+    {
+        var r = a.Radius + e.Hitbox;
+        switch (a.Shape)
+        {
+            case Shape.CircleSelf:
+                return Flat(e.Position - me).Length() <= r;
+            case Shape.CircleTarget:
+                return hasTarget && target != null && Flat(e.Position - target.Value).Length() <= r;
+            case Shape.Cone:
+            {
+                var v = Flat(e.Position - me);
+                var d = v.Length();
+                if (d <= e.Hitbox) return true;
+                if (d > r) return false;
+                var cos = Vector3.Dot(v / d, dir);
+                return Math.Acos(Math.Clamp(cos, -1, 1)) * 180 / Math.PI <= a.Angle / 2 + Math.Atan2(e.Hitbox, d) * 180 / Math.PI;
+            }
+            case Shape.Line:
+            {
+                var v = Flat(e.Position - me);
+                var along = Vector3.Dot(v, dir);
+                var side = (v - dir * along).Length();
+                return along >= -e.Hitbox && along <= a.Radius + e.Hitbox && side <= a.Width / 2 + e.Hitbox;
+            }
+            default:
+                return false;
+        }
+    }
+
+    private static Vector3 Flat(Vector3 v) => new(v.X, 0, v.Z);
 
     public static unsafe GameState Read(JobBinding job, PartyBuffTracker? party = null, MitBridge? mit = null)
     {
@@ -64,7 +186,7 @@ public sealed class GameState
             if (gcd->IsActive && gcd->Total > 1) s.GcdLength = gcd->Total;
         }
         // Read the GCD length from a combo starter when the GCD isn't rolling (skill speed, haste).
-        var starter = job.Actions.FirstOrDefault(a => a.IsGcd && a.Def.ComboFrom == null && a.Def.Aoe == null);
+        var starter = job.Actions.FirstOrDefault(a => a.IsGcd && a.Def.ComboFrom == null && !a.IsAoe);
         if (starter != null && !(gcd != null && gcd->IsActive))
         {
             var t = ActionManager.GetAdjustedRecastTime(ActionType.Action, starter.Id) / 1000.0;
@@ -146,15 +268,8 @@ public sealed class GameState
                 if (!a.IsItem && ActionManager.GetActionInRangeOrLoS(a.Id, src, dst) == 0) s.InRange.Add(a.Id);
         }
 
-        var enemies = Plugin.ObjectTable.OfType<IBattleNpc>()
-            .Where(n => n.CurrentHp > 0 && n.IsTargetable &&
-                        (n.GameObjectId == s.TargetId ||
-                         ((n.StatusFlags & StatusFlags.Hostile) != 0 && (n.StatusFlags & StatusFlags.InCombat) != 0)))
-            .ToList();
-        // [Assumption] 5y AoEs reach enemies whose hitbox edge is within 5y.
-        s.EnemiesNearMe = enemies.Count(n => Vector3.Distance(n.Position, me.Position) - n.HitboxRadius <= 5);
-        if (s.HasTarget && target != null)
-            s.EnemiesNearTarget = enemies.Count(n => Vector3.Distance(n.Position, target.Position) - n.HitboxRadius <= 5);
+        ReadEnemies(s, job, me, target, starterId);
+
         if (mit != null) s.Downtime = mit.Downtime();
         if (party != null)
             foreach (var (mult, from, until, _) in party.Upcoming(60, s.Downtime)) s.PartyBuffs.Add((mult, from, until));

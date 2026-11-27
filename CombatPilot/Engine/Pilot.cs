@@ -33,6 +33,8 @@ public sealed unsafe class Pilot : IDisposable
     public bool Paused { get; private set; }
     public Decision? LastGcd { get; private set; }
     public Decision? LastWeave { get; private set; }
+    /// <summary>The game state of the last plan (for the Pilot tab's AoE line).</summary>
+    public GameState? LastState { get; private set; }
     public string Status { get; private set; } = "";
     public bool SafeMode { get; private set; }
 
@@ -188,8 +190,10 @@ public sealed unsafe class Pilot : IDisposable
             Aoe = t.Aoe,
             ReserveAction = t.KeepTravel ? Job.Def.Travel?.Action : null,
             ReserveKeep = Job.Def.Travel?.Keep ?? 0,
+            NoPull = config.NoPullWithAoe,
         };
         var job = Job;
+        LastState = g;
         var started = DateTime.UtcNow;
         planning = Task.Run(() => (Planner.Decide(g, job, set, forGcd), forGcd, started));
     }

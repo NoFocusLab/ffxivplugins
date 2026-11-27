@@ -72,7 +72,9 @@ public sealed unsafe class BarsWindow : Window
 
         var aoe = t.Aoe switch { AoeMode.Auto => "AoE: auto", AoeMode.SingleTarget => "AoE: off", _ => "AoE: force" };
         if (Toggle(aoe + "##aoe", t.Aoe == AoeMode.Auto ? On : Hold,
-                   "Auto: counts enemies around you. Off: single-target only. Force: treat it as 3+ enemies. Click to cycle."))
+                   "Auto: AoE vs single target worked out from the enemies each AoE would actually hit (area, hitboxes,\n" +
+                   "how long they'll live). Off: no AoE that hits anything but your target (focus mechanics, things\n" +
+                   "that shouldn't be hit). Force: treat AoEs as hitting at least 3. Click to cycle."))
         { t.Aoe = (AoeMode)(((int)t.Aoe + 1) % 3); changed = true; }
 
         if (job.Def.Travel is { } tr)

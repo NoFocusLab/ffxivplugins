@@ -47,6 +47,33 @@ Rails (Extreme), The Unmaking (Extreme)):
   ([Assumption] parties hold 2-minute buffs through downtime).
 - The Pilot tab shows each expected buff and its basis (learned / cycle / opener, after downtime).
 
+## AoE vs single target
+Worked out per decision, for every job, from the enemies each AoE would actually hit:
+- **Area from game data:** shape (circle around you or the target, cone, line) and size come from the
+  action's own data; falloff ("50% less for all remaining enemies") from its tooltip. A job file can
+  override any of it. Hitboxes count.
+- **Which enemies count:** fighting enemies (and your target). Enemies that can't be damaged
+  ([Assumption] statuses named Invincibility/Invulnerability) are left out. An AoE that would also hit
+  an enemy that isn't fighting yet is not used (setting, on by default: no accidental pulls).
+- **Time to live:** each enemy's HP drop rate gives how long it will last; a hit only counts on
+  enemies still alive when it lands (no AoE into a pack that dies next GCD).
+- The planner then compares the sequences (combos, gauge, buffs included) and picks what does more.
+- **AoE toggle (bar):** auto / **off** (no AoE that hits anything but your target: focus mechanics,
+  things that shouldn't be hit) / force (treat AoEs as hitting at least 3).
+- The Pilot tab shows the enemies fighting (with time to live) and how many each AoE would hit.
+
+**Warrior break-even points** (7.55 potencies, per target, before time to live):
+
+| Single target | AoE | AoE wins at |
+|---|---|---|
+| Heavy Swing > Maim > Storm's Path: 1080 / 3 GCDs = 360 per GCD | Overpower > Mythril Tempest: 250 / 2 GCDs = 125 per GCD per target | 3+ |
+| Fell Cleave 580 | Decimate 180 per target | 4+ |
+| Inner Chaos 700 | Chaotic Cyclone 200 per target (both crit+DH) | 4+ |
+| Upheaval 420 | Orogeny 150 per target | 3+ |
+| Primal Rend / Ruination / Wrath | already AoE (50% less on others) | always |
+
+Both combos give the same gauge per GCD (10), and Mythril Tempest keeps Surging Tempest up too.
+
 ## Your stats
 GCD length (and so opener step timing) comes from your actual recast: skill/spell speed and haste
 included. The value of a guaranteed critical direct hit is worked out from your Critical Hit and
