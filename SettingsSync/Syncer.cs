@@ -198,7 +198,34 @@ public sealed class Syncer : IDisposable
     private static byte[] Bytes(LocalFile f) => f.Data ?? ReadShared(f.Full);
 
     /// <summary>State keys: pluginConfigs files by their path inside pluginConfigs; Dalamud setup by repo path.</summary>
-    private static string RepoPath(string key) => key.StartsWith(DalamudSetup.Prefix, StringComparison.Ordinal) ? key : Prefix + key;
+    private static string RepoPath(string key) =>
+        key.StartsWith(DalamudSetup.Prefix, StringComparison.Ordinal) || key.StartsWith(DevicesPrefix, StringComparison.Ordinal) ? key : Prefix + key;
+
+    // ---- device types: "devices/<Type>/pluginConfigs/<rel>" holds per-device-type copies
+    public const string DevicesPrefix = "devices/";
+    private string DeviceType => cfg.DeviceType.Trim().Replace('/', '-');
+    private string DeviceRoot => $"{DevicesPrefix}{DeviceType}/pluginConfigs/";
+
+    /// <summary>Plugins with a copy for this device type on GitHub (another PC of the same type chose them).</summary>
+    public HashSet<string> RemoteDevicePlugins { get; private set; } = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Plugin names seen in the last scan, for the per-device picker.</summary>
+    public List<string> LocalPluginNames { get; private set; } = new();
+
+    public bool IsPerDevice(string rel) =>
+        DeviceType.Length > 0 && (cfg.PerDevicePlugins.Contains(PluginOf(rel), StringComparer.OrdinalIgnoreCase) ||
+                                  RemoteDevicePlugins.Contains(PluginOf(rel)));
+
+    /// <summary>State key -> path inside pluginConfigs.</summary>
+    private string LocalRel(string key) => key.StartsWith(DevicesPrefix, StringComparison.Ordinal) ? key[DeviceRoot.Length..] : key;
+
+    /// <summary>Repo path -> state key, for shared files and this device type's files; null for anything else.</summary>
+    private string? KeyOf(string path)
+    {
+        if (path.StartsWith(Prefix, StringComparison.Ordinal)) return path[Prefix.Length..];
+        if (DeviceType.Length > 0 && path.StartsWith(DeviceRoot, StringComparison.OrdinalIgnoreCase)) return DeviceRoot + path[DeviceRoot.Length..];
+        if (path.StartsWith(DalamudSetup.Prefix, StringComparison.Ordinal)) return path;
+        return null;
+    }
 
     private static SyncGroups GroupOf(string key) =>
         key.StartsWith(DalamudSetup.Prefix, StringComparison.Ordinal) ? SyncGroups.Dalamud : SyncGroups.Plugins;
@@ -282,7 +309,7 @@ public sealed class Syncer : IDisposable
             try
             {
                 var src = PendingFile(rel);
-                if (File.Exists(src)) { WriteLocal(rel, File.ReadAllBytes(src)); State.BaseShas[rel] = sha; applied++; }
+                if (File.Exists(src)) { WriteLocal(LocalRel(rel), File.ReadAllBytes(src)); State.BaseShas[rel] = sha; applied++; }
             }
             catch (Exception e) { Plugin.Log.Warning(e, $"Settings Sync: couldn't apply pulled {rel}"); }
         }
@@ -374,19 +401,38 @@ public sealed class Syncer : IDisposable
             head = await gh.GetHead(cfg.Branch, ct);
         }
         var remote = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var shared = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);   // shared copies of per-device files
+        RemoteDevicePlugins = DeviceType.Length == 0 ? new(StringComparer.OrdinalIgnoreCase) :
+            (head?.Files ?? new List<RemoteFile>()).Where(f => f.Path.StartsWith(DeviceRoot, StringComparison.OrdinalIgnoreCase))
+                .Select(f => PluginOf(f.Path[DeviceRoot.Length..])).ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (head != null)
             foreach (var f in head.Files)
             {
-                string key;
-                if (f.Path.StartsWith(Prefix, StringComparison.Ordinal)) key = f.Path[Prefix.Length..];
-                else if (f.Path.StartsWith(DalamudSetup.Prefix, StringComparison.Ordinal)) key = f.Path;
-                else continue;
-                if ((GroupOf(key) & groups) != 0 && !IsExcluded(key)) remote[key] = f.Sha;
+                if (KeyOf(f.Path) is not { } key) continue;
+                if ((GroupOf(key) & groups) == 0 || IsExcluded(LocalRel(key))) continue;
+                if (!key.StartsWith(DevicesPrefix, StringComparison.Ordinal) && GroupOf(key) == SyncGroups.Plugins && IsPerDevice(key))
+                    shared[key] = f.Sha;   // this device type keeps its own copy; the shared one only seeds it
+                else remote[key] = f.Sha;
             }
+        // A per-device file with no copy for this device type yet starts from the shared copy.
+        var seeds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (rel, sha) in shared)
+            if (remote.TryAdd(DeviceRoot + rel, sha)) seeds.Add(DeviceRoot + rel);
         var remoteFrom = head == null ? "" : await LastPusher(head, ct);
 
         Status = "Comparing files...";
-        var local = (groups & SyncGroups.Plugins) != 0 ? ScanLocal() : new Dictionary<string, LocalFile>(StringComparer.OrdinalIgnoreCase);
+        var local = new Dictionary<string, LocalFile>(StringComparer.OrdinalIgnoreCase);
+        if ((groups & SyncGroups.Plugins) != 0)
+        {
+            var scanned = ScanLocal();
+            LocalPluginNames = scanned.Keys.Select(PluginOf).Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
+            foreach (var (rel, f) in scanned)
+            {
+                var key = IsPerDevice(rel) ? DeviceRoot + rel : rel;
+                local[key] = f with { Rel = key };
+            }
+        }
         var dalamudOn = (groups & SyncGroups.Dalamud) != 0 && Dalamud.Available;
         if (dalamudOn)
         {
@@ -439,11 +485,13 @@ public sealed class Syncer : IDisposable
         // Already waiting for next start: don't download it again.
         pulls.RemoveAll(p => State.PendingShas.TryGetValue(p, out var s) && s == remote[p]);
 
+        var pulledData = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+
         // ---- pulls
         if (pulls.Count > 0)
         {
             Status = $"Downloading {pulls.Count} file(s)...";
-            var data = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+            var data = pulledData;
             if (pulls.Count > 25)
             {
                 var byPath = pulls.ToDictionary(RepoPath, p => p, StringComparer.Ordinal);
@@ -465,7 +513,7 @@ public sealed class Syncer : IDisposable
                     State.BaseShas[rel] = remote[rel];
                 }
                 else if (GroupOf(rel) == SyncGroups.Dalamud) Stage(rel, remote[rel], data[rel]);   // applied after the game closes
-                else if (mode == SyncMode.Startup) { WriteLocal(rel, data[rel]); State.BaseShas[rel] = remote[rel]; }
+                else if (mode == SyncMode.Startup) { WriteLocal(LocalRel(rel), data[rel]); State.BaseShas[rel] = remote[rel]; }
                 else Stage(rel, remote[rel], data[rel]);
             }
             State.LastPull = DateTime.Now;
@@ -477,6 +525,16 @@ public sealed class Syncer : IDisposable
                               (waitsForClose ? " (Dalamud settings apply after the game closes)" : "") + $": {Summary(pulls)}");
         }
 
+        // Seeded from the shared copy and now the same here: give this device type its own copy on GitHub.
+        var seedData = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+        if (!pullOnly && State.FirstSyncDone)
+            foreach (var key in seeds)
+            {
+                if (pushes.Contains(key) || conflicts.Any(c => c.Path == key)) continue;
+                if (local.TryGetValue(key, out var lf) && lf.Sha == remote[key]) { pushes.Add(key); }
+                else if (pulledData.TryGetValue(key, out var d)) { seedData[key] = d; pushes.Add(key); }
+            }
+
         // ---- pushes
         if (pushes.Count > 0)
         {
@@ -485,8 +543,9 @@ public sealed class Syncer : IDisposable
             var texts = new List<KeyValuePair<string, string>>();
             foreach (var rel in pushes)
             {
-                var bytes = Bytes(local[rel]);   // re-read: the file may have changed since the scan
-                local[rel] = local[rel] with { Sha = GitSha(bytes) };
+                var bytes = seedData.TryGetValue(rel, out var seeded) ? seeded : Bytes(local[rel]);   // re-read: may have changed since the scan
+                local[rel] = local.TryGetValue(rel, out var cur) ? cur with { Sha = GitSha(bytes) }
+                                                                 : new LocalFile(rel, "", GitSha(bytes), bytes.Length, DateTime.Now, bytes);
                 if (AsText(bytes) is { } text) texts.Add(new(RepoPath(rel), text));
                 else entries.Add(new(RepoPath(rel), await gh.CreateBlob(bytes, ct)));   // binary: its own upload
             }
@@ -498,7 +557,7 @@ public sealed class Syncer : IDisposable
             var fixes = new List<KeyValuePair<string, string?>>();
             foreach (var rel in pushes)
                 if (stored.GetValueOrDefault(RepoPath(rel)) != local[rel].Sha)
-                    fixes.Add(new(RepoPath(rel), await gh.CreateBlob(Bytes(local[rel]), ct)));
+                    fixes.Add(new(RepoPath(rel), await gh.CreateBlob(seedData.TryGetValue(rel, out var sd) ? sd : Bytes(local[rel]), ct)));
             if (fixes.Count > 0)
             {
                 Plugin.Log.Warning($"Settings Sync: {fixes.Count} file(s) re-uploaded as exact copies");
@@ -588,6 +647,8 @@ public sealed class Syncer : IDisposable
 
     public static string PluginOf(string rel)
     {
+        if (rel.StartsWith(DevicesPrefix, StringComparison.Ordinal) && rel.IndexOf("/pluginConfigs/", StringComparison.Ordinal) is var dp and > 0)
+            rel = rel[(dp + "/pluginConfigs/".Length)..];
         if (rel.StartsWith(DalamudSetup.ConfigPrefix, StringComparison.Ordinal)) return "Dalamud " + System.IO.Path.GetFileNameWithoutExtension(rel);
         if (rel.StartsWith(DalamudSetup.PluginPrefix, StringComparison.Ordinal)) return rel[DalamudSetup.PluginPrefix.Length..] + " (on/off)";
         var slash = rel.IndexOf('/');
@@ -632,8 +693,8 @@ public sealed class Syncer : IDisposable
         gh.Token = Token!;
         gh.Repo = cfg.Repository.Trim();
         var files = await gh.GetTreeFiles(await gh.GetCommitTree(commitSha, ct), ct);
-        return files.Where(f => f.Path.StartsWith(Prefix, StringComparison.Ordinal))
-            .Select(f => PluginOf(f.Path[Prefix.Length..])).Distinct(StringComparer.OrdinalIgnoreCase)
+        return files.Select(f => KeyOf(f.Path)).Where(k => k != null && GroupOf(k) == SyncGroups.Plugins)
+            .Select(k => PluginOf(LocalRel(k!))).Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
@@ -651,8 +712,8 @@ public sealed class Syncer : IDisposable
             gh.Repo = cfg.Repository.Trim();
             Status = $"Restoring {what}...";
             var head = await gh.GetHead(cfg.Branch, ct) ?? throw new InvalidOperationException("The repository is empty.");
-            bool Mine(string path) => path.StartsWith(Prefix, StringComparison.Ordinal) &&
-                                      (plugin == null || PluginOf(path[Prefix.Length..]).Equals(plugin, StringComparison.OrdinalIgnoreCase));
+            bool Mine(string path) => KeyOf(path) is { } k && GroupOf(k) == SyncGroups.Plugins &&
+                                      (plugin == null || PluginOf(LocalRel(k)).Equals(plugin, StringComparison.OrdinalIgnoreCase));
             var old = (await gh.GetTreeFiles(await gh.GetCommitTree(snapshot.Sha, ct), ct)).Where(f => Mine(f.Path)).ToList();
             var now = head.Files.Where(f => Mine(f.Path)).ToList();
             var entries = old.Select(f => new KeyValuePair<string, string?>(f.Path, f.Sha))
@@ -667,8 +728,8 @@ public sealed class Syncer : IDisposable
             var local = ScanLocal();
             foreach (var f in old)
             {
-                var rel = f.Path[Prefix.Length..];
-                if (local.TryGetValue(rel, out var lf)) State.BaseShas[rel] = lf.Sha;
+                var key = KeyOf(f.Path)!;
+                if (local.TryGetValue(LocalRel(key), out var lf)) State.BaseShas[key] = lf.Sha;
             }
             State.Log("Restore", $"{what} as of {snapshot.When:g}");
         }

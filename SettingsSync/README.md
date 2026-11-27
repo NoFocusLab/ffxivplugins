@@ -17,6 +17,15 @@ exclude list) is backed up to a **private GitHub repository you own** and pulled
 Pulled files are written immediately at game start. Pulled while the game is running, they wait and are
 applied at the next start (running plugins would overwrite them otherwise).
 
+## Device types (handhelds)
+
+A handheld like the Legion Go wants some settings of its own (HUD layouts, bars, overlays, window
+sizes, keybinds) while sharing everything else. On that PC, Settings tab > *Device type*: enter a name
+such as `Handheld`, then tick the plugins whose settings should be kept separate. Those sync only
+between PCs with the same device type (stored on GitHub under `devices/<type>/pluginConfigs/`); the
+first time, each starts from your normal PCs' copy. Normal PCs leave *Device type* empty and are
+unaffected. A second PC of the same type picks up the same list automatically.
+
 ## Dalamud setup
 
 A second group, with its own *Sync now* button and *automatic* switch (on by default), keeps these

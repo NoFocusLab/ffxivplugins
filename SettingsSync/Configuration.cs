@@ -34,6 +34,15 @@ public class Configuration : IPluginConfiguration
     /// <summary>How long the game may wait at startup for the pull (seconds).</summary>
     public int StartupWaitSeconds { get; set; } = 6;
 
+    // ---- Device type (e.g. a handheld) ----
+    /// <summary>
+    /// Empty = a normal PC (all plugin settings shared). A name such as "Handheld" makes this PC keep the
+    /// plugins in <see cref="PerDevicePlugins"/> separate: shared only with PCs of the same type.
+    /// </summary>
+    public string DeviceType { get; set; } = "";
+    /// <summary>Plugins (by settings name, e.g. "PluginHub") whose settings belong to this device type.</summary>
+    public List<string> PerDevicePlugins { get; set; } = new();
+
     // ---- Dalamud setup group (repo list, plugin on/off, favourites, theme, info bar, update prefs) ----
     /// <summary>Sync Dalamud setup automatically: when the game starts, on logout/close, and with the periodic push.</summary>
     public bool DalamudAuto { get; set; } = true;

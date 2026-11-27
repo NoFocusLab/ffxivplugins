@@ -302,6 +302,46 @@ public sealed class MainWindow : Window
         return false;
     }
 
+    // ------------------------------------------------------------------ device type
+
+    private string pluginFilter = "";
+
+    private void DrawDeviceType(ref bool changed)
+    {
+        ImGui.TextUnformatted("Device type");
+        var type = C.DeviceType;
+        ImGui.SetNextItemWidth(160);
+        if (ImGui.InputTextWithHint("##devicetype", "(normal PC)", ref type, 30)) { C.DeviceType = type.Trim(); changed = true; }
+        ImGui.SameLine();
+        ImGui.TextColored(Dim, "Leave empty on normal PCs. On a handheld (e.g. Legion Go) enter a name like Handheld.");
+        if (C.DeviceType.Length == 0) return;
+
+        ImGui.TextWrapped($"Plugins ticked below keep separate settings for \"{C.DeviceType}\" PCs (shared only with other " +
+                          $"\"{C.DeviceType}\" PCs). The first time, each starts from your normal PCs' copy. Good candidates: " +
+                          "HUD layouts, bars, overlays, window sizes, keybinds.");
+        var names = S.LocalPluginNames;
+        if (names.Count == 0) { ImGui.TextColored(Dim, "(press Sync now once to list your plugins)"); return; }
+        ImGui.SetNextItemWidth(200);
+        ImGui.InputTextWithHint("##pfilter", "filter", ref pluginFilter, 40);
+        if (ImGui.BeginChild("##perdevice", new Vector2(0, 180), true))
+        {
+            foreach (var n in names.Where(n => pluginFilter.Length == 0 || n.Contains(pluginFilter, StringComparison.OrdinalIgnoreCase)))
+            {
+                var fromOther = S.RemoteDevicePlugins.Contains(n) && !C.PerDevicePlugins.Contains(n, StringComparer.OrdinalIgnoreCase);
+                var on = fromOther || C.PerDevicePlugins.Contains(n, StringComparer.OrdinalIgnoreCase);
+                ImGui.BeginDisabled(fromOther);
+                if (ImGui.Checkbox($"{n}##pd", ref on))
+                {
+                    if (on) C.PerDevicePlugins.Add(n); else C.PerDevicePlugins.RemoveAll(x => x.Equals(n, StringComparison.OrdinalIgnoreCase));
+                    changed = true;
+                }
+                ImGui.EndDisabled();
+                if (fromOther) { ImGui.SameLine(); ImGui.TextColored(Dim, $"(another {C.DeviceType} PC keeps it separate)"); }
+            }
+        }
+        ImGui.EndChild();
+    }
+
     // ------------------------------------------------------------------ Settings tab
 
     private void DrawSettings()
@@ -358,6 +398,9 @@ public sealed class MainWindow : Window
         ImGui.SetNextItemWidth(120);
         if (ImGui.InputInt("Max wait at game start (seconds)", ref wait, 1, 5)) { C.StartupWaitSeconds = Math.Clamp(wait, 2, 30); changed = true; }
         if (ImGui.IsItemHovered()) ImGui.SetTooltip("If GitHub is slow, the game carries on after this long and syncs once it's up.");
+
+        ImGui.Separator();
+        DrawDeviceType(ref changed);
 
         ImGui.Separator();
         ImGui.TextUnformatted("Screen");
