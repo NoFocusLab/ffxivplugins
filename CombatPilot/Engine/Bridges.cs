@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Dalamud.Plugin.Ipc;
 
@@ -15,10 +16,43 @@ public sealed class MitBridge
     private readonly ICallGateSubscriber<float> pressDueIn =
         Plugin.PluginInterface.GetIpcSubscriber<float>("MitPlanner.PressDueIn");
 
+    private readonly ICallGateSubscriber<float[]> downtime =
+        Plugin.PluginInterface.GetIpcSubscriber<float[]>("MitPlanner.Downtime");
+    private readonly ICallGateSubscriber<float> timelineTime =
+        Plugin.PluginInterface.GetIpcSubscriber<float>("MitPlanner.TimelineTime");
+    private readonly ICallGateSubscriber<uint> territory =
+        Plugin.PluginInterface.GetIpcSubscriber<uint>("MitPlanner.FightTerritory");
+
     public float PressDueIn()
     {
         try { return pressDueIn.InvokeFunc(); }
         catch (Exception) { return float.MaxValue; }
+    }
+
+    /// <summary>Upcoming boss downtime from Mit Planner's running timeline: (from, until) seconds from now.</summary>
+    public List<(double From, double Until)> Downtime()
+    {
+        var list = new List<(double, double)>();
+        try
+        {
+            var a = downtime.InvokeFunc();
+            for (var i = 0; i + 1 < a.Length; i += 2) list.Add((a[i], a[i + 1]));
+        }
+        catch (Exception) { }
+        return list;
+    }
+
+    /// <summary>Mit Planner's synced timeline clock, or -1 (no timeline / Mit Planner not loaded).</summary>
+    public float TimelineTime()
+    {
+        try { return timelineTime.InvokeFunc(); }
+        catch (Exception) { return -1; }
+    }
+
+    public uint FightTerritory()
+    {
+        try { return territory.InvokeFunc(); }
+        catch (Exception) { return 0; }
     }
 }
 

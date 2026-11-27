@@ -94,6 +94,10 @@ public sealed class MainWindow : Window
         ImGui.TextDisabled(up.Count == 0
             ? "Party buffs: none expected (no buff jobs in party, or not seen yet)"
             : "Party buffs: " + string.Join(", ", up.OrderBy(u => u.From).Select(u => $"{u.Name} in {u.From:0}s")));
+        var dt = p.Mit.Downtime();
+        var tlt = p.Mit.TimelineTime();
+        ImGui.TextDisabled(tlt < 0 ? "Fight timeline: none (Mit Planner not running one)"
+            : $"Fight timeline {tlt:0}s; downtime: " + (dt.Count == 0 ? "none in the next 90 s" : string.Join(", ", dt.Select(w => $"{w.From:0}-{w.Until:0}s"))));
         DrawDecision("Next GCD", p.LastGcd);
         DrawDecision("Last weave check", p.LastWeave);
         if (p.Log.Current is { } f)

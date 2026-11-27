@@ -24,6 +24,7 @@ public sealed unsafe class Pilot : IDisposable
     private readonly RsrBridge rsr = new();
     public FightLog Log { get; }
     public PartyBuffTracker Party { get; } = new();
+    public MitBridge Mit => mit;
 
     public JobBinding? Job { get; private set; }
     public PilotMode Mode { get; private set; }
@@ -133,7 +134,7 @@ public sealed unsafe class Pilot : IDisposable
         if (DateTime.UtcNow < nextPlan) return;
         nextPlan = DateTime.UtcNow.AddMilliseconds(80);
 
-        var g = GameState.Read(Job, Party);
+        var g = GameState.Read(Job, Party, mit);
         if (g.AnimationLock > 0.05) return;
 
         var forGcd = g.GcdRemaining <= config.QueueWindow;

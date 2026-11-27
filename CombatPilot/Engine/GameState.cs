@@ -41,12 +41,14 @@ public sealed class GameState
     public int EnemiesNearMe;
     public int EnemiesNearTarget;
     public bool InCombat;
+    /// <summary>Boss downtime ahead (from Mit Planner's timeline): seconds from now.</summary>
+    public List<(double From, double Until)> Downtime = new();
     /// <summary>Your target is fighting someone already (its in-combat flag).</summary>
     public bool TargetEngaged;
     /// <summary>Why there's no usable target (for the status line).</summary>
     public string TargetNote = "";
 
-    public static unsafe GameState Read(JobBinding job, PartyBuffTracker? party = null)
+    public static unsafe GameState Read(JobBinding job, PartyBuffTracker? party = null, MitBridge? mit = null)
     {
         var s = new GameState();
         var me = Plugin.ObjectTable.LocalPlayer;
@@ -153,6 +155,7 @@ public sealed class GameState
         s.EnemiesNearMe = enemies.Count(n => Vector3.Distance(n.Position, me.Position) - n.HitboxRadius <= 5);
         if (s.HasTarget && target != null)
             s.EnemiesNearTarget = enemies.Count(n => Vector3.Distance(n.Position, target.Position) - n.HitboxRadius <= 5);
+        if (mit != null) s.Downtime = mit.Downtime();
         if (party != null)
             foreach (var (mult, from, until, _) in party.Upcoming()) s.PartyBuffs.Add((mult, from, until));
         return s;

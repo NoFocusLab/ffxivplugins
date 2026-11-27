@@ -75,6 +75,15 @@ public sealed class Plugin : IDalamudPlugin
     // "MitPlanner.PressDueIn": seconds until the plan's next auto-press (Combat Pilot leaves a
     // weave slot for it), or float.MaxValue when none is coming.
     private Dalamud.Plugin.Ipc.ICallGateProvider<float>? pressDueIpc;
+    // For Combat Pilot: from whichever timeline is running (bundled cactbot or learned), so it keeps
+    // improving as timelines do.
+    // "MitPlanner.Downtime": upcoming boss downtime as [from, until, from, until, ...] in seconds
+    //   from now (from may be negative if it's already started), within the next 90 s.
+    // "MitPlanner.TimelineTime": the synced timeline clock (seconds), or -1 when no timeline runs.
+    // "MitPlanner.FightTerritory": the running fight's territory id, or 0.
+    private Dalamud.Plugin.Ipc.ICallGateProvider<float[]>? downtimeIpc;
+    private Dalamud.Plugin.Ipc.ICallGateProvider<float>? timelineTimeIpc;
+    private Dalamud.Plugin.Ipc.ICallGateProvider<uint>? territoryIpc;
 
     private void RegisterIpc()
     {
@@ -82,6 +91,32 @@ public sealed class Plugin : IDalamudPlugin
         nextMechanicIpc.RegisterFunc(NextMechanicIn);
         pressDueIpc = PluginInterface.GetIpcProvider<float>("MitPlanner.PressDueIn");
         pressDueIpc.RegisterFunc(PressDueIn);
+        downtimeIpc = PluginInterface.GetIpcProvider<float[]>("MitPlanner.Downtime");
+        downtimeIpc.RegisterFunc(Downtime);
+        timelineTimeIpc = PluginInterface.GetIpcProvider<float>("MitPlanner.TimelineTime");
+        timelineTimeIpc.RegisterFunc(() => Runner.Running && !Runner.Preview && Runner.Timeline != null ? Runner.Now : -1f);
+        territoryIpc = PluginInterface.GetIpcProvider<uint>("MitPlanner.FightTerritory");
+        territoryIpc.RegisterFunc(() => Runner.Running && !Runner.Preview && Runner.Fight is { } f ? f.TerritoryId : 0u);
+    }
+
+    private float[] Downtime()
+    {
+        if (!Runner.Running || Runner.Preview || Runner.Timeline is not { } tl) return Array.Empty<float>();
+        var now = Runner.Now;
+        var list = new System.Collections.Generic.List<float>();
+        float? from = null;
+        foreach (var e in tl.Events)
+        {
+            if (e.Time < now - 120) continue;
+            if (e.Time > now + 90 && from == null) break;
+            if (e.Label == "--untargetable--" && from == null) from = e.Time;
+            else if (e.Label == "--targetable--" && from is { } f)
+            {
+                if (e.Time > now) { list.Add(f - now); list.Add(e.Time - now); }
+                from = null;
+            }
+        }
+        return list.ToArray();
     }
 
     private float PressDueIn()
@@ -112,6 +147,9 @@ public sealed class Plugin : IDalamudPlugin
     {
         nextMechanicIpc?.UnregisterFunc();
         pressDueIpc?.UnregisterFunc();
+        downtimeIpc?.UnregisterFunc();
+        timelineTimeIpc?.UnregisterFunc();
+        territoryIpc?.UnregisterFunc();
         PluginInterface.UiBuilder.Draw -= windowSystem.Draw;
         PluginInterface.UiBuilder.OpenConfigUi -= ToggleConfig;
         PluginInterface.UiBuilder.OpenMainUi -= ToggleConfig;

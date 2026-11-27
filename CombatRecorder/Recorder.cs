@@ -291,8 +291,26 @@ public sealed unsafe class Recorder : IDisposable
         }
     }
 
+    private readonly Dictionary<uint, bool> targetable = new();
+
     private void ScanDeaths()
     {
+        // Enemies going untargetable / targetable again (boss jumps, phase changes): used by the
+        // timeline builder to mark downtime ("--untargetable--" / "--targetable--").
+        var me = Plugin.ObjectTable.LocalPlayer;
+        if (me != null)
+            foreach (var o in Plugin.ObjectTable)
+            {
+                if (o is not IBattleNpc n || (n.StatusFlags & StatusFlags.Hostile) == 0 || n.CurrentHp == 0 ||
+                    Vector3.Distance(n.Position, me.Position) > 60) continue;
+                var t = n.IsTargetable;
+                if (targetable.TryGetValue(n.EntityId, out var was) && was != t)
+                {
+                    Entity(n);
+                    Write($"\"e\":\"targ\",\"who\":{Q(Who(n.EntityId))},\"on\":{(t ? "true" : "false")}");
+                }
+                targetable[n.EntityId] = t;
+            }
         foreach (var c in Watched())
         {
             if (c.CurrentHp == 0 && dead.Add(c.EntityId)) Write($"\"e\":\"death\",\"who\":{Q(Who(c.EntityId))}");

@@ -24,6 +24,8 @@ public sealed class Sim
     public Dictionary<string, (double Until, int Stacks)> Statuses = new();
     public List<(double Mult, double From, double Until)> PartyBuffs = new();
     public Dictionary<int, CdState> Cd = new();
+    /// <summary>Boss downtime (no damage lands): from, until.</summary>
+    public List<(double From, double Until)> Downtime = new();
     /// <summary>Per recast group: time spent sitting at full charges (wasted cooldown).</summary>
     public Dictionary<int, double> Idle = new();
     public double Damage;
@@ -32,7 +34,7 @@ public sealed class Sim
     public Sim Clone() => new()
     {
         T = T, GcdReadyAt = GcdReadyAt, LockUntil = LockUntil, Gauge = Gauge, Combo = Combo, ComboUntil = ComboUntil,
-        Statuses = new(Statuses), PartyBuffs = PartyBuffs, Cd = new(Cd), Idle = new(Idle), Damage = Damage, Path = new(Path),
+        Statuses = new(Statuses), PartyBuffs = PartyBuffs, Downtime = Downtime, Cd = new(Cd), Idle = new(Idle), Damage = Damage, Path = new(Path),
     };
 
     public static Sim From(GameState g)
@@ -45,6 +47,7 @@ public sealed class Sim
             Combo = g.Combo,
             ComboUntil = g.ComboRemaining,
             PartyBuffs = g.PartyBuffs.ToList(),
+            Downtime = g.Downtime,
             Cd = new(g.Cooldowns),
         };
         foreach (var (k, v) in g.Statuses) s.Statuses[k] = (v.Left, v.Stacks);
@@ -130,7 +133,8 @@ public sealed class Sim
             if (sd.CritDhFor.Contains(d.Name) && Has(name)) { critDh = true; stackUsed = name; break; }
 
         var dmg = 0.0;
-        if (potency > 0)
+        var down = Downtime.Any(w => w.From <= T && w.Until > T);
+        if (potency > 0 && !down)
         {
             var h = Math.Max(1, hits);
             var total = potency * (d.Aoe == null ? 1 : 1 + (h - 1) * (1 - d.Falloff));

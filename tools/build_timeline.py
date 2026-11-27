@@ -166,13 +166,19 @@ def pulls(log):
                     last_cast = (t, tgt, src, e["who"], aname)
                 uses.append(dict(t=t, act=act, name=aname or f"unknown_{act:X}", src=src,
                                  cast=cast is not None, paired=paired, tgt=tgt, casttime=cast[1] if cast else 0, hits=hits))
+            # Downtime: the boss going untargetable / targetable again (Combat Recorder "targ" events).
+            for e in evs:
+                if e["e"] == "targ" and e.get("who") == boss and e["t"] >= t0:
+                    on = bool(e.get("on"))
+                    uses.append(dict(t=e["t"] - t0, act=-2 if on else -1, name="--targetable--" if on else "--untargetable--",
+                                     src=name, cast=False, paired=False, tgt="", casttime=0, hits=[], special=True))
             yield name, killed, [u for u in fold(uses) if keep(u)], end - t0
 
 
 def keep(u):
     """Casts and their follow-ups stay; an un-cast ability only if it hit 2+ party members
     (unannounced raidwide). Drops autos, add filler and healer bells."""
-    if u["cast"] or u["paired"]:
+    if u["cast"] or u["paired"] or u.get("special"):
         return True
     return len({to for to, d in u["hits"] if d > 0}) >= 2
 
@@ -293,7 +299,7 @@ def write(logs, out, min_kills, no_death=()):
         txt += [f"#~~~ {boss} ~~~#", f"# pulls: {len(bp)}, kills: {kills[boss]}", ""]
         report += [f"## {boss}: {len(bp)} pull(s), {kills[boss]} kill(s)" + (f", loop from line {loop[0]}" if loop else ""), "",
                    "| t | id | ability | type | cast | seen | spread s | party hit | avg dmg % max HP |", "|---|---|---|---|---|---|---|---|---|"]
-        first = lines[0] if lines else None
+        first = next((l for l in lines if l["act"] >= 0), None)
         if first and first["cast"]:
             # Sync on the cast bar of the opener, from anywhere earlier in the zone (wide window back).
             t_first = base + first["t"] - first["casttime"]
@@ -302,9 +308,12 @@ def write(logs, out, min_kills, no_death=()):
         for idx, l in enumerate(lines[:end]):
             if loop and idx == loop[0]:
                 txt.append(f'{base + l["t"]:.1f} label "{boss.lower().replace(" ", "-")}-loop"')
+            if l["act"] < 0:   # downtime marker, no sync
+                txt.append(f'{base + l["t"]:.1f} "{l["name"]}"')
+                continue
             label = l["name"] if kinds[l["act"]] not in ("Other",) and (l["cast"] or kinds[l["act"]] != "Mechanic") else "--sync--"
             line = f'{base + l["t"]:.1f} "{label}" Ability {{ id: "{l["act"]:X}", source: "{l["src"]}" }}'
-            if idx == 0 and not (first and first["cast"]):
+            if l is first and not first["cast"]:
                 line += f' window {base + l["t"]:.0f},5'
             if loop and idx == loop[1]:
                 line += f' forcejump "{boss.lower().replace(" ", "-")}-loop"'

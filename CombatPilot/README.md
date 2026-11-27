@@ -38,6 +38,13 @@ expected in the opener (~7 s in) and dropped if they haven't shown up 30 s into 
 planner scores damage inside those windows higher, so bursts line up when the buffs are close
 (within its look-ahead). [Estimate] durations, cooldowns and average multipliers. Solo/dummy: none.
 
+## Boss downtime (from Mit Planner)
+When Mit Planner is running a fight timeline (bundled cactbot or one it learned), Combat Pilot asks it
+for the upcoming untargetable windows (`MitPlanner.Downtime`). Damage planned inside a window counts
+as zero, so it won't start a burst just before the boss leaves, and it spends or holds procs around
+it. As Mit Planner's timelines get better (learned timelines now record downtime too), this improves
+with no change here. The Pilot tab shows the timeline clock and the downtime it sees.
+
 ## Safety
 - Something usable but nothing pressed for 2 GCDs (or a planner error): **safe mode**, a fixed
   priority from the job file. Still stalled after 2 more GCDs: **pauses** and says so in chat.
