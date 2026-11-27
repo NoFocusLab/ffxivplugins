@@ -72,6 +72,16 @@ A bar for your current job (`/pilot bar` shows/hides it):
   specific one (Settings). [Estimate] valued at +6% damage for 30 s; the planner places it, lining
   it up with party buffs it can see coming.
 
+## Openers (countdown)
+Each job file carries its openers (Warrior: The Balance's All-Around opener, 11 steps). With the bar's
+**Opener: countdown** toggle on (default) and the job on Live, starting an in-game countdown with
+an enemy targeted fires the first action at the opener's prepull time (Warrior: Tomahawk at -0.7 s)
+and then plays the steps: each GCD with its oGCDs. It overrides the travel reserve (the opener uses
+all three Onslaughts) and skips "Potion" when potions are off. It hands back to the planner when
+done, or if it goes off script (a step can't be pressed for 2 GCDs, or different GCDs went out
+twice). Right-click the toggle to run the opener now (from the next GCD). The toggle's tooltip
+lists the steps.
+
 ## Starting a fight
 Once you're in combat it always fights. Before that, the **Engage** toggle decides (job bar, or
 `/pilot engage wait|fighting|any`):

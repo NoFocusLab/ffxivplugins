@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Numerics;
+using CombatPilot.Engine;
 using CombatPilot.Jobs;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Textures;
@@ -82,6 +83,17 @@ public sealed unsafe class BarsWindow : Window
             { t.KeepTravel = !t.KeepTravel; changed = true; }
         }
 
+        if (OpenerRunner.Pick(job, t) is { } op)
+        {
+            ImGui.SameLine();
+            if (Toggle(t.OpenerOnCountdown ? "Opener: countdown##op" : "Opener: off##op", t.OpenerOnCountdown ? On : Neutral,
+                       $"Run \"{op.Name}\" when a countdown is started (first action at {op.Prepull:0.0}s before 0).\n" +
+                       $"Right-click: run it now, from the next GCD.\nSource: {op.Source}\n" +
+                       string.Join("\n", op.Steps.Select((st, i) => $"{i + 1}. {string.Join(" + ", st)}"))))
+            { t.OpenerOnCountdown = !t.OpenerOnCountdown; changed = true; }
+            if (ImGui.IsItemClicked(ImGuiMouseButton.Right)) p.StartOpenerNow();
+        }
+
         ImGui.SameLine();
         if (Toggle(t.Potions ? "Potions: on##pot" : "Potions: off##pot", t.Potions ? On : Neutral,
                    "Use your " + job.Def.MainStat + " potion in the plan (Settings: highest owned or a specific one).\nNow: " + p.PotionStatus))
@@ -100,6 +112,7 @@ public sealed unsafe class BarsWindow : Window
             first = false;
             DrawAction(a, size);
         }
+        if (p.Opener.Status.Length > 0) ImGui.TextColored(Hold, p.Opener.Status);
         if (p.Queued is { } q)
         {
             ImGui.TextColored(Hold, $"Queued: {q.Name}");

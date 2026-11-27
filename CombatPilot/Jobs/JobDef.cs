@@ -32,8 +32,20 @@ public sealed class JobDef
     public string MainStat { get; set; } = "Strength";
     /// <summary>Actions shown as buttons on the bar (click = queue it). Empty: every oGCD.</summary>
     public List<string> Bar { get; set; } = new();
+    /// <summary>Openers, first = default. Run from a countdown (or the bar).</summary>
+    public List<OpenerDef> Openers { get; set; } = new();
 
     public ActionDef? Find(string name) => Actions.FirstOrDefault(a => a.Name == name);
+}
+
+public sealed class OpenerDef
+{
+    public string Name { get; set; } = "";
+    public string Source { get; set; } = "";
+    /// <summary>Seconds before the countdown ends to press the first action (Warrior: Tomahawk at 0.7).</summary>
+    public double Prepull { get; set; }
+    /// <summary>Each step: a GCD, then the oGCDs woven after it. "Potion" is skipped when potions are off.</summary>
+    public List<List<string>> Steps { get; set; } = new();
 }
 
 public sealed class TravelDef

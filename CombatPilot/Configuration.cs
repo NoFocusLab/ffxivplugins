@@ -39,6 +39,10 @@ public class JobToggles
     /// <summary>Keep the job file's travel charges in reserve (Warrior: 1 Onslaught).</summary>
     public bool KeepTravel { get; set; } = true;
     public bool Potions { get; set; } = false;
+    /// <summary>Run the job's opener when a countdown is started (Live only).</summary>
+    public bool OpenerOnCountdown { get; set; } = true;
+    /// <summary>Which opener (name); empty = the job file's first.</summary>
+    public string Opener { get; set; } = "";
 }
 
 [Serializable]

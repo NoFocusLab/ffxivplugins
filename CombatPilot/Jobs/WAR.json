@@ -68,5 +68,22 @@
   "burst": ["Inner Release", "Infuriate"],
   "mainStat": "Strength",
   "bar": ["Inner Release", "Infuriate", "Upheaval", "Onslaught", "Primal Rend", "Orogeny", "Tomahawk"],
+  "openers": [
+    { "name": "All-Around", "prepull": 0.7,
+      "source": "The Balance, Warrior basic guide (Dawntrail, 2.47 GCD). After step 11 the planner takes over.",
+      "steps": [
+        ["Tomahawk", "Infuriate"],
+        ["Heavy Swing"],
+        ["Maim"],
+        ["Storm's Eye", "Inner Release", "Potion"],
+        ["Inner Chaos", "Upheaval", "Onslaught"],
+        ["Primal Rend", "Onslaught"],
+        ["Primal Ruination", "Onslaught"],
+        ["Fell Cleave"],
+        ["Fell Cleave"],
+        ["Fell Cleave", "Primal Wrath", "Infuriate"],
+        ["Inner Chaos"]
+      ] }
+  ],
   "safeOrder": ["Inner Chaos", "Primal Ruination", "Primal Rend", "Fell Cleave", "Storm's Eye", "Storm's Path", "Maim", "Heavy Swing", "Tomahawk"]
 }

@@ -24,6 +24,7 @@ public sealed unsafe class Pilot : IDisposable
     private readonly RsrBridge rsr = new();
     public FightLog Log { get; }
     public PartyBuffTracker Party { get; } = new();
+    public OpenerRunner Opener { get; } = new();
     public MitBridge Mit => mit;
 
     public JobBinding? Job { get; private set; }
@@ -105,8 +106,16 @@ public sealed unsafe class Pilot : IDisposable
         Mode = Job == null ? PilotMode.Off : config.ModeFor(Job.Def.Job);
         if (Job == null || Mode == PilotMode.Off) { Status = Job == null ? "No job file for this job" : "Off"; EndFight(); return; }
 
+        // Countdown: the opener's first action goes out at its prepull time (Live only).
+        if (Mode == PilotMode.Live && !Paused && OpenerRunner.Countdown() != null)
+        {
+            var g0 = GameState.Read(Job);
+            if (Opener.CheckCountdown(Job, config.TogglesFor(Job.Def.Job), g0) is { } first) Press(first, g0);
+            if (!Opener.Active) { Status = Opener.Status; return; }
+        }
+
         var inCombat = Plugin.Condition[ConditionFlag.InCombat];
-        if (!inCombat && !MayEngage()) { EndFight(); return; }
+        if (!inCombat && !Opener.Active && !MayEngage()) { EndFight(); return; }
         if (!wasInFight)
         {
             wasInFight = true;
@@ -152,6 +161,19 @@ public sealed unsafe class Pilot : IDisposable
             }
         }
 
+        // Opener: its steps instead of the planner, until it's done or off script.
+        if (Opener.Active)
+        {
+            var potionsOn = config.TogglesFor(Job.Def.Job).Potions && Job.ByName.ContainsKey(JobBinding.PotionName);
+            if (Opener.Next(Job, g, forGcd, potionsOn) is { } oa)
+            {
+                if (Press(oa, g) && !forGcd) Opener.WeavePressed();
+                return;
+            }
+            if (Opener.Active) return;
+            Log.Note($"opener {Opener.Status}");
+        }
+
         RefreshPotion();
         var t = config.TogglesFor(Job.Def.Job);
         var set = new PlannerSettings
@@ -181,7 +203,7 @@ public sealed unsafe class Pilot : IDisposable
         var live = Mode == PilotMode.Live && !Paused;
         var g = GameState.Read(Job);
         Status = (live ? (SafeMode ? "LIVE (safe mode)" : "LIVE") : Mode == PilotMode.Live ? "Paused" : "Listening") +
-                 (g.HasTarget ? "" : $" - {g.TargetNote}");
+                 (g.HasTarget ? "" : $" - {g.TargetNote}") + (Opener.Active ? $" - {Opener.Status}" : "");
         if (!live) return;
 
         if (g.AnimationLock > 0.05) return;
@@ -341,6 +363,7 @@ public sealed unsafe class Pilot : IDisposable
             if (restarted)
             {
                 var used = NameOf(gcd->ActionId);
+                Opener.OnGcdUsed(used);
                 Record(pendingGcd, used, true);
                 pendingGcd = null;
                 // The weave window before this GCD is over.
@@ -417,6 +440,7 @@ public sealed unsafe class Pilot : IDisposable
         SafeMode = false;
         stallSince = safeSince = null;
         Party.EndFight();
+        Opener.Stop("ended (fight over)");
         Log.End();
     }
 
@@ -443,4 +467,11 @@ public sealed unsafe class Pilot : IDisposable
     }
 
     public void Rebind() => Job = null;
+
+    /// <summary>Bar button: run the opener from the next GCD.</summary>
+    public void StartOpenerNow()
+    {
+        if (Job == null || OpenerRunner.Pick(Job, config.TogglesFor(Job.Def.Job)) is not { } def) return;
+        Opener.Start(def);
+    }
 }
