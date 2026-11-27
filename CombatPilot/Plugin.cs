@@ -43,7 +43,7 @@ public sealed class Plugin : IDalamudPlugin
 
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Combat Pilot. /pilot (window) | live | listen | off (for your current job) | pause | resume | report",
+            HelpMessage = "Combat Pilot. /pilot (window) | live | listen | off (for your current job) | pause | resume | report | engage wait|fighting|any",
         });
         PluginInterface.UiBuilder.Draw += windows.Draw;
         PluginInterface.UiBuilder.OpenMainUi += main.Toggle;
@@ -80,8 +80,18 @@ public sealed class Plugin : IDalamudPlugin
             case "pause": Pilot.SetPaused(true, "/pilot pause"); return;
             case "resume": Pilot.SetPaused(false, "/pilot resume"); return;
             case "report": main.ShowReports(); return;
+            case "engage wait": SetEngage(EngageMode.WaitForCombat); return;
+            case "engage fighting": SetEngage(EngageMode.EngagedOnly); return;
+            case "engage any": SetEngage(EngageMode.AnyTarget); return;
             default: main.Toggle(); return;
         }
+    }
+
+    private void SetEngage(EngageMode m)
+    {
+        Configuration.Engage = m;
+        Configuration.Save();
+        ChatGui.Print($"[Combat Pilot] Engage: {m}.");
     }
 
     public void SetMode(PilotMode mode)

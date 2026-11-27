@@ -41,6 +41,10 @@ public sealed class GameState
     public int EnemiesNearMe;
     public int EnemiesNearTarget;
     public bool InCombat;
+    /// <summary>Your target is fighting someone already (its in-combat flag).</summary>
+    public bool TargetEngaged;
+    /// <summary>Why there's no usable target (for the status line).</summary>
+    public string TargetNote = "";
 
     /// <summary>
     /// [Estimate] Party damage buffs by status name, as a flat multiplier. Crit/direct-hit rate buffs
@@ -119,12 +123,18 @@ public sealed class GameState
             s.Cooldowns[a.CooldownGroup] = cd;
         }
 
-        // Target, range and enemy counts.
+        // Target, range and enemy counts. "Attackable" is the game's own check (works for striking
+        // dummies, which don't carry the hostile flag).
         var target = Plugin.TargetManager.Target as IBattleChara;
-        if (target != null && target.CurrentHp > 0 && target.IsTargetable && (target.StatusFlags & StatusFlags.Hostile) != 0)
+        var starterId = starter?.Id ?? job.Actions.FirstOrDefault(a => a.IsGcd)?.Id ?? 0;
+        if (target == null) s.TargetNote = "no target";
+        else if (target.CurrentHp == 0 || !target.IsTargetable) s.TargetNote = "target is dead or untargetable";
+        else if (!ActionManager.CanUseActionOnTarget(starterId, (GameObjectStruct*)target.Address)) s.TargetNote = "target can't be attacked";
+        else
         {
             s.HasTarget = true;
             s.TargetId = target.GameObjectId;
+            s.TargetEngaged = (target.StatusFlags & StatusFlags.InCombat) != 0;
             foreach (var st in target.StatusList)
             {
                 if (st.StatusId == 0) continue;
@@ -137,12 +147,13 @@ public sealed class GameState
         }
 
         var enemies = Plugin.ObjectTable.OfType<IBattleNpc>()
-            .Where(n => (n.StatusFlags & StatusFlags.Hostile) != 0 && n.CurrentHp > 0 && n.IsTargetable &&
-                        ((n.StatusFlags & StatusFlags.InCombat) != 0 || n.GameObjectId == s.TargetId))
+            .Where(n => n.CurrentHp > 0 && n.IsTargetable &&
+                        (n.GameObjectId == s.TargetId ||
+                         ((n.StatusFlags & StatusFlags.Hostile) != 0 && (n.StatusFlags & StatusFlags.InCombat) != 0)))
             .ToList();
         // [Assumption] 5y AoEs reach enemies whose hitbox edge is within 5y.
         s.EnemiesNearMe = enemies.Count(n => Vector3.Distance(n.Position, me.Position) - n.HitboxRadius <= 5);
-        if (target != null)
+        if (s.HasTarget && target != null)
             s.EnemiesNearTarget = enemies.Count(n => Vector3.Distance(n.Position, target.Position) - n.HitboxRadius <= 5);
         return s;
     }

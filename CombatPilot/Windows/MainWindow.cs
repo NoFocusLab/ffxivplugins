@@ -218,9 +218,10 @@ public sealed class MainWindow : Window
     private void DrawSettings()
     {
         var changed = false;
-        var b = C.OnlyInCombat;
-        if (ImGui.Checkbox("Only act in combat (never pulls for you)", ref b)) { C.OnlyInCombat = b; changed = true; }
-        b = C.TurnOffRsr;
+        ImGui.TextUnformatted("Starting a fight (once you're in combat it always fights):");
+        foreach (var (m, label) in EngageLabels)
+            if (ImGui.RadioButton(label, C.Engage == m)) { C.Engage = m; changed = true; }
+        var b = C.TurnOffRsr;
         if (ImGui.Checkbox("Turn RotationSolver off when a job is Live", ref b)) { C.TurnOffRsr = b; changed = true; }
         b = C.HandBackToRsr;
         if (ImGui.Checkbox("Turn RotationSolver back on for jobs that aren't Live", ref b)) { C.HandBackToRsr = b; changed = true; }
@@ -257,6 +258,13 @@ public sealed class MainWindow : Window
         if (ImGui.SliderFloat("Queue the next GCD this early (s)", ref f, 0.1f, 0.6f, "%.2f")) { C.QueueWindow = f; changed = true; }
         if (changed) C.Save();
     }
+
+    public static readonly (EngageMode, string)[] EngageLabels =
+    {
+        (EngageMode.WaitForCombat, "Wait until I'm in combat"),
+        (EngageMode.EngagedOnly, "Attack my target if it's already fighting"),
+        (EngageMode.AnyTarget, "Attack any target I select (pulls, striking dummies)"),
+    };
 
     private static readonly VirtualKey[] KillKeys =
     {

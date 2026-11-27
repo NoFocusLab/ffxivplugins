@@ -103,7 +103,7 @@ public sealed unsafe class Pilot : IDisposable
         if (Job == null || Mode == PilotMode.Off) { Status = Job == null ? "No job file for this job" : "Off"; EndFight(); return; }
 
         var inCombat = Plugin.Condition[ConditionFlag.InCombat];
-        if (!inCombat && config.OnlyInCombat) { Status = "Waiting for combat"; EndFight(); return; }
+        if (!inCombat && !MayEngage()) { EndFight(); return; }
         if (!wasInFight)
         {
             wasInFight = true;
@@ -157,24 +157,38 @@ public sealed unsafe class Pilot : IDisposable
         if (forGcd) { LastGcd = d; pendingGcd = d; } else { LastWeave = d; pendingWeave = d; }
 
         var live = Mode == PilotMode.Live && !Paused;
-        Status = live ? (SafeMode ? "LIVE (safe mode)" : "LIVE") : Mode == PilotMode.Live ? "Paused" : "Listening";
+        var g = GameState.Read(Job);
+        Status = (live ? (SafeMode ? "LIVE (safe mode)" : "LIVE") : Mode == PilotMode.Live ? "Paused" : "Listening") +
+                 (g.HasTarget ? "" : $" - {g.TargetNote}");
         if (!live) return;
 
-        var g = GameState.Read(Job);
         if (g.AnimationLock > 0.05) return;
         // Stale: the slot it was planned for is gone (a weave plan after the window closed, etc.).
         if ((DateTime.UtcNow - plannedAt).TotalMilliseconds > 400) return;
         if (forGcd && g.GcdRemaining > config.QueueWindow) return;
         if (!forGcd && (g.GcdRemaining <= config.QueueWindow || g.GcdRemaining < Sim.OgcdLock + 0.05)) return;
 
+        Plugin.Log.Debug($"[Pilot] {(forGcd ? "GCD" : "weave")}: {d.Label}  plan {string.Join(" > ", d.Path.Take(6))}");
         if (d.Error != null)
         {
             Log.Note($"planner error: {d.Error}");
+            Plugin.Log.Warning($"[Pilot] planner error: {d.Error}");
             if (forGcd && g.GcdRemaining <= 0.05) SafePress(g);
             return;
         }
         if (d.Action != null) { Press(d.Action, g); return; }
         if (forGcd) CheckStall(g);
+    }
+
+    /// <summary>Out of combat: may it start the fight on your target? Sets Status when not.</summary>
+    private bool MayEngage()
+    {
+        if (config.Engage == EngageMode.WaitForCombat) { Status = "Waiting for combat (engage: wait)"; return false; }
+        var g = GameState.Read(Job!);
+        if (!g.HasTarget) { Status = $"Out of combat: {g.TargetNote}"; return false; }
+        if (config.Engage == EngageMode.EngagedOnly && !g.TargetEngaged)
+        { Status = "Target isn't fighting yet (engage: engaged only)"; return false; }
+        return true;
     }
 
     // ================================================================ pressing
@@ -188,7 +202,8 @@ public sealed unsafe class Pilot : IDisposable
         lastPressId = id;
         lastPress = now;
         var target = a.Def.Potency > 0 && g.HasTarget ? g.TargetId : 0xE000_0000UL;
-        am->UseAction(ActionType.Action, id, target);
+        var ok = am->UseAction(ActionType.Action, id, target);
+        Plugin.Log.Debug($"[Pilot] press {a.Name} (#{id}) -> {(ok ? "ok" : "refused")}; gcd {g.GcdRemaining:0.00}s");
         if (a.IsGcd) CheckStall(g);
     }
 

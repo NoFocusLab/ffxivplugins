@@ -15,6 +15,17 @@ public enum PilotMode
     Live,
 }
 
+/// <summary>When Combat Pilot may start a fight on its own.</summary>
+public enum EngageMode
+{
+    /// <summary>Never starts combat: waits until you're in combat.</summary>
+    WaitForCombat,
+    /// <summary>Attacks your target only if it's already fighting (in combat with someone).</summary>
+    EngagedOnly,
+    /// <summary>Attacks any attackable target you select, starting the fight (pulls, striking dummies).</summary>
+    AnyTarget,
+}
+
 [Serializable]
 public class Configuration : IPluginConfiguration
 {
@@ -24,8 +35,8 @@ public class Configuration : IPluginConfiguration
     public Dictionary<string, PilotMode> Modes { get; set; } = new();
 
     // ---- when it acts
-    /// <summary>Only act in combat (never pulls for you).</summary>
-    public bool OnlyInCombat { get; set; } = true;
+    /// <summary>When it may start a fight on its own (you're always covered once in combat).</summary>
+    public EngageMode Engage { get; set; } = EngageMode.EngagedOnly;
     /// <summary>Seconds before the GCD comes back to press the next one (the game queues it).</summary>
     public float QueueWindow { get; set; } = 0.5f;
 

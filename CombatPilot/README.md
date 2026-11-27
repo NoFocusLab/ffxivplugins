@@ -33,7 +33,17 @@ press due (`MitPlanner.PressDueIn`), and never presses over the game's animation
 ## Safety
 - Something usable but nothing pressed for 2 GCDs (or a planner error): **safe mode**, a fixed
   priority from the job file. Still stalled after 2 more GCDs: **pauses** and says so in chat.
-- Kill switch: hotkey or `/pilot pause`. Live only acts in combat (it won't pull for you).
+- Kill switch: hotkey or `/pilot pause`.
+
+## Starting a fight
+Once you're in combat it always fights. Before that, the **Engage** setting decides (Settings tab,
+the small panel's Engage button, or `/pilot engage wait|fighting|any`):
+- **Wait** until you're in combat.
+- **Fighting** (default): attack your target only if it's already fighting someone.
+- **Any**: attack any attackable target you select, starting the fight (pulls, striking dummies).
+"Attackable" is the game's own check, so striking dummies count. The status line says why it's
+idle (no target, target can't be attacked, waiting for combat...). Each decision and press is also
+written to the Dalamud log (`/xllog`, Debug level) as `[Pilot]` lines.
 
 ## Reports
 Every fight is logged (Live and Listen): each decision, what was wanted, what was pressed, and the
