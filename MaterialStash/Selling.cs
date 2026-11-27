@@ -80,7 +80,8 @@ public sealed class Selling : IDisposable
             // Demand: the item must sell N ventures' worth a day (plus, combined, what's coming and what's held).
             double load = y;
             if (config.DemandCombined)
-                load += incoming.GetValueOrDefault(t.ItemId) + Tracker.Stacks(Tracker.Bags, id => id % 1_000_000 == t.ItemId).Sum(s => s.Qty);
+                load += incoming.GetValueOrDefault(t.ItemId) + Tracker.Stacks(Tracker.Bags, id => id % 1_000_000 == t.ItemId).Sum(s => s.Qty)
+                        + WaitingOnRetainers(me, t.ItemId) + OurListed(me, t.ItemId, info);
             var demand = config.DemandFactor * load;
             if (info.UnitsPerDay < demand) continue;
             if (best == null || value > best.Value) best = new Pick(t, y, info.Price, value, info.UnitsPerDay, demand);
@@ -88,12 +89,84 @@ public sealed class Selling : IDisposable
         return best;
     }
 
-    /// <summary>A money venture was chosen: its item goes on the to-sell list.</summary>
-    public void Queue(uint itemId)
+    /// <summary>
+    /// A money venture was chosen: its item goes on the to-sell list, and we remember which retainer
+    /// will have it (venture results land in the retainer's inventory, not your bags).
+    /// </summary>
+    public void Queue(uint itemId, ulong retainerId = 0)
     {
         var me = tracker.Me();
-        if (me != null && me.SellQueue.Add(itemId % 1_000_000)) tracker.Save(force: true);
+        if (me == null) return;
+        var id = itemId % 1_000_000;
+        me.SellQueue.Add(id);
+        if (retainerId != 0)
+        {
+            if (!me.SellAt.TryGetValue(id, out var set)) me.SellAt[id] = set = new();
+            set.Add(retainerId);
+        }
+        tracker.Save(force: true);
     }
+
+    /// <summary>To-sell items of this kind sitting on retainers, as last recorded.</summary>
+    private static int WaitingOnRetainers(CharacterData me, uint itemId)
+    {
+        if (!me.SellAt.TryGetValue(itemId, out var at)) return 0;
+        var n = 0;
+        foreach (var r in at)
+            if (me.Retainers.TryGetValue(r, out var snap)) n += snap.Items.GetValueOrDefault(itemId);
+        return n;
+    }
+
+    /// <summary>
+    /// How many we already have on the market: Universalis's listings under your retainers' names, or
+    /// what we listed in the last day if Universalis hasn't caught up yet (the larger).
+    /// </summary>
+    private static int OurListed(CharacterData me, uint itemId, Market.Info info)
+    {
+        var recent = 0;
+        if (me.Listed.TryGetValue(itemId, out var lots))
+        {
+            lots.RemoveAll(l => (DateTime.UtcNow - l.At).TotalDays > 3);
+            recent = lots.Where(l => (DateTime.UtcNow - l.At).TotalHours < 24).Sum(l => l.Qty);
+        }
+        return Math.Max(info.OurListed, recent);
+    }
+
+    /// <summary>A listing was made (counts against demand until Universalis shows it).</summary>
+    public void Listed(uint itemId, int qty)
+    {
+        var me = tracker.Me();
+        if (me == null) return;
+        var id = itemId % 1_000_000;
+        if (!me.Listed.TryGetValue(id, out var lots)) me.Listed[id] = lots = new();
+        lots.Add(new ListedLot { Qty = qty, At = DateTime.UtcNow });
+        tracker.Save(force: true);
+    }
+
+    /// <summary>Retainers holding to-sell items (as far as we know).</summary>
+    public HashSet<ulong> Holders()
+    {
+        var me = tracker.Me();
+        var set = new HashSet<ulong>();
+        if (me == null) return set;
+        foreach (var (item, rs) in me.SellAt)
+            if (me.SellQueue.Contains(item)) set.UnionWith(rs);
+        return set;
+    }
+
+    /// <summary>This retainer has no to-sell items left (it was opened and they've been taken out).</summary>
+    public void ClearHolder(ulong retainerId)
+    {
+        var me = tracker.Me();
+        if (me == null) return;
+        var changed = false;
+        foreach (var set in me.SellAt.Values) changed |= set.Remove(retainerId);
+        if (me.SellAt.Values.Any(v => v.Count == 0)) { foreach (var k in me.SellAt.Where(kv => kv.Value.Count == 0).Select(kv => kv.Key).ToList()) me.SellAt.Remove(k); changed = true; }
+        if (changed) tracker.Save(force: true);
+    }
+
+    /// <summary>Anything to sell, in your bags or waiting on a retainer.</summary>
+    public bool AnythingToSell() => InBags().Count > 0 || Holders().Count > 0;
 
     /// <summary>Queued items in your bags now: item -> quantity.</summary>
     public Dictionary<uint, int> InBags()
@@ -125,7 +198,11 @@ public sealed class Selling : IDisposable
                 if (config.MoneyVentures || config.AutoSell)
                 {
                     var ids = CandidateItems();
-                    if (tracker.Me() is { } me) ids.UnionWith(me.SellQueue);
+                    if (tracker.Me() is { } me)
+                    {
+                        ids.UnionWith(me.SellQueue);
+                        market.OurRetainers = me.Retainers.Values.Select(r => r.Name).Where(n => n.Length > 0).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    }
                     market.Request(ids, HomeWorld(), Math.Max(10, config.PriceRefreshMinutes));
                 }
             }
@@ -158,9 +235,12 @@ public sealed class Selling : IDisposable
         lastInBags = now;
         primed = true;
 
-        // Off the list once it's neither in your bags nor on its way from a venture.
+        // Off the list once it's nowhere: not in your bags, not on its way from a venture, and not
+        // waiting on a retainer (this used to forget items as soon as the venture was collected,
+        // since the results land on the retainer, not in your bags).
         var coming = director.Incoming().Keys.Select(k => k % 1_000_000).ToHashSet();
-        if (me.SellQueue.RemoveWhere(id => !now.ContainsKey(id) && !coming.Contains(id)) > 0) tracker.Save(force: true);
+        if (me.SellQueue.RemoveWhere(id => !now.ContainsKey(id) && !coming.Contains(id) &&
+                                           !(me.SellAt.TryGetValue(id, out var at) && at.Count > 0)) > 0) tracker.Save(force: true);
     }
 
     private static unsafe void PlaySound(int id)

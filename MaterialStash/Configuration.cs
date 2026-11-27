@@ -27,6 +27,13 @@ public class RetainerSnap
     public string Source { get; set; } = "";
 }
 
+[Serializable]
+public class ListedLot
+{
+    public int Qty { get; set; }
+    public DateTime At { get; set; }
+}
+
 /// <summary>Per character: the retainers and where things go.</summary>
 [Serializable]
 public class CharacterData
@@ -58,6 +65,10 @@ public class CharacterData
     public HashSet<uint> TidyCarry { get; set; } = new();
     /// <summary>Items fetched by a money venture, to sell (NQ ids): they stay in your bags, highlighted.</summary>
     public HashSet<uint> SellQueue { get; set; } = new();
+    /// <summary>To-sell items waiting on retainers (venture results land in the retainer's inventory): item (NQ) -> retainers.</summary>
+    public Dictionary<uint, HashSet<ulong>> SellAt { get; set; } = new();
+    /// <summary>What we listed recently (item NQ -> (quantity, when)), until Universalis shows it.</summary>
+    public Dictionary<uint, List<ListedLot>> Listed { get; set; } = new();
     /// <summary>The retainer that lists them on the market (auto-sell).</summary>
     public ulong SellRetainer { get; set; }
     /// <summary>Clean-up: items you approved (id incl. HQ offset). Lapses when the item is gone.</summary>

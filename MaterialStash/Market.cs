@@ -18,7 +18,7 @@ namespace MaterialStash;
 /// </summary>
 public sealed class Market : IDisposable
 {
-    public sealed record Info(long Lowest, long Median, double UnitsPerDay, int Sales, DateTime Fetched)
+    public sealed record Info(long Lowest, long Median, double UnitsPerDay, int Sales, DateTime Fetched, int OurListed = 0)
     {
         /// <summary>The lower of the lowest listing and the median sale (0 = no data).</summary>
         public long Price => Lowest > 0 && Median > 0 ? Math.Min(Lowest, Median) : Math.Max(Lowest, Median);
@@ -30,6 +30,8 @@ public sealed class Market : IDisposable
     private DateTime notBefore = DateTime.MinValue;
     public string Status { get; private set; } = "No prices yet.";
     public string World { get; private set; } = "";
+    /// <summary>Your retainers' names: listings under these are yours (counted against demand).</summary>
+    public HashSet<string> OurRetainers { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     public Market() => http.DefaultRequestHeaders.UserAgent.ParseAdd("MaterialStash-Dalamud-plugin");
 
@@ -64,7 +66,7 @@ public sealed class Market : IDisposable
         try
         {
             var url = $"https://universalis.app/api/v2/{Uri.EscapeDataString(world)}/{string.Join(",", ids)}" +
-                      "?hq=false&listings=1&entries=100&entriesWithin=604800";
+                      "?hq=false&listings=50&entries=100&entriesWithin=604800";
             using var doc = JsonDocument.Parse(await http.GetStringAsync(url));
             var root = doc.RootElement;
             if (root.TryGetProperty("items", out var many))
@@ -86,10 +88,17 @@ public sealed class Market : IDisposable
     private void Store(uint id, JsonElement e)
     {
         long lowest = 0;
+        var ours = 0;
         if (e.TryGetProperty("minPriceNQ", out var mp) && mp.ValueKind == JsonValueKind.Number) lowest = (long)mp.GetDouble();
-        if (lowest == 0 && e.TryGetProperty("listings", out var ls) && ls.ValueKind == JsonValueKind.Array)
+        if (e.TryGetProperty("listings", out var ls) && ls.ValueKind == JsonValueKind.Array)
             foreach (var l in ls.EnumerateArray())
-                if (l.TryGetProperty("pricePerUnit", out var pu)) { lowest = (long)pu.GetDouble(); break; }
+            {
+                if (lowest == 0 && l.TryGetProperty("pricePerUnit", out var pu)) lowest = (long)pu.GetDouble();
+                // Ours: listed by one of your retainers (Universalis gives the retainer's name).
+                if (l.TryGetProperty("retainerName", out var rn) && rn.ValueKind == JsonValueKind.String &&
+                    OurRetainers.Contains(rn.GetString() ?? "") && l.TryGetProperty("quantity", out var lq))
+                    ours += (int)lq.GetDouble();
+            }
 
         var prices = new List<long>();
         long units = 0;
@@ -114,6 +123,6 @@ public sealed class Market : IDisposable
         var median = prices.Count == 0 ? 0 : prices[prices.Count / 2];
         // Over 7 days, unless the 100 most recent sales already span less: then over that span (at least a day).
         var days = prices.Count >= 100 && oldest != long.MaxValue ? Math.Max(1.0, (now - oldest) / 86400.0) : 7.0;
-        cache[id] = new Info(lowest, median, units / days, prices.Count, DateTime.UtcNow);
+        cache[id] = new Info(lowest, median, units / days, prices.Count, DateTime.UtcNow, ours);
     }
 }

@@ -147,6 +147,15 @@ the most on your **home world** instead, if one passes:
 - Nothing passes: AutoRetainer's own plan, as before. Prices: Universalis, NQ, refreshed hourly in the background.
 - The "What each retainer would go for now" list shows the choice and the numbers behind it.
 
+Demand also counts what you already have **on the market** (Universalis listings under your retainers'
+names, or what Stash listed in the last day if Universalis hasn't caught up) and to-sell items still
+waiting on retainers, so retainers aren't sent after more of something you're already flooding.
+
+Venture results land in the **retainer's** inventory, not your bags: Stash remembers which retainer
+will have each to-sell item and, on the next Stash or Sell run, takes them out into your bags (then
+lists them, with auto-sell). **Sell** visits those retainers first if needed. (Before 0.14 the item was
+forgotten as soon as the venture was collected, so it ended up stashed instead of listed.)
+
 What comes back goes on the **to-sell list**: it stays in your bags (Stash leaves it), a sound plays (`<se.6>` by
 default), and chat lists it with an estimated value.
 

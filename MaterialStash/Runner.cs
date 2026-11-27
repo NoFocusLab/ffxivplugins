@@ -171,16 +171,20 @@ public sealed unsafe class Runner : IDisposable
         listed = 0; usedMarketSlots.Clear(); noPrice.Clear();
         cleanRan = m == RunMode.Cleanup; cleanPulled = cleanVendored = cleanDiscarded = 0; pulledSlots.Clear(); ctx = null;
         sellTried.Clear();
-        sellAfter = planner.Only == null && (m == RunMode.Stash && config.AutoSell && config.SellAfterStash && selling.InBags().Count > 0)
+        sellAfter = planner.Only == null && (m == RunMode.Stash && config.AutoSell && config.SellAfterStash && selling.AnythingToSell())
                     || m == RunMode.Cleanup; // clean-up always lists its market items afterwards, on any retainer with room
+        collectSell = false;
         PruneCarry(me);
         queue.Clear();
         ulong firstSell = 0;
+        var holders = selling.Holders().Where(me.Order.Contains).ToList();
         if (m == RunMode.Sell)
         {
-            if (selling.InBags().Count == 0) { Status = "Nothing to sell in your bags."; return; }
+            if (selling.InBags().Count == 0 && holders.Count == 0) { Status = "Nothing to sell (in your bags or waiting on retainers)."; return; }
             firstSell = NextSellRetainer(me);
             if (firstSell == 0) { Status = "Every retainer's market is full (20 listings each)."; return; }
+            // Venture results wait on the retainers that fetched them: collect those first, then list.
+            if (holders.Count > 0) { mode = m = RunMode.Stash; collectSell = true; sellAfter = true; }
         }
         var list = m switch
         {
@@ -190,7 +194,7 @@ public sealed unsafe class Runner : IDisposable
             RunMode.Cleanup => Cleanup == null ? new List<ulong>() : CleanupVisits(me),
             RunMode.Furnish => Storeroom == null ? new List<ulong>() : FurnishVisits(me),
             RunMode.Fetch => FetchVisits(me),
-            _ => planner.RetainersToVisit(),
+            _ => collectSell ? holders : planner.RetainersToVisit().Concat(holders.Where(h => !planner.RetainersToVisit().Contains(h))).ToList(),
         };
         if (list.Count == 0 && m == RunMode.Fetch) { Status = "None of those items are on your retainers (as far as the records show)."; return; }
         if (list.Count == 0 && sellAfter && selling.InBags().Count > 0 && NextSellRetainer(me) is var first && first != 0)
@@ -446,7 +450,7 @@ public sealed unsafe class Runner : IDisposable
                 else { Finish(); return; }
             }
             // A second pass for anything a full retainer bounced to another one already passed.
-            else if (mode == RunMode.Stash && pass < 2 && planner.RetainersToVisit() is { Count: > 0 } again)
+            else if (mode == RunMode.Stash && !collectSell && pass < 2 && planner.RetainersToVisit() is { Count: > 0 } again)
             {
                 pass++;
                 foreach (var id in again) queue.Enqueue(id);
@@ -554,6 +558,9 @@ public sealed unsafe class Runner : IDisposable
             Set(Phase.CloseInventory);
             return;
         }
+        // To-sell items (venture results land on the retainer): into your bags, to be listed.
+        if (SellWithdrawStep()) { phaseStart = DateTime.UtcNow; return; }
+        if (collectSell) { Set(Phase.CloseInventory); return; }
         if (DepositStep() || (tidy && WithdrawStep()) || CrystalStep()) { phaseStart = DateTime.UtcNow; return; }
         if (tidy && config.TidySort && SortStep()) { phaseStart = DateTime.UtcNow; return; }
         Set(Phase.CloseInventory);
@@ -725,6 +732,31 @@ public sealed unsafe class Runner : IDisposable
         return 0;
     }
 
+    private bool collectSell;
+
+    /// <summary>Take this retainer's to-sell items into your bags. True if something moved.</summary>
+    private bool SellWithdrawStep()
+    {
+        var me = tracker.Me();
+        var im = InventoryManager.Instance();
+        if (me == null || im == null || me.SellQueue.Count == 0) return false;
+        var left = false;
+        foreach (var s in Tracker.Stacks(Tracker.RetainerPages, id => me.SellQueue.Contains(id % 1_000_000)))
+        {
+            left = true;
+            if (skipStacks.Contains((s.Type, s.Slot)) || bagsFull) continue;
+            if (BagSlot(s.ItemId) is not { } dst) { bagsFull = true; continue; }
+            im->MoveItemSlot(s.Type, (ushort)s.Slot, dst.Type, (ushort)dst.Slot, true);
+            skipStacks.Add((s.Type, s.Slot));
+            withdrawn++;
+            Plugin.Log.Info($"Stash: took {Items.Info(s.ItemId)?.Name} x{s.Qty} out of {tracker.NameOf(current)} to sell");
+            next = DateTime.UtcNow.AddSeconds(0.6);
+            return true;
+        }
+        if (!left) selling.ClearHolder(current);
+        return false;
+    }
+
     private bool SellStep()
     {
         var me = tracker.Me();
@@ -750,6 +782,7 @@ public sealed unsafe class Runner : IDisposable
             im->MoveToRetainerMarket(s.Type, (ushort)s.Slot, InventoryType.RetainerMarket, (ushort)dst, (uint)qty, (uint)Math.Min(price, uint.MaxValue));
             usedMarketSlots.Add(dst);
             listed++;
+            selling.Listed(s.ItemId, qty);
             report?.Listings.Add(new RunReport.Listing(tracker.NameOf(current), s.ItemId, qty, price));
             Plugin.Log.Info($"Stash: listed {Items.Info(s.ItemId)?.Name} x{qty} at {price:N0} on market slot {dst}");
             next = DateTime.UtcNow.AddSeconds(1.2);

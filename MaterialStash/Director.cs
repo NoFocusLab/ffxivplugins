@@ -183,7 +183,7 @@ public sealed unsafe class Director : IDisposable
                 if (Selling?.Choose(r, Stats(r.Name)) is not { } m) return;
                 setVenture.InvokeAction(m.Task.TaskId);
                 recent[r.Id] = (m.Task.TaskId, DateTime.UtcNow);
-                Selling.Queue(m.Task.ItemId);
+                Selling.Queue(m.Task.ItemId, r.Id);
                 var name = Items.Info(m.Task.ItemId)?.Name ?? $"#{m.Task.ItemId}";
                 var mwhy = $"money: ~{m.Value:N0} gil at {m.UnitPrice:N0} each, sells {m.UnitsPerDay:N0}/day";
                 Log.Insert(0, new Decision(DateTime.Now, retainerName, name, m.Yield, mwhy));
