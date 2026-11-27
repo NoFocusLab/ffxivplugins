@@ -134,10 +134,10 @@ public sealed unsafe class Pilot : IDisposable
 
         Observe();
 
-        // Auto-move for positionals (Live, not paused, bar toggle on).
-        var target = Plugin.TargetManager.Target;
-        Mover.Update(me, target, Job, LastGcd, LastState?.Position,
-            Mode == PilotMode.Live && !Paused && config.AutoMove && !me.IsCasting);
+        // Auto-move (Live, not paused, bar toggle on): mechanics (BossMod) first, then positionals and your rules.
+        var rules = config.TogglesFor(Job.Def.Job).Move;
+        if (!rules.Initialized) { Mover.Defaults(rules, me.ClassJob.ValueNullable?.Role ?? 0); config.Save(); }
+        Mover.Update(me, Job, LastState, LastGcd, rules, danger, Mode == PilotMode.Live && !Paused && config.AutoMove);
 
         var am = ActionManager.Instance();
         if (am == null || me.IsCasting) return;

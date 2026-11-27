@@ -101,13 +101,27 @@ extra potency) and include True North (`{"name": "True North", "grants": [{"stat
 - **No positionals on this target:** [Assumption] the game's BNpcBase "IsOmnidirectional" flag (many
   trial bosses): every positional counts, nothing moves.
 - **Already there** (rear = within 45 degrees of its back, flank = 45-135 degrees), or **True North up**.
-- **Auto-move on** (bar toggle, off by default): the planner counts on walking there if the spot is
-  reachable before that GCD ([Estimate] 6 y/s) and safe: floor at the spot, and no BossMod danger zone
-  on the way. Then it walks you there with vnavmesh (just outside the target's hitbox), starting when
-  a positional is within the next two GCDs; it stops when you're there, after 3 s, or if you move
-  yourself (it won't fight your movement).
+- **Auto-move on**: the planner counts on walking there if the spot is reachable before that GCD
+  ([Estimate] 6 y/s) and safe; the mover (below) takes you there.
 - Otherwise the planner weighs using a True North charge, or just takes the miss.
 The Pilot tab shows your side, how far the rear/flank are, and what the mover is doing.
+
+## Auto-move (where to stand)
+Bar toggle, off by default. Priorities, in order:
+1. **Mechanics: BossMod's AI.** Set BossMod's AI to handle mechanics only (no follow distance). When
+   its AI has somewhere it wants you (`BossMod.AI.IsNavigating` / `NaviTargetPos`: towers, stacks,
+   dodges), Combat Pilot steps aside and lets it move you. It also holds still when BossMod reports a
+   special mechanic within 3 s. [Assumption] BossMod's AI navigates for goal zones like towers.
+2. **Safety, always:** a spot needs floor, BossMod has to call it safe, and the path can't cross a
+   danger zone. Unsafe spots are never chosen.
+3. **Positionals** due in the next two GCDs (melee): rear/flank spot.
+4. **Your rules, per job** (Settings > Movement): stay within **X** y of a party member (by role,
+   default Tank, or by name; tanks default to just the target), within **Y** y of the target (melee
+   and tanks 3, ranged/casters/healers 25). If an AoE around you would do **15%+** more than single
+   target, counting only enemies that live long enough and the walk (heavier for casters, who can't
+   cast on the move), go within **Z** y of the pack's centre (default: the AoE's size).
+It never cuts a cast, hands back for 1.5 s when you move yourself, and gives up after 4 s.
+The Pilot tab shows what it's doing and why.
 
 ## Your stats
 GCD length (and so opener step timing) comes from your actual recast: skill/spell speed and haste

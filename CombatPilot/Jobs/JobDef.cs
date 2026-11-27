@@ -32,6 +32,8 @@ public sealed class JobDef
     public string MainStat { get; set; } = "Strength";
     /// <summary>Actions shown as buttons on the bar (click = queue it). Empty: every oGCD.</summary>
     public List<string> Bar { get; set; } = new();
+    /// <summary>False for casters: walking costs casts, so moving is weighed more heavily.</summary>
+    public bool CastsWhileMoving { get; set; } = true;
     /// <summary>Status that makes every positional land (role action True North).</summary>
     public string TrueNorthStatus { get; set; } = "True North";
     /// <summary>Openers, first = default. Run from a countdown (or the bar).</summary>

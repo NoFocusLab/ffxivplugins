@@ -96,15 +96,13 @@ public sealed unsafe class BarsWindow : Window
             if (ImGui.IsItemClicked(ImGuiMouseButton.Right)) p.StartOpenerNow();
         }
 
-        if (job.Actions.Any(a => a.Def.Positional != null))
-        {
-            ImGui.SameLine();
-            if (Toggle(c.AutoMove ? "Auto-move: on##move" : "Auto-move: off##move", c.AutoMove ? On : Neutral,
-                       "Walk to the rear/flank in time for positionals (vnavmesh), only to spots with floor and outside\n" +
-                       "known danger zones; otherwise True North covers it. Stops if you move yourself." +
-                       (p.Mover.Status.Length > 0 ? $"\nNow: {p.Mover.Status}" : "")))
-            { c.AutoMove = !c.AutoMove; changed = true; if (!c.AutoMove) p.Mover.Halt("off"); }
-        }
+        ImGui.SameLine();
+        if (Toggle(c.AutoMove ? "Auto-move: on##move" : "Auto-move: off##move", c.AutoMove ? On : Neutral,
+                   "Auto-move: BossMod's AI handles mechanics first (set its AI to mechanics only); then positionals,\n" +
+                   "your range rules (Settings > Movement), and moving into a pack when an AoE around you is worth it.\n" +
+                   "Only to spots with floor, outside danger zones, on a safe path. Stops if you move yourself." +
+                   (p.Mover.Status.Length > 0 ? $"\nNow: {p.Mover.Status}" : "")))
+        { c.AutoMove = !c.AutoMove; changed = true; if (!c.AutoMove) p.Mover.Halt("off"); }
 
         ImGui.SameLine();
         if (Toggle(t.Potions ? "Potions: on##pot" : "Potions: off##pot", t.Potions ? On : Neutral,

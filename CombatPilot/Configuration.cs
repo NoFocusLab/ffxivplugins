@@ -29,6 +29,28 @@ public enum EngageMode
 public enum AoeMode { Auto, SingleTarget, Force }
 public enum PotionChoice { Highest, Specific }
 
+public enum AnchorKind { Role, Name, Target }
+public enum AnchorRole { Tank, Healer, Melee, Ranged }
+
+/// <summary>Where to stand (auto-move), per job. Defaults depend on the job's role.</summary>
+[Serializable]
+public class MoveRules
+{
+    public bool Initialized { get; set; }
+    /// <summary>Stay near a party member (by role or name), or just the target (tanks).</summary>
+    public AnchorKind Anchor { get; set; } = AnchorKind.Role;
+    public AnchorRole AnchorRole { get; set; } = AnchorRole.Tank;
+    public string AnchorName { get; set; } = "";
+    /// <summary>X: stay within this of the anchor (0 = no limit).</summary>
+    public float AnchorRange { get; set; } = 20;
+    /// <summary>Y: stay within this of the target's hitbox edge.</summary>
+    public float TargetRange { get; set; } = 3;
+    /// <summary>Z: for an AoE around you, within this of the pack's centre (0 = from the AoE's radius).</summary>
+    public float PackRange { get; set; } = 0;
+    /// <summary>Only move in for AoE if it's this much better (after time to live and the walk).</summary>
+    public float AoeGain { get; set; } = 0.15f;
+}
+
 /// <summary>Per-job toggles on the bar.</summary>
 [Serializable]
 public class JobToggles
@@ -43,6 +65,7 @@ public class JobToggles
     public bool OpenerOnCountdown { get; set; } = true;
     /// <summary>Which opener (name); empty = the job file's first.</summary>
     public string Opener { get; set; } = "";
+    public MoveRules Move { get; set; } = new();
 }
 
 [Serializable]

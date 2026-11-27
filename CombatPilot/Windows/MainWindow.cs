@@ -118,7 +118,10 @@ public sealed class MainWindow : Window
         if (p.LastState?.Position is { } pi)
             ImGui.TextDisabled(pi.Omni ? "Positionals: target has none (all land)"
                 : $"Positionals: you're at the {pi.Side}" + (C.AutoMove ? $"; rear {Eta(pi.RearEta)}, flank {Eta(pi.FlankEta)}" : "; auto-move off (True North covers)") +
-                  (pi.Note.Length > 0 ? $" ({pi.Note})" : "") + (p.Mover.Status.Length > 0 ? $" - {p.Mover.Status}" : ""));
+                  (pi.Note.Length > 0 ? $" ({pi.Note})" : "") + "");
+        if (C.AutoMove)
+            ImGui.TextDisabled($"Auto-move: {(p.Mover.Status.Length > 0 ? p.Mover.Status : "idle")}" + (p.Mover.Reason.Length > 0 ? $" ({p.Mover.Reason})" : "") +
+                               (p.Mover.Bmr.Loaded ? "" : " - BossMod not loaded: mechanics and danger zones unknown"));
         if (p.LastState is { } ds && ds.DangerNote.Length > 0)
             ImGui.TextDisabled(ds.DangerNote + (ds.UnsafeDash.Count > 0
                 ? " - held: " + string.Join(", ", p.Job.Actions.Where(a => ds.UnsafeDash.Contains(a.Id)).Select(a => $"{a.Name} ({ds.UnsafeWhy.GetValueOrDefault(a.Id, "?")})"))
@@ -276,6 +279,9 @@ public sealed class MainWindow : Window
         if (ImGui.Checkbox("Never use an AoE that would hit an enemy that isn't fighting yet", ref b)) { C.NoPullWithAoe = b; changed = true; }
 
         ImGui.Separator();
+        DrawMoveRules(ref changed);
+
+        ImGui.Separator();
         ImGui.TextUnformatted("Potions (turned on per job on the bar):");
         if (ImGui.RadioButton("Highest one in my bags", C.Potion == PotionChoice.Highest)) { C.Potion = PotionChoice.Highest; changed = true; plugin.Pilot.PotionSettingsChanged(); }
         if (ImGui.RadioButton("This one:", C.Potion == PotionChoice.Specific)) { C.Potion = PotionChoice.Specific; changed = true; plugin.Pilot.PotionSettingsChanged(); }
@@ -335,6 +341,55 @@ public sealed class MainWindow : Window
         if (changed) C.Save();
     }
 
+
+    private void DrawMoveRules(ref bool changed)
+    {
+        var job = plugin.Pilot.Job;
+        if (job == null) { ImGui.TextDisabled("Movement rules: switch to a job with a job file."); return; }
+        var r = C.TogglesFor(job.Def.Job).Move;
+        ImGui.TextUnformatted($"Movement rules for {job.Def.Job} (auto-move, bar toggle):");
+        ImGui.TextDisabled("Mechanics come first: set BossMod's AI to handle mechanics only (no follow distance). Then these.");
+        ImGui.SetNextItemWidth(140);
+        if (ImGui.BeginCombo("Stay near##anchor", r.Anchor switch { AnchorKind.Target => "just the target", AnchorKind.Name => "a party member (name)", _ => "a party member (role)" }))
+        {
+            if (ImGui.Selectable("a party member (role)", r.Anchor == AnchorKind.Role)) { r.Anchor = AnchorKind.Role; changed = true; }
+            if (ImGui.Selectable("a party member (name)", r.Anchor == AnchorKind.Name)) { r.Anchor = AnchorKind.Name; changed = true; }
+            if (ImGui.Selectable("just the target", r.Anchor == AnchorKind.Target)) { r.Anchor = AnchorKind.Target; changed = true; }
+            ImGui.EndCombo();
+        }
+        if (r.Anchor == AnchorKind.Role)
+        {
+            ImGui.SameLine();
+            ImGui.SetNextItemWidth(100);
+            if (ImGui.BeginCombo("##role", r.AnchorRole.ToString()))
+            {
+                foreach (var ar in Enum.GetValues<AnchorRole>())
+                    if (ImGui.Selectable(ar.ToString(), r.AnchorRole == ar)) { r.AnchorRole = ar; changed = true; }
+                ImGui.EndCombo();
+            }
+        }
+        else if (r.Anchor == AnchorKind.Name)
+        {
+            ImGui.SameLine();
+            ImGui.SetNextItemWidth(160);
+            var n = r.AnchorName;
+            if (ImGui.InputTextWithHint("##aname", "Character name", ref n, 40)) { r.AnchorName = n; changed = true; }
+        }
+        float f;
+        if (r.Anchor != AnchorKind.Target)
+        {
+            f = r.AnchorRange; ImGui.SetNextItemWidth(120);
+            if (ImGui.SliderFloat("X: within this of them (y, 0 = any)", ref f, 0, 40, "%.0f")) { r.AnchorRange = f; changed = true; }
+        }
+        f = r.TargetRange; ImGui.SetNextItemWidth(120);
+        if (ImGui.SliderFloat("Y: within this of the target (y)", ref f, 1, 25, "%.0f")) { r.TargetRange = f; changed = true; }
+        f = r.PackRange; ImGui.SetNextItemWidth(120);
+        if (ImGui.SliderFloat("Z: within this of the pack centre for AoE (y, 0 = from the AoE's size)", ref f, 0, 10, "%.0f")) { r.PackRange = f; changed = true; }
+        f = r.AoeGain * 100; ImGui.SetNextItemWidth(120);
+        if (ImGui.SliderFloat("Move in for AoE only if it's this much better (%)", ref f, 0, 100, "%.0f")) { r.AoeGain = f / 100; changed = true; }
+        if (ImGui.SmallButton("Reset to role defaults"))
+        { Mover.Defaults(r, Plugin.ObjectTable.LocalPlayer?.ClassJob.ValueNullable?.Role ?? 0); changed = true; }
+    }
 
     private static readonly VirtualKey[] KillKeys =
     {
