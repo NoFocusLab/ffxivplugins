@@ -230,8 +230,10 @@ public sealed class GameState
             if (name.Length == 0) continue;
             var left = st.RemainingTime > 0 ? st.RemainingTime : 999;
             s.Statuses[name] = (left, Math.Max(1, (int)st.Param));
-            if (PartyBuffTracker.ByName.TryGetValue(name, out var rb)) s.PartyBuffs.Add((rb.Mult, 0, left));
+            // Your own raid buff (Battle Litany on a Dragoon) is valued by the job file, not counted twice.
+            if (PartyBuffTracker.ByName.TryGetValue(name, out var rb) && !job.Def.Statuses.ContainsKey(name)) s.PartyBuffs.Add((rb.Mult, 0, left));
         }
+        job.AddGaugeStatuses(s.Statuses);
 
         // Cooldowns per recast group (charges included).
         foreach (var a in job.Actions)
@@ -284,7 +286,11 @@ public sealed class GameState
             foreach (var st in target.StatusList)
             {
                 if (st.StatusId == 0) continue;
-                if (PartyBuffTracker.ByName.TryGetValue(StatusNames.Of(st.StatusId), out var rb)) s.PartyBuffs.Add((rb.Mult, 0, st.RemainingTime));
+                var tname = StatusNames.Of(st.StatusId);
+                if (PartyBuffTracker.ByName.TryGetValue(tname, out var rb)) s.PartyBuffs.Add((rb.Mult, 0, st.RemainingTime));
+                // Your damage over time on the target (Chaotic Spring): the planner knows when to refresh it.
+                if (st.SourceId == me.EntityId && job.Actions.Any(a => a.Def.Dot?.Status == tname))
+                    s.Statuses[tname] = (st.RemainingTime, 1);
             }
             var src = (GameObjectStruct*)me.Address;
             var dst = (GameObjectStruct*)target.Address;
@@ -324,7 +330,7 @@ public sealed class GameState
 
         if (mit != null) s.Downtime = mit.Downtime();
         if (party != null)
-            foreach (var (mult, from, until, _) in party.Upcoming(60, s.Downtime)) s.PartyBuffs.Add((mult, from, until));
+            foreach (var (mult, from, until, _) in party.Upcoming(60, s.Downtime, job.Def.Statuses.Keys)) s.PartyBuffs.Add((mult, from, until));
         return s;
     }
 }

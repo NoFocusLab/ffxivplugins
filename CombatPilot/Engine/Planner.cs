@@ -25,6 +25,8 @@ public sealed class PlannerSettings
     public int BeamWidth = 48;
     /// <summary>[Estimate] a guaranteed critical direct hit vs an average hit (crit ~25%/+60%, DH ~20%/+25%).</summary>
     public double CritDhFactor = 1.65;
+    /// <summary>[Estimate] a guaranteed critical hit (no direct hit) vs an average hit.</summary>
+    public double CritFactor = 1.35;
     /// <summary>Weave slots to leave free in the current window (Mit Planner has a press due).</summary>
     public int ReservedWeaves;
     /// <summary>Burst actions held by the bar's toggle.</summary>
@@ -125,6 +127,8 @@ public static class Planner
     private static bool Usable(Sim c, BoundAction a, JobBinding job, PlannerSettings set)
     {
         if (set.Held.Contains(a.Name) || !c.Ready(a) || !c.Allowed(a, job)) return false;
+        // Pure movement (Elusive Jump, Winged Glide) is never planned: only the bar's queue presses it.
+        if (a.Def.Moves != null || (a.Def.MovesToTarget && a.Def.Potency <= 0 && a.Def.Grants.Count == 0)) return false;
         if (set.ReserveAction == a.Name && a.CooldownGroup >= 0 && c.Cd.TryGetValue(a.CooldownGroup, out var cd) && cd.Charges <= set.ReserveKeep)
             return false;
         return true;
@@ -148,7 +152,7 @@ public static class Planner
                 if (!Usable(at0, a, job, set)) continue;
                 if (nearNow && (!g.HasTarget || !Reaches(a, g, set))) continue;
                 var c = at0.Clone();
-                c.Apply(a, job, Hits(a, g, set, c.T), set.CritDhFactor);
+                c.Apply(a, job, Hits(a, g, set, c.T), set.CritDhFactor, set.CritFactor);
                 c.GcdReadyAt = t + g.GcdLength;
                 c.LockUntil = t + Sim.GcdLock;
                 any = true;
@@ -181,7 +185,7 @@ public static class Planner
             if (a.Def.Potency > 0 && nearNow && (!g.HasTarget || !Reaches(a, g, set))) continue;
             if (a.Def.Potency > 0 && !g.HasTarget) continue;
             var c = w0.Clone();
-            c.Apply(a, job, Hits(a, g, set, c.T), set.CritDhFactor);
+            c.Apply(a, job, Hits(a, g, set, c.T), set.CritDhFactor, set.CritFactor);
             c.LockUntil = at + Sim.OgcdLock;
             var left = n.WeavesLeft - 1;
             yield return new Node { Sim = c, NextIsGcd = left <= 0, WeavesLeft = left, Gcds = n.Gcds, Root = n.Root };
@@ -243,7 +247,7 @@ public static class Planner
         // Partway through a combo: the next step's combo bonus is still to come.
         if (s.Combo != null && s.ComboUntil > s.T + 3)
         {
-            var bonus = job.Actions.Where(a => a.Def.ComboFrom == s.Combo).Select(a => a.ComboPotency - a.Potency).DefaultIfEmpty(0).Max();
+            var bonus = job.Actions.Where(a => a.Def.Follows(s.Combo)).Select(a => a.ComboPotency - a.Potency).DefaultIfEmpty(0).Max();
             v += Math.Max(0, bonus) * 0.8;
         }
 

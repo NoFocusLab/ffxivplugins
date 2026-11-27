@@ -198,6 +198,7 @@ public sealed unsafe class Pilot : IDisposable
             HorizonGcds = Math.Clamp(config.HorizonGcds, 2, 12),
             BeamWidth = Math.Clamp(config.BeamWidth, 8, 256),
             CritDhFactor = config.CritDhFromStats && StatsNow()?.CritDhFactor is { } f ? f : config.CritDhFactor,
+            CritFactor = config.CritDhFromStats && StatsNow()?.CritFactor is { } cf ? cf : 1.35,
             ReservedWeaves = !forGcd && mit.PressDueIn() <= g.GcdRemaining + 0.3f ? 1 : 0,
             Held = t.HoldBurst ? Job.Def.Burst.ToHashSet() : new HashSet<string>(),
             Aoe = t.Aoe,

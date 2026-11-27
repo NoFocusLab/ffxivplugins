@@ -105,6 +105,7 @@ public sealed class Sim
     {
         var d = a.Def;
         if (d.Requires.Any(c => !Meets(c, job))) return false;
+        if (d.RequiresCombo && !(d.Follows(Combo) && ComboUntil > T)) return false;
         if (d.GaugeCost > 0 && Gauge < d.GaugeCost && !(d.FreeWith != null && Has(d.FreeWith))) return false;
         return true;
     }
@@ -123,10 +124,10 @@ public sealed class Sim
     /// Use an action at the current time. Returns the damage it adds. Hits: how many enemies it
     /// reaches. critDhFactor: [Estimate] guaranteed crit+DH vs an average hit.
     /// </summary>
-    public double Apply(BoundAction a, JobBinding job, int hits, double critDhFactor)
+    public double Apply(BoundAction a, JobBinding job, int hits, double critDhFactor, double critFactor = 1.35)
     {
         var d = a.Def;
-        var combo = d.ComboFrom != null && Combo == d.ComboFrom && ComboUntil > T;
+        var combo = d.Follows(Combo) && ComboUntil > T;
         var potency = combo && a.ComboPotency > 0 ? a.ComboPotency : a.Potency;
         // Positional: lands under True North, on a target without positionals, if you're already on
         // that side, or if auto-move can get you there before this GCD.
@@ -139,6 +140,12 @@ public sealed class Sim
         string? stackUsed = null;
         foreach (var (name, sd) in job.Def.Statuses)
             if (sd.CritDhFor.Contains(d.Name) && Has(name)) { critDh = true; stackUsed = name; break; }
+        // Guaranteed crit only (Life Surge: "*" = the next weaponskill that deals damage).
+        var crit = false;
+        if (!critDh && potency > 0)
+            foreach (var (name, sd) in job.Def.Statuses)
+                if (sd.CritFor.Count > 0 && Has(name) && (sd.CritFor.Contains(d.Name) || (a.IsGcd && sd.CritFor.Contains("*"))))
+                { crit = true; stackUsed = name; break; }
 
         var dmg = 0.0;
         var down = Downtime.Any(w => w.From <= T && w.Until > T);
@@ -146,7 +153,14 @@ public sealed class Sim
         {
             var h = hits;
             var total = potency * (!a.IsAoe ? 1 : 1 + (h - 1) * (1 - a.Falloff));
-            dmg = total * DamageMult(job) * (critDh ? critDhFactor : 1);
+            dmg = total * DamageMult(job) * (critDh ? critDhFactor : crit ? critFactor : 1);
+        }
+        // Damage over time: the ticks it adds (a refresh loses the ticks the old one had left).
+        if (d.Dot is { } dot && (!dot.ComboOnly || combo) && !down && hits > 0)
+        {
+            var had = Statuses.TryGetValue(dot.Status, out var old) && old.Until > T ? old.Until - T : 0;
+            dmg += dot.Potency * Math.Max(0, dot.Duration - had) / 3 * DamageMult(job);
+            Statuses[dot.Status] = (T + dot.Duration, 1);
         }
         // Earlier damage is worth slightly more: without this, sequences that do the same things in a
         // different order tie, and procs drift to the end of their window (seen in testing: Primal
@@ -199,7 +213,7 @@ public sealed class Sim
         // Combo: a combo step continues it, other GCDs break it unless they keep it.
         if (a.IsGcd)
         {
-            var continues = job.Actions.Any(x => x.Def.ComboFrom == d.Name);
+            var continues = job.Actions.Any(x => x.Def.Follows(d.Name));
             if (continues && (d.ComboFrom == null || combo)) { Combo = d.Name; ComboUntil = T + 30; }
             else if (!d.KeepsCombo) Combo = null;
         }

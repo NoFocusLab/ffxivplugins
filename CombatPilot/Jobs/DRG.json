@@ -1,0 +1,192 @@
+{
+  "job": "DRG",
+  "classJobs": ["DRG", "LNC"],
+  "patch": "7.55",
+  "source": "Official job guide (na.finalfantasyxiv.com/jobguide/dragoon), level 100 values. Potencies are re-read from the game's tooltips when they parse cleanly; lower-level fallbacks (Vorpal/Full/Disembowel/Chaos Thrust, Jump) are [Estimate]s the tooltip replaces.",
+  "gauge": {
+    "name": "Firstminds' Focus",
+    "max": 2,
+    "valuePerUnit": 200.0
+  },
+  "potencyPerSecond": 240,
+  "statuses": {
+    "Power Surge": { "damageMult": 1.1 },
+    "Lance Charge": { "damageMult": 1.1 },
+    "Life of the Dragon": { "damageMult": 1.15 },
+    "Battle Litany": { "damageMult": 1.04 },
+    "Life Surge": { "critFor": ["*"] },
+    "Draconian Fire": { "terminalValue": 250 },
+    "Dive Ready": { "terminalValue": 380 },
+    "Nastrond Ready": { "terminalValue": 720 },
+    "Starcross Ready": { "terminalValue": 1000 },
+    "Dragon's Flight": { "terminalValue": 550 }
+  },
+  "actions": [
+    { "name": "True Thrust", "potency": 230 },
+    {
+      "name": "Raiden Thrust", "press": "True Thrust", "potency": 320,
+      "requires": [ { "status": "Draconian Fire" } ],
+      "consumes": [ "Draconian Fire" ],
+      "grants": [ { "gauge": 1, "minLevel": 90 } ]
+    },
+    {
+      "name": "Vorpal Thrust", "upgradedTo": "Lance Barrage",
+      "potency": 130, "comboFrom": "True Thrust|Raiden Thrust", "comboPotency": 280
+    },
+    {
+      "name": "Lance Barrage",
+      "potency": 130, "comboFrom": "True Thrust|Raiden Thrust", "comboPotency": 340
+    },
+    {
+      "name": "Full Thrust", "upgradedTo": "Heavens' Thrust",
+      "potency": 100, "comboFrom": "Vorpal Thrust", "comboPotency": 380
+    },
+    {
+      "name": "Heavens' Thrust",
+      "potency": 160, "comboFrom": "Vorpal Thrust|Lance Barrage", "comboPotency": 460
+    },
+    {
+      "name": "Disembowel", "upgradedTo": "Spiral Blow",
+      "potency": 140, "comboFrom": "True Thrust|Raiden Thrust", "comboPotency": 250,
+      "grants": [ { "status": "Power Surge", "duration": 30, "comboOnly": true } ]
+    },
+    {
+      "name": "Spiral Blow",
+      "potency": 140, "comboFrom": "True Thrust|Raiden Thrust", "comboPotency": 300,
+      "grants": [ { "status": "Power Surge", "duration": 30, "comboOnly": true } ]
+    },
+    {
+      "name": "Chaos Thrust", "upgradedTo": "Chaotic Spring",
+      "potency": 100, "comboFrom": "Disembowel", "comboPotency": 260,
+      "positional": "rear", "positionalBonus": 40,
+      "dot": { "status": "Chaos Thrust", "potency": 40, "duration": 24, "comboOnly": true }
+    },
+    {
+      "name": "Chaotic Spring",
+      "potency": 140, "comboFrom": "Disembowel|Spiral Blow", "comboPotency": 300,
+      "positional": "rear", "positionalBonus": 40,
+      "dot": { "status": "Chaotic Spring", "potency": 45, "duration": 24, "comboOnly": true }
+    },
+    {
+      "name": "Fang and Claw",
+      "potency": 140, "comboFrom": "Full Thrust|Heavens' Thrust", "comboPotency": 300,
+      "positional": "flank", "positionalBonus": 40
+    },
+    {
+      "name": "Wheeling Thrust",
+      "potency": 140, "comboFrom": "Chaos Thrust|Chaotic Spring", "comboPotency": 300,
+      "positional": "rear", "positionalBonus": 40
+    },
+    {
+      "name": "Drakesbane", "press": "Fang and Claw",
+      "potency": 460, "comboFrom": "Fang and Claw|Wheeling Thrust", "comboPotency": 460,
+      "requiresCombo": true,
+      "grants": [ { "status": "Draconian Fire", "duration": 30, "minLevel": 76 } ]
+    },
+    {
+      "name": "Piercing Talon",
+      "potency": 200, "ranged": true, "keepsCombo": true
+    },
+    { "name": "Doom Spike", "potency": 110, "aoe": "line" },
+    {
+      "name": "Draconian Fury", "press": "Doom Spike",
+      "potency": 130, "aoe": "line",
+      "requires": [ { "status": "Draconian Fire" } ],
+      "consumes": [ "Draconian Fire" ],
+      "grants": [ { "gauge": 1, "minLevel": 90 } ]
+    },
+    {
+      "name": "Sonic Thrust",
+      "potency": 100, "comboFrom": "Doom Spike|Draconian Fury", "comboPotency": 120, "aoe": "line",
+      "grants": [ { "status": "Power Surge", "duration": 30, "comboOnly": true } ]
+    },
+    {
+      "name": "Coerthan Torment",
+      "potency": 100, "comboFrom": "Sonic Thrust", "comboPotency": 150, "aoe": "line",
+      "grants": [ { "status": "Draconian Fire", "duration": 30, "comboOnly": true, "minLevel": 76 } ]
+    },
+    {
+      "name": "Life Surge",
+      "requires": [ { "not": { "status": "Life Surge" } } ],
+      "grants": [ { "status": "Life Surge", "duration": 5 } ]
+    },
+    {
+      "name": "Lance Charge",
+      "grants": [ { "status": "Lance Charge", "duration": 20 } ]
+    },
+    {
+      "name": "Battle Litany",
+      "grants": [ { "status": "Battle Litany", "duration": 20 } ]
+    },
+    {
+      "name": "Jump", "upgradedTo": "High Jump", "potency": 320,
+      "grants": [ { "status": "Dive Ready", "duration": 15, "minLevel": 68 } ]
+    },
+    {
+      "name": "High Jump", "potency": 400,
+      "grants": [ { "status": "Dive Ready", "duration": 15 } ]
+    },
+    {
+      "name": "Mirage Dive", "potency": 380,
+      "requires": [ { "status": "Dive Ready" } ],
+      "consumes": [ "Dive Ready" ]
+    },
+    {
+      "name": "Geirskogul", "potency": 280,
+      "grants": [
+        { "status": "Life of the Dragon", "duration": 20, "minLevel": 70 },
+        { "status": "Nastrond Ready", "duration": 20, "minLevel": 70 }
+      ]
+    },
+    {
+      "name": "Nastrond", "press": "Geirskogul", "potency": 720,
+      "requires": [ { "status": "Nastrond Ready" } ],
+      "consumes": [ "Nastrond Ready" ]
+    },
+    {
+      "name": "Stardiver", "potency": 840,
+      "requires": [ { "status": "Life of the Dragon" } ],
+      "grants": [ { "status": "Starcross Ready", "duration": 20, "minLevel": 100 } ],
+      "movesToTarget": true
+    },
+    {
+      "name": "Starcross", "press": "Stardiver", "potency": 1000,
+      "requires": [ { "status": "Starcross Ready" } ],
+      "consumes": [ "Starcross Ready" ]
+    },
+    {
+      "name": "Dragonfire Dive", "potency": 500,
+      "grants": [ { "status": "Dragon's Flight", "duration": 30, "minLevel": 92 } ],
+      "movesToTarget": true
+    },
+    {
+      "name": "Rise of the Dragon", "press": "Dragonfire Dive", "potency": 550,
+      "requires": [ { "status": "Dragon's Flight" } ],
+      "consumes": [ "Dragon's Flight" ]
+    },
+    {
+      "name": "Wyrmwind Thrust", "potency": 440, "gaugeCost": 2, "rangedOk": true
+    },
+    { "name": "Winged Glide", "rangedOk": true, "movesToTarget": true },
+    { "name": "Elusive Jump", "moves": "back", "moveDistance": 15 },
+    {
+      "name": "True North",
+      "requires": [ { "not": { "status": "True North" } } ],
+      "grants": [ { "status": "True North", "duration": 10 } ]
+    }
+  ],
+  "travel": { "action": "Winged Glide", "keep": 1 },
+  "burst": ["Lance Charge", "Battle Litany", "Geirskogul", "Dragonfire Dive"],
+  "mainStat": "Strength",
+  "bar": [
+    "Lance Charge", "Battle Litany", "Geirskogul", "Life Surge", "High Jump",
+    "Dragonfire Dive", "Stardiver", "Wyrmwind Thrust", "Winged Glide", "Elusive Jump",
+    "True North", "Piercing Talon"
+  ],
+  "openers": [],
+  "safeOrder": [
+    "Drakesbane", "Heavens' Thrust", "Chaotic Spring", "Wheeling Thrust", "Fang and Claw",
+    "Lance Barrage", "Spiral Blow", "Raiden Thrust", "True Thrust", "Piercing Talon"
+  ],
+  "levelNotes": "No opener yet: the countdown hands the pull to the planner until The Balance's opener is added. [Assumption] Stardiver and Dragonfire Dive land you at the target (treated as dashes for the danger/floor check); Mirage Dive is pressed by its own id."
+}

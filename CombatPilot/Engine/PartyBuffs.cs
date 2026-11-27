@@ -113,7 +113,7 @@ public sealed class PartyBuffTracker
     /// ([Assumption] parties hold 2-minute buffs through downtime).
     /// </summary>
     public List<(double Mult, double From, double Until, string Name)> Upcoming(double ahead = 60,
-        List<(double From, double Until)>? downtime = null)
+        List<(double From, double Until)>? downtime = null, IEnumerable<string>? own = null)
     {
         var list = new List<(double, double, double, string)>();
         Basis.Clear();
@@ -123,6 +123,8 @@ public sealed class PartyBuffTracker
         foreach (var buff in Table)
         {
             if (!PartyJobs.Contains(buff.Job)) continue;
+            // Your own raid buff is the planner's to place, not a window to wait for.
+            if (own != null && own.Contains(buff.Name)) continue;
             double next;
             string basis;
             if (territory != 0 && timelineNow >= 0 && learner.Next(territory, buff.Name, timelineNow) is { } learned)

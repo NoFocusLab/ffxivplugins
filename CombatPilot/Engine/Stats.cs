@@ -18,7 +18,7 @@ public static unsafe class Stats
     private const int DirectHit = 22, CriticalHit = 27, SkillSpeed = 45, SpellSpeed = 46;
 
     public sealed record Snapshot(int Level, int Crit, int Dh, int Sks, int Sps,
-        double CritRate, double CritMult, double DhRate, double CritDhFactor);
+        double CritRate, double CritMult, double DhRate, double CritDhFactor, double CritFactor);
 
     /// <summary>
     /// Level modifiers (SUB, DIV). Level 100 is confirmed; the others are the published values for
@@ -47,6 +47,6 @@ public static unsafe class Stats
         var average = (1 + critRate * (critMult - 1)) * (1 + dhRate * 0.25);
         var factor = critMult * 1.25 / average;
         return new Snapshot(level, crit, dh, ps->Attributes[SkillSpeed], ps->Attributes[SpellSpeed],
-            critRate, critMult, dhRate, factor);
+            critRate, critMult, dhRate, factor, critMult / (1 + critRate * (critMult - 1)));
     }
 }

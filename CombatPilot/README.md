@@ -9,6 +9,14 @@ the new starting point.
 `/pilot pause | resume` (or the kill-switch key, Ctrl+Shift+End by default) stops and restarts it,
 `/pilot report` opens the reports.
 
+**Jobs:** Warrior, Dragoon (7.55, level-aware). Dragoon notes: both combo branches, Draconian Fire into
+Raiden Thrust / Draconian Fury, Firstminds' Focus for Wyrmwind Thrust, Life Surge (a guaranteed crit
+on the next weaponskill, valued from your crit stats), Chaotic Spring's damage over time (refreshes
+are valued by the ticks they actually add), Life of the Dragon windows for Stardiver/Nastrond, and
+your own Battle Litany counted once (not also as a party buff). Elusive Jump and Winged Glide are
+never used by the planner, only from the bar. No Dragoon opener yet: a countdown hands the pull to
+the planner.
+
 ## Modes (per job)
 - **Live:** Combat Pilot presses the damage buttons. RotationSolver is turned off for that job
   (`/rotation off`) and turned back on (`/rotation auto`) when you switch to a job that isn't Live.

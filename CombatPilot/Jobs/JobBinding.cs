@@ -212,10 +212,29 @@ public sealed class JobBinding
             return Def.Job switch
             {
                 "WAR" => Plugin.JobGauges.Get<WARGauge>().BeastGauge,
+                "DRG" => Plugin.JobGauges.Get<DRGGauge>().FirstmindsFocusCount,
                 _ => 0,
             };
         }
         catch (Exception) { return 0; }
+    }
+
+    /// <summary>
+    /// Effects the game keeps on the job gauge rather than as a status. [Assumption] Dragoon's Life
+    /// of the Dragon may show only on the gauge; if it's also a status, the status wins.
+    /// </summary>
+    public void AddGaugeStatuses(Dictionary<string, (double Left, int Stacks)> statuses)
+    {
+        try
+        {
+            if (Def.Job == "DRG")
+            {
+                var g = Plugin.JobGauges.Get<DRGGauge>();
+                if (g.IsLOTDActive && !statuses.ContainsKey("Life of the Dragon"))
+                    statuses["Life of the Dragon"] = (g.LOTDTimer / 1000.0, 1);
+            }
+        }
+        catch (Exception) { }
     }
 }
 

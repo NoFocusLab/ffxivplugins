@@ -74,6 +74,8 @@ public sealed class StatusDef
     public double DamageMult { get; set; } = 1.0;
     /// <summary>While up, these actions are guaranteed critical direct hits (one stack used per action).</summary>
     public List<string> CritDhFor { get; set; } = new();
+    /// <summary>While up, these actions are guaranteed critical hits (not direct hits); "*" = the next weaponskill (Life Surge).</summary>
+    public List<string> CritFor { get; set; } = new();
     /// <summary>[Estimate] potency a stack is worth when still up at the end of the look-ahead.</summary>
     public double TerminalValue { get; set; }
     public int MaxStacks { get; set; } = 0;
@@ -90,8 +92,13 @@ public sealed class ActionDef
     /// <summary>A trait replaces this action with another at a higher level (Berserk -> Inner Release).</summary>
     public string? UpgradedTo { get; set; }
     public double Potency { get; set; }
+    /// <summary>Combo step it follows; several allowed, separated by "|" (Lance Barrage: "True Thrust|Raiden Thrust").</summary>
     public string? ComboFrom { get; set; }
     public double ComboPotency { get; set; }
+    /// <summary>Only usable as a combo step (Drakesbane only exists after Fang and Claw / Wheeling Thrust).</summary>
+    public bool RequiresCombo { get; set; }
+    /// <summary>Damage over time put on the target (snapshots your buffs when applied).</summary>
+    public DotDef? Dot { get; set; }
     /// <summary>Guaranteed critical direct hit.</summary>
     public bool CritDh { get; set; }
     /// <summary>Usable from range (no melee needed).</summary>
@@ -130,6 +137,22 @@ public sealed class ActionDef
     public Reduce? ReducesRecast { get; set; }
 
     [JsonIgnore] public string PressName => Press ?? Name;
+
+    private string[]? comboFroms;
+    /// <summary>True if this action continues a combo after <paramref name="previous"/>.</summary>
+    public bool Follows(string? previous) =>
+        previous != null && ComboFrom != null && (comboFroms ??= ComboFrom.Split('|', StringSplitOptions.TrimEntries)).Contains(previous);
+}
+
+public sealed class DotDef
+{
+    /// <summary>The status it puts on the target (read back from the target, yours only).</summary>
+    public string Status { get; set; } = "";
+    /// <summary>Potency per tick (every 3 s).</summary>
+    public double Potency { get; set; }
+    public double Duration { get; set; }
+    /// <summary>Only when the action lands as a combo step.</summary>
+    public bool ComboOnly { get; set; }
 }
 
 public sealed class Condition
