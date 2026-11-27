@@ -48,6 +48,9 @@ public static class Planner
         public double Score;
     }
 
+    /// <summary>[Estimate] seconds a proc needs left to count as usable later (2 GCDs).</summary>
+    private const double ExpirySafety = 5.0;
+
     private const string Skip = "(skip)";
     private const string Hold = "(hold)";
 
@@ -203,7 +206,9 @@ public static class Planner
             var left = st.Until - s.T;
             if (left <= 0 || !def.Statuses.TryGetValue(name, out var sd)) continue;
             if (sd.DamageMult > 1) v += (sd.DamageMult - 1) * def.PotencyPerSecond * Math.Min(left, 30);
-            if (sd.TerminalValue > 0 && left > 1) v += sd.TerminalValue * Math.Max(1, st.Stacks);
+            // A proc or stack only counts as "still in hand" if there's time left to use it: one
+            // about to run out is worth nothing (testing: an Inner Release stack ran out unused).
+            if (sd.TerminalValue > 0 && left > ExpirySafety) v += sd.TerminalValue * Math.Max(1, st.Stacks);
         }
 
         // Partway through a combo: the next step's combo bonus is still to come.

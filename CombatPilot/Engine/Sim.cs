@@ -13,6 +13,7 @@ public sealed class Sim
 {
     public const double OgcdLock = 0.65;   // [Estimate] animation lock + latency of an oGCD
     public const double GcdLock = 0.65;    // after a weaponskill, before the first weave
+    public const double TimePreference = 0.003;
 
     public double T;
     public double GcdReadyAt;
@@ -135,7 +136,10 @@ public sealed class Sim
             var total = potency * (d.Aoe == null ? 1 : 1 + (h - 1) * (1 - d.Falloff));
             dmg = total * DamageMult(job) * (critDh ? critDhFactor : 1);
         }
-        Damage += dmg;
+        // Earlier damage is worth slightly more: without this, sequences that do the same things in a
+        // different order tie, and procs drift to the end of their window (seen in testing: Primal
+        // Ruination held to the last 0.1 s of its 20 s). [Estimate] 0.3% per second.
+        Damage += dmg * Math.Max(0.5, 1 - TimePreference * T);
 
         // Costs: a free-with stack, else gauge.
         if (d.GaugeCost > 0)

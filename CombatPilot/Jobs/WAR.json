@@ -59,7 +59,7 @@
       "extends": { "status": "Surging Tempest", "seconds": 10, "max": 60 } },
     { "name": "Primal Wrath", "press": "Inner Release", "potency": 700, "aoe": "self", "radius": 5, "falloff": 0.5,
       "requires": [ { "status": "Wrathful" } ], "consumes": ["Wrathful"] },
-    { "name": "Infuriate", "grants": [ { "gauge": 50 }, { "status": "Nascent Chaos", "duration": 30 } ] },
+    { "name": "Infuriate", "requires": [ { "not": { "status": "Nascent Chaos" } } ], "grants": [ { "gauge": 50 }, { "status": "Nascent Chaos", "duration": 30 } ] },
     { "name": "Upheaval", "potency": 420 },
     { "name": "Orogeny", "potency": 150, "aoe": "self", "radius": 5 },
     { "name": "Onslaught", "potency": 150, "rangedOk": true }
