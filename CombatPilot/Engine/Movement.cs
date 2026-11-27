@@ -227,8 +227,11 @@ public sealed class Mover
 
     public void Halt(string why)
     {
+        var was = Moving;
         if (Moving) { try { stop.InvokeAction(); } catch (Exception) { } }
         Moving = false;
+        // Walking leaves you facing the way you went: turn back to the target.
+        if (was) Facing.Face(Plugin.TargetManager.Target);
         Status = why;
     }
 }

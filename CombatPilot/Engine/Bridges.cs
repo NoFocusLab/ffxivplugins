@@ -111,6 +111,36 @@ public sealed class RsrBridge
         WeTurnedItOff = true;
     }
 
+    private Dalamud.Plugin.Ipc.ICallGateSubscriber<bool>? active;
+    private DateTime lastForcedOff = DateTime.MinValue;
+    public int TimesForcedOff { get; private set; }
+
+    /// <summary>RSR's own "is the rotation running" (IPC RotationSolverReborn.AutorotationActive). Null if unknown.</summary>
+    public bool? Active()
+    {
+        if (!Loaded) return false;
+        try
+        {
+            active ??= Plugin.PluginInterface.GetIpcSubscriber<bool>("RotationSolverReborn.AutorotationActive");
+            return active.InvokeFunc();
+        }
+        catch (Exception) { return null; }
+    }
+
+    /// <summary>
+    /// While Combat Pilot flies Live: RSR switches itself back on (start on countdown, auto-on when
+    /// attacked, ...). Checked every frame; turned off again at once (at most twice a second).
+    /// </summary>
+    public void KeepOff()
+    {
+        if (!Loaded || Active() != true || (DateTime.UtcNow - lastForcedOff).TotalSeconds < 0.5) return;
+        lastForcedOff = DateTime.UtcNow;
+        TimesForcedOff++;
+        Plugin.CommandManager.ProcessCommand("/rotation off");
+        WeTurnedItOff = true;
+        Plugin.Log.Debug("[Pilot] RSR switched itself on: turned it off again");
+    }
+
     public void HandBack()
     {
         if (!WeTurnedItOff || !Loaded) return;

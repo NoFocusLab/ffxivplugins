@@ -109,6 +109,8 @@ public sealed unsafe class Pilot : IDisposable
         }
         Mode = Job == null ? PilotMode.Off : config.ModeFor(Job.Def.Job);
         if (Job == null || Mode == PilotMode.Off) { Status = Job == null ? "No job file for this job" : "Off"; EndFight(); return; }
+        // Two pilots fight over the controls: while Live, RSR stays off even if its own settings turn it on.
+        if (Mode == PilotMode.Live && !Paused && config.TurnOffRsr) rsr.KeepOff();
 
         Opener.WatchCountdown(Plugin.Condition[ConditionFlag.InCombat]);
 
@@ -306,6 +308,8 @@ public sealed unsafe class Pilot : IDisposable
             if (PartnerFor(a) is not { } partner) return false;
             target = partner.GameObjectId;
         }
+        // Auto-move can leave you facing away: turn to the target first.
+        if (target != 0xE000_0000UL && Plugin.ObjectTable.SearchById(target) is { } tgo && !a.Def.AllyTarget) Facing.Face(tgo);
         ok = am->UseAction(ActionType.Action, id, target);
         Plugin.Log.Debug($"[Pilot] press {a.Name} (#{id}) -> {(ok ? "ok" : "refused")}; gcd {g.GcdRemaining:0.00}s");
         if (a.IsGcd) CheckStall(g);
@@ -559,6 +563,9 @@ public sealed unsafe class Pilot : IDisposable
     }
 
     public void Rebind() => Job = null;
+
+    /// <summary>How many times RSR turned itself back on while Live (Pilot tab).</summary>
+    public int RsrForcedOff => rsr.TimesForcedOff;
 
     private Stats.Snapshot? stats;
     private DateTime statsAt = DateTime.MinValue;
