@@ -268,15 +268,12 @@ public sealed class MainWindow : Window
     private void DrawSettings()
     {
         var changed = false;
-        ImGui.TextDisabled("Engage, burst, AoE, travel reserve and potion toggles are on the job bar (/pilot bar).");
+        ImGui.TextDisabled("Engage, burst, AoE, travel reserve and potion switches are on the job bar (/pilot bar). Ability icons are in Cooldown Grid's Offense group; clicking one there queues it here.");
         var b = C.ShowBars;
         if (ImGui.Checkbox("Show the job bar", ref b)) { C.ShowBars = b; changed = true; }
-        var size = C.BarIconSize;
-        ImGui.SetNextItemWidth(120);
-        if (ImGui.SliderFloat("Bar icon size", ref size, 24, 72, "%.0f")) { C.BarIconSize = size; changed = true; }
         var qs = C.QueueSeconds;
         ImGui.SetNextItemWidth(120);
-        if (ImGui.SliderFloat("A clicked action waits for its slot (s)", ref qs, 1, 15, "%.0f")) { C.QueueSeconds = qs; changed = true; }
+        if (ImGui.SliderFloat("A queued action (Cooldown Grid click) waits for its slot (s)", ref qs, 1, 15, "%.0f")) { C.QueueSeconds = qs; changed = true; }
 
         b = C.NoPullWithAoe;
         if (ImGui.Checkbox("Never use an AoE that would hit an enemy that isn't fighting yet", ref b)) { C.NoPullWithAoe = b; changed = true; }

@@ -218,7 +218,14 @@ public sealed unsafe class Pilot : IDisposable
         var job = Job;
         LastState = g;
         var started = DateTime.UtcNow;
-        planning = Task.Run(() => (Planner.Decide(g, job, set, forGcd), forGcd, started));
+        var seen = Snapshot(g, job);
+        planning = Task.Run(() =>
+        {
+            var dec = Planner.Decide(g, job, set, forGcd);
+            dec.State = seen;
+            dec.MadeAt = started;
+            return (dec, forGcd, started);
+        });
     }
 
     private Task<(Decision, bool, DateTime)>? planning;
@@ -484,7 +491,29 @@ public sealed unsafe class Pilot : IDisposable
             heldWanted = wanted;
         }
         else if (!gcd || actual == heldWanted) heldWanted = "";
-        Log.Add(new DecisionRecord(Log.FightTime, gcd, wanted, actual, lost, string.Join(" > ", d.Path.Take(8)), d.Error ?? ""));
+        // A decision made well before the slot it's logged against may be about the slot before
+        // (Listen: RSR pressed before this plan was ready).
+        var age = (DateTime.UtcNow - d.MadeAt).TotalSeconds;
+        var note = string.Join(" | ", new[] { d.Error ?? "", age > 1.5 ? $"stale {age:0.0}s" : "", d.State }.Where(x => x.Length > 0));
+        Log.Add(new DecisionRecord(Log.FightTime, gcd, wanted, actual, lost, string.Join(" > ", d.Path.Take(8)), note));
+    }
+
+    /// <summary>Compact view of the state a decision was made from (the log's note column).</summary>
+    private static string Snapshot(GameState g, JobBinding job)
+    {
+        var parts = new List<string>
+        {
+            g.Combo != null ? $"combo {g.Combo} {g.ComboRemaining:0.0}s"
+            : g.ComboRaw != 0 ? $"combo UNKNOWN #{g.ComboRaw} {Plugin.DataManager.GetExcelSheet<Lumina.Excel.Sheets.Action>().GetRowOrDefault(g.ComboRaw)?.Name.ExtractText()}"
+            : "no combo",
+        };
+        foreach (var (name, v) in g.Statuses)
+            if (job.Def.Statuses.ContainsKey(name) || job.Actions.Any(a => a.Def.Dot?.Status == name) || name == job.Def.TrueNorthStatus)
+                parts.Add(v.Stacks > 1 ? $"{name} x{v.Stacks} {v.Left:0}s" : $"{name} {v.Left:0}s");
+        if (job.Def.Gauge != null) parts.Add($"gauge {g.Gauge}");
+        if (job.Def.MpValue > 0) parts.Add($"MP {g.Mp}");
+        if (g.Position is { Omni: false } pos) parts.Add($"at {pos.Side}");
+        return string.Join("; ", parts);
     }
 
     private string NameOf(uint actionId)

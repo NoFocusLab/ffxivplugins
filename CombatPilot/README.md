@@ -14,7 +14,7 @@ Raiden Thrust / Draconian Fury, Firstminds' Focus for Wyrmwind Thrust, Life Surg
 on the next weaponskill, valued from your crit stats), Chaotic Spring's damage over time (refreshes
 are valued by the ticks they actually add), Life of the Dragon windows for Stardiver/Nastrond, and
 your own Battle Litany counted once (not also as a party buff). Elusive Jump and Winged Glide are
-never used by the planner, only from the bar. Opener: The Balance's standard (no Piercing Talon),
+never used by the planner, only when you queue them (Cooldown Grid). Opener: The Balance's standard (no Piercing Talon),
 True Thrust at the pull.
 
 Paladin notes: the Royal Authority combo with Atonement/Supplication/Sepulchre and Divine Might, Fight
@@ -177,13 +177,15 @@ with no change here. The Pilot tab shows the timeline clock and the downtime it 
 
 ## Job bar
 A bar for your current job (`/pilot bar` shows/hides it):
-- **Toggles:** mode (Live/Listen/Off), pause, Engage (below), Burst auto/HOLD (holds the job file's
-  burst list, Warrior: Inner Release and Infuriate), AoE auto/off/force, travel reserve (Warrior: keep
-  1 Onslaught charge for getting back in), potions on/off.
-- **Action buttons** with cooldowns and charges. Clicking one **queues** it: in Live it goes into the
-  next slot it fits (next weave for an oGCD, next GCD otherwise), ahead of the plan, and the plan
-  continues around it; it waits up to 6 s (Settings). Not Live: used right away. Other plugins can
-  queue an action too (IPC `CombatPilot.Queue(actionId)`).
+- **Switches** (iOS style): mode Off/Listen/Live, Running (pause), Engage Wait/Fighting/Any, Burst
+  (off = held: the job file's burst list, Warrior: Inner Release and Infuriate; orange when held),
+  AoE Off/Auto/Force, travel reserve (Warrior: keep 1 Onslaught), keep raise MP, opener on countdown,
+  auto-move, potions.
+- **Ability icons and timers are in Cooldown Grid** (its Offense group, filled from this job file's
+  `bar` list). Clicking one there **queues** it here: in Live it goes into the next slot it fits (next
+  weave for an oGCD, next GCD otherwise), ahead of the plan, which continues around it; it waits up to
+  6 s (Settings). Not Live: used right away. IPC: `CombatPilot.Queue(actionId)`, `CombatPilot.Offense()`
+  (ids for the grid), `CombatPilot.Live()`, `CombatPilot.Queued()`.
 - **Potions** (off by default, per job): the highest potion for your main stat in your bags, or a
   specific one (Settings). [Estimate] valued at +6% damage for 30 s; the planner places it, lining
   it up with party buffs it can see coming.

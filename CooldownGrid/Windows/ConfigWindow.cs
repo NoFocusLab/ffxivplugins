@@ -193,6 +193,9 @@ public sealed class ConfigWindow : Window
                 var onTank = g.CastOnTank;
                 if (ImGui.Checkbox("Cast on the tank (healers)", ref onTank)) { g.CastOnTank = onTank; if (onTank) g.CastOnCoTank = false; Config.Save(); }
                 if (ImGui.IsItemHovered()) ImGui.SetTooltip("Clicking an icon in this group casts it on the tank who's tanking (the one enemies are attacking), without targeting them.");
+                var fromCp = g.FromCombatPilot;
+                if (ImGui.Checkbox("Icons from Combat Pilot (its job file's damage abilities)", ref fromCp)) { g.FromCombatPilot = fromCp; Config.Save(); }
+                if (ImGui.IsItemHovered()) ImGui.SetTooltip("Shows the abilities Combat Pilot lists for your current job. While it flies Live,\nclicks in every group go into its plan (next slot they fit) instead of straight to the game.");
 
                 var columns = g.Columns;
                 if (ImGui.SliderInt("Columns", ref columns, 1, 12)) { g.Columns = columns; Config.Save(); }

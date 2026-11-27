@@ -81,3 +81,11 @@ plugins' windows opened from it follow Dalamud's "Hide plugin UI during cutscene
 - Starter-layout action IDs are from memory. A wrong ID just won't show up; tell
   me which ability is missing.
 - Clicking should behave exactly like a hotbar press, including targeting.
+
+## Combat Pilot
+
+A sixth default group, **Offense**, shows the damage abilities Combat Pilot lists for your current job
+(from its job files), so ability icons and timers live in one place. When Combat Pilot is flying Live,
+a click in any group is handed to it and woven into its plan at the next slot it fits (blue border
+while queued); actions Combat Pilot doesn't know (mitigation, Sprint, Limit Break) still go straight
+to the game. Without Combat Pilot, the Offense group stays empty and hidden.

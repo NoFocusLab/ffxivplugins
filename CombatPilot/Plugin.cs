@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using CombatPilot.Engine;
 using CombatPilot.Windows;
@@ -38,6 +39,9 @@ public sealed class Plugin : IDalamudPlugin
     private readonly BarsWindow bars;
     /// <summary>"CombatPilot.Queue"(actionId): queue an action by id (e.g. from Mit Planner). False if it isn't one of the job's.</summary>
     private readonly Dalamud.Plugin.Ipc.ICallGateProvider<uint, bool> queueIpc;
+    private readonly Dalamud.Plugin.Ipc.ICallGateProvider<uint[]> offenseIpc;
+    private readonly Dalamud.Plugin.Ipc.ICallGateProvider<bool> liveIpc;
+    private readonly Dalamud.Plugin.Ipc.ICallGateProvider<uint> queuedIpc;
 
     public Plugin()
     {
@@ -58,6 +62,19 @@ public sealed class Plugin : IDalamudPlugin
             return true;
         });
 
+        // For Cooldown Grid's Offense group: which abilities to show, and where clicks should go.
+        offenseIpc = PluginInterface.GetIpcProvider<uint[]>("CombatPilot.Offense");
+        offenseIpc.RegisterFunc(() =>
+        {
+            if (Pilot.Job is not { } j) return Array.Empty<uint>();
+            var names = j.Def.Bar.Count > 0 ? j.Def.Bar : j.Actions.Where(a => !a.IsGcd && !a.IsItem && !a.Def.PlanNever).Select(a => a.Name).ToList();
+            return names.Select(n => j.ByName.TryGetValue(n, out var a) && !a.IsItem ? a.Id : 0).Where(id => id != 0).Distinct().ToArray();
+        });
+        liveIpc = PluginInterface.GetIpcProvider<bool>("CombatPilot.Live");
+        liveIpc.RegisterFunc(() => Pilot.Job != null && Pilot.Mode == PilotMode.Live && !Pilot.Paused);
+        queuedIpc = PluginInterface.GetIpcProvider<uint>("CombatPilot.Queued");
+        queuedIpc.RegisterFunc(() => Pilot.Queued?.Id ?? 0);
+
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
             HelpMessage = "Combat Pilot. /pilot (window) | live | listen | off (for your current job) | pause | resume | report | engage wait|fighting|any | bar (show/hide the bar)",
@@ -74,6 +91,9 @@ public sealed class Plugin : IDalamudPlugin
         PluginInterface.UiBuilder.OpenConfigUi -= main.Toggle;
         windows.RemoveAllWindows();
         queueIpc.UnregisterFunc();
+        offenseIpc.UnregisterFunc();
+        liveIpc.UnregisterFunc();
+        queuedIpc.UnregisterFunc();
         CommandManager.RemoveHandler(CommandName);
         Pilot.Dispose();
     }

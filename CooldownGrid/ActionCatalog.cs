@@ -55,6 +55,21 @@ public static unsafe class ActionCatalog
         return cached;
     }
 
+    /// <summary>
+    /// An action by any of its ids (base, upgraded or the button's current form), as a grid entry.
+    /// GCDs aren't in the catalog, so they're built from the sheet (Combat Pilot's list has a few).
+    /// </summary>
+    public static CatalogEntry? FindLive(uint actionId)
+    {
+        var am = ActionManager.Instance();
+        var adjusted = am != null ? am->GetAdjustedActionId(actionId) : actionId;
+        foreach (var e in ForCurrentJob())
+            if (e.ActionId == actionId || (am != null && !IsGeneralAction(e.ActionId) && am->GetAdjustedActionId(e.ActionId) == adjusted))
+                return e;
+        if (Plugin.DataManager.GetExcelSheet<Action>().GetRowOrDefault(adjusted) is not { } row) return null;
+        return new CatalogEntry(actionId, row.Name.ExtractText(), row.Icon, row.ClassJobLevel, row.Recast100ms / 10f, row.CanTargetParty);
+    }
+
     /// <summary>Look up one action's display info (used for icons of placed abilities).</summary>
     public static CatalogEntry? Find(uint actionId) => ForCurrentJob().FirstOrDefault(e => e.ActionId == actionId);
 

@@ -26,6 +26,9 @@ public class CooldownGroup
 
     /// <summary>Clicking an icon casts it on the tank who's tanking (healers' "Tank" group).</summary>
     public bool CastOnTank { get; set; } = false;
+
+    /// <summary>Icons come from Combat Pilot's job file (damage abilities) instead of this job's list.</summary>
+    public bool FromCombatPilot { get; set; } = false;
 }
 
 /// <summary>An ability placed in a group, for one job. List order is display order.</summary>
@@ -44,6 +47,7 @@ public class Configuration : IPluginConfiguration
     public static readonly Guid SupportId = new("6f1c1d0a-0000-4000-8000-000000000003");
     public static readonly Guid OtSentMitsId = new("6f1c1d0a-0000-4000-8000-000000000004");
     public static readonly Guid TankId = new("6f1c1d0a-0000-4000-8000-000000000005");
+    public static readonly Guid OffenseId = new("6f1c1d0a-0000-4000-8000-000000000006");
 
     public int Version { get; set; } = 3;
 
@@ -75,6 +79,8 @@ public class Configuration : IPluginConfiguration
         AddDefault(SupportId, "Support");
         AddDefault(OtSentMitsId, "OT Sent Mits", castOnCoTank: true);
         AddDefault(TankId, "Tank", castOnTank: true);
+        if (Groups.All(g => g.Id != OffenseId))
+            Groups.Add(new CooldownGroup { Id = OffenseId, Name = "Offense", IsDefault = true, FromCombatPilot = true, Columns = 8 });
     }
 
     private void AddDefault(Guid id, string name, bool castOnCoTank = false, bool castOnTank = false)

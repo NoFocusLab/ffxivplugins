@@ -17,6 +17,9 @@ public sealed class Decision
     public Dictionary<string, double> RootScores = new();
     public List<string> Path = new();
     public string? Error;
+    /// <summary>What the planner saw (combo, tracked buffs and timers, gauge, MP), for the log.</summary>
+    public string State = "";
+    public DateTime MadeAt = DateTime.UtcNow;
 }
 
 public sealed class PlannerSettings

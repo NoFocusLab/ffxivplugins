@@ -59,6 +59,8 @@ public sealed class GameState
     public int MaxMp = 10000;
     public string? Combo;
     public double ComboRemaining;
+    /// <summary>The game's combo action id (even when the job file doesn't know it), for the log.</summary>
+    public uint ComboRaw;
     /// <summary>Your statuses (from anyone): name -> (seconds left, stacks). Permanent ones get 999.</summary>
     public Dictionary<string, (double Left, int Stacks)> Statuses = new();
     /// <summary>Party buffs on you / debuffs on the target now, and predicted ones: multiplier, from, until (s from now).</summary>
@@ -233,6 +235,7 @@ public sealed class GameState
         s.MaxMp = Math.Max(1, (int)me.MaxMp);
         var comboId = am->Combo.Action;
         s.ComboRemaining = am->Combo.Timer;
+        s.ComboRaw = s.ComboRemaining > 0 ? comboId : 0;
         if (comboId != 0 && s.ComboRemaining > 0)
             s.Combo = job.Actions.FirstOrDefault(a => a.Id == comboId || a.PressId == comboId)?.Name;
 

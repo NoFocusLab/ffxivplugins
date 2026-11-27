@@ -16,6 +16,7 @@ public sealed class GroupWindow : Window
     private const uint ShadowColor = 0xFF000000;
     private const uint ChargeColor = 0xFF7FFFFF;    // ABGR: light yellow
     private const uint PulseRgb = 0x0040D0FF;        // ABGR without alpha: gold
+    private const uint QueuedColor = 0xFFFFC040;     // ABGR: light blue
 
     private readonly Plugin plugin;
     public CooldownGroup Group { get; }
@@ -61,12 +62,22 @@ public sealed class GroupWindow : Window
         var player = Plugin.ObjectTable.LocalPlayer;
         if (player == null) yield break;
 
+        // Offense: Combat Pilot's list for this job (its job file decides which abilities).
+        if (Group.FromCombatPilot)
+        {
+            foreach (var id in CombatPilotBridge.Offense())
+                if (CatalogEntryFor(id) is { } e) yield return e;
+            yield break;
+        }
+
         foreach (var a in plugin.Configuration.ForJob(player.ClassJob.RowId))
         {
             if (a.GroupId != Group.Id) continue;
             if (ActionCatalog.Find(a.ActionId) is { } entry) yield return entry; // skips abilities above your level
         }
     }
+
+    private static CatalogEntry? CatalogEntryFor(uint id) => ActionCatalog.FindLive(id);
 
     private void DrawIcon(CatalogEntry entry, Vector2 size)
     {
@@ -105,8 +116,12 @@ public sealed class GroupWindow : Window
             draw.AddRectFilled(topLeft, bottomRight, (alpha / 4 << 24) | PulseRgb);
         }
 
-        // Seconds remaining, centered.
-        if (config.ShowCooldownNumbers && status.Remaining > 0.05f)
+        // Queued in Combat Pilot: blue border until it goes out.
+        if (CombatPilotBridge.Queued() is var q && q != 0 && ActionCatalog.FindLive(q)?.ActionId == entry.ActionId)
+            draw.AddRect(topLeft - new Vector2(1), bottomRight + new Vector2(1), QueuedColor, 3f, ImDrawFlags.None, 3f);
+
+        // Seconds remaining, centered (not the GCD rolling on a weaponskill).
+        if (config.ShowCooldownNumbers && status.Remaining > 0.05f && entry.RecastSeconds > 2.6f)
         {
             var text = status.Remaining >= 60 ? $"{(int)status.Remaining / 60}:{(int)status.Remaining % 60:00}"
                      : status.Remaining >= 10 ? $"{(int)status.Remaining}"
@@ -130,6 +145,7 @@ public sealed class GroupWindow : Window
         if (hovered && config.ShowTooltips)
         {
             var state = status.OnCooldown ? $"{status.Remaining:0.0}s" : status.Usable ? "Ready" : "Can't use right now";
+            if (!sendable && CombatPilotBridge.Live()) state += "\nClick: queued in Combat Pilot (next slot it fits)";
             var to = sendable ? (coTank is { } c ? $"\n-> {c.Name}" : toTank ? "\nNo tank in the party" : "\nNo other tank in the party") : "";
             var units = ActionCatalog.IsGeneralAction(entry.ActionId) ? "bars" : "charges";
             ImGui.SetTooltip(status.MaxCharges > 1
@@ -139,6 +155,8 @@ public sealed class GroupWindow : Window
 
         if (clicked)
         {
+            // Combat Pilot flying Live: let it weave the click into its plan (next slot it fits).
+            if (!sendable && CombatPilotBridge.TryQueue(entry.ActionId)) return;
             if (!sendable) ActionState.Use(entry.ActionId);
             else if (coTank is { } target) ActionState.Use(entry.ActionId, target.Id);
             else Plugin.ChatGui.Print($"[CooldownGrid] {entry.Name}: no {(toTank ? "" : "other ")}tank in the party to send it to.");
