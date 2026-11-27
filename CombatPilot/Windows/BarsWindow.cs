@@ -119,6 +119,13 @@ public sealed unsafe class BarsWindow : Window
 
         if (changed) c.Save();
 
+        if (Facing.GameAutoFaceOn() == false)
+        {
+            ImGui.TextColored(HoldText, "Game setting \"Face target when using an action\" is off");
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Turn it on")) Facing.TurnGameAutoFaceOn();
+        }
+
         // Ability icons and timers live in Cooldown Grid (its Offense group); clicks there queue here.
         if (p.Opener.Status.Length > 0) ImGui.TextColored(HoldText, p.Opener.Status);
         if (p.Sequence.Running) ImGui.TextColored(HoldText, p.Sequence.Status);

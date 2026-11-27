@@ -13,9 +13,6 @@ namespace CombatPilot.Engine;
 /// </summary>
 public static unsafe class Facing
 {
-    /// <summary>Degrees off the target before we bother turning (the game allows a wide front arc).</summary>
-    private const float Slack = 30f;
-
     /// <summary>Angle between where you face and the target, 0-180.</summary>
     public static float OffBy(IGameObject me, IGameObject target)
     {
@@ -28,15 +25,32 @@ public static unsafe class Facing
         return diff * 180f / MathF.PI;
     }
 
-    /// <summary>Turn to the target if not already facing it. True if a turn was made.</summary>
-    public static bool Face(IGameObject? target)
+    /// <summary>
+    /// Turn to the target (every time: not gated on our own angle maths, in case it's mirrored).
+    /// Returns how far off you were before turning, for the log.
+    /// </summary>
+    public static float Face(IGameObject? target)
     {
         var me = Plugin.ObjectTable.LocalPlayer;
         var am = ActionManager.Instance();
-        if (me == null || target == null || am == null || target.GameObjectId == me.GameObjectId) return false;
-        if (OffBy(me, target) <= Slack) return false;
+        if (me == null || target == null || am == null || target.GameObjectId == me.GameObjectId) return 0;
+        var off = OffBy(me, target);
         var pos = target.Position;
         am->AutoFaceTargetPosition(&pos);
-        return true;
+        return off;
+    }
+
+    /// <summary>The game's "Face target when using an action" (Character Config > Control Settings > Target). Null: unknown.</summary>
+    public static bool? GameAutoFaceOn()
+    {
+        try { return Plugin.GameConfig.TryGet(Dalamud.Game.Config.UiControlOption.AutoFaceTargetOnAction, out uint v) ? v != 0 : null; }
+        catch (Exception) { return null; }
+    }
+
+    /// <summary>Turn the game's option on (only from your click in the Pilot tab or bar).</summary>
+    public static void TurnGameAutoFaceOn()
+    {
+        try { Plugin.GameConfig.Set(Dalamud.Game.Config.UiControlOption.AutoFaceTargetOnAction, 1u); }
+        catch (Exception ex) { Plugin.Log.Warning(ex, "Combat Pilot: couldn't change the auto-face option"); }
     }
 }

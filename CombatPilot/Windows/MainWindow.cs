@@ -115,6 +115,12 @@ public sealed class MainWindow : Window
                                string.Join(", ", gs.Enemies.Take(6).Select(e => e.Ttk >= 999 ? "TTK ?" : $"TTK {e.Ttk:0}s")) + ")");
             ImGui.TextDisabled("AoE would hit: " + string.Join(", ", aoe));
         }
+        if (Facing.GameAutoFaceOn() == false)
+        {
+            ImGui.TextColored(new Vector4(1f, 0.62f, 0.04f, 1f), "Your \"Face target when using an action\" setting is off: actions on a target behind you can fail.");
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Turn it on")) Facing.TurnGameAutoFaceOn();
+        }
         if (p.RsrUnloads > 0)
             ImGui.TextDisabled($"RotationSolver unloaded while Live ({p.RsrUnloads}x); it's loaded again when you leave Live.");
         if (p.RsrForcedOff > 0)

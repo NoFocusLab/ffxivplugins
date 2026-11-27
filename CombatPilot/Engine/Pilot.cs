@@ -319,9 +319,10 @@ public sealed unsafe class Pilot : IDisposable
         if (target != 0xE000_0000UL && Plugin.ObjectTable.SearchById(target) is { } tgo && !a.Def.AllyTarget)
         {
             if (Mover.Moving) Mover.Halt("stopped to use " + a.Name);
-            Facing.Face(tgo);
+            lastOffBy = Facing.Face(tgo);
         }
         ok = am->UseAction(ActionType.Action, id, target);
+        if (!ok) NoteRefusal(a, id, target);
         Plugin.Log.Debug($"[Pilot] press {a.Name} (#{id}) -> {(ok ? "ok" : "refused")}; gcd {g.GcdRemaining:0.00}s");
         if (a.IsGcd) CheckStall(g);
         return ok;
@@ -339,6 +340,21 @@ public sealed unsafe class Pilot : IDisposable
         var who = Partners.Pick(a, config.PartnerFor(a.Name), out var why);
         PartnerWhy[a.Name] = why;
         return who;
+    }
+
+    private float lastOffBy;
+    private readonly Dictionary<string, DateTime> refusedNoted = new();
+
+    /// <summary>The game said no: log its own reason (LogMessage text) and how far off-facing you were.</summary>
+    private void NoteRefusal(BoundAction a, uint id, ulong target)
+    {
+        if (refusedNoted.TryGetValue(a.Name, out var t) && (DateTime.UtcNow - t).TotalSeconds < 2) return;
+        refusedNoted[a.Name] = DateTime.UtcNow;
+        var am = ActionManager.Instance();
+        var code = am != null ? am->GetActionStatus(ActionType.Action, id, target) : 0;
+        var why = code == 0 ? "no reason given (queued or locked)"
+            : Plugin.DataManager.GetExcelSheet<Lumina.Excel.Sheets.LogMessage>().GetRowOrDefault(code)?.Text.ExtractText() ?? $"code {code}";
+        Log.Note($"{a.Name} refused: {why} (was {lastOffBy:0}° off facing; moving: {Mover.Moving})");
     }
 
     // ================================================================ bar: queue, potions
