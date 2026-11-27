@@ -89,6 +89,15 @@ public class Configuration : IPluginConfiguration
         return t;
     }
 
+    /// <summary>Partner rules for ally-targeted actions, by action name (Closed Position, The Balance...).</summary>
+    public Dictionary<string, CombatPilot.Engine.PartnerRule> Partners { get; set; } = new();
+
+    public CombatPilot.Engine.PartnerRule PartnerFor(string action)
+    {
+        if (!Partners.TryGetValue(action, out var r)) Partners[action] = r = new CombatPilot.Engine.PartnerRule();
+        return r;
+    }
+
     // ---- potions
     public PotionChoice Potion { get; set; } = PotionChoice.Highest;
     /// <summary>For Specific: the item id (NQ id; HQ is used first if you have it).</summary>

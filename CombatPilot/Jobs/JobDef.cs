@@ -135,6 +135,22 @@ public sealed class ActionDef
     public string? Moves { get; set; }
     public double MoveDistance { get; set; }
     public Reduce? ReducesRecast { get; set; }
+    /// <summary>Cast time in seconds (spells). A boost marked instant removes it (Divine Might, Requiescat).</summary>
+    public double CastTime { get; set; }
+    /// <summary>The hard cast (no instant boost) is only for when no melee GCD reaches (Paladin's Holy Spirit).</summary>
+    public bool CastOnlyAtRange { get; set; }
+    /// <summary>Potency under a status, first match wins (Holy Spirit: Divine Might 500, then Requiescat 700).</summary>
+    public List<Boost> Boosts { get; set; } = new();
+    /// <summary>
+    /// For actions that appear on another button in sequence (Confiteor -> Blade of Faith -> ...):
+    /// a status the engine adds while the Press button currently shows this action, so the chain
+    /// can be required and granted like any status.
+    /// </summary>
+    public string? ShownAs { get; set; }
+    /// <summary>Cast on a party member chosen by the partner rules (Dancer's Closed Position, Astrologian cards).</summary>
+    public bool AllyTarget { get; set; }
+    /// <summary>[Estimate] seconds you're locked after this oGCD when longer than usual (Stardiver). 0: the default.</summary>
+    public double AnimationLock { get; set; }
 
     [JsonIgnore] public string PressName => Press ?? Name;
 
@@ -142,6 +158,16 @@ public sealed class ActionDef
     /// <summary>True if this action continues a combo after <paramref name="previous"/>.</summary>
     public bool Follows(string? previous) =>
         previous != null && ComboFrom != null && (comboFroms ??= ComboFrom.Split('|', StringSplitOptions.TrimEntries)).Contains(previous);
+}
+
+public sealed class Boost
+{
+    public string Status { get; set; } = "";
+    public double Potency { get; set; }
+    /// <summary>Uses one stack (or the status) up.</summary>
+    public bool Consume { get; set; } = true;
+    /// <summary>Removes the cast time.</summary>
+    public bool Instant { get; set; } = true;
 }
 
 public sealed class DotDef

@@ -9,13 +9,24 @@ the new starting point.
 `/pilot pause | resume` (or the kill-switch key, Ctrl+Shift+End by default) stops and restarts it,
 `/pilot report` opens the reports.
 
-**Jobs:** Warrior, Dragoon (7.55, level-aware). Dragoon notes: both combo branches, Draconian Fire into
+**Jobs:** Warrior, Dragoon, Paladin (7.55, level-aware). Dragoon notes: both combo branches, Draconian Fire into
 Raiden Thrust / Draconian Fury, Firstminds' Focus for Wyrmwind Thrust, Life Surge (a guaranteed crit
 on the next weaponskill, valued from your crit stats), Chaotic Spring's damage over time (refreshes
 are valued by the ticks they actually add), Life of the Dragon windows for Stardiver/Nastrond, and
 your own Battle Litany counted once (not also as a party buff). Elusive Jump and Winged Glide are
-never used by the planner, only from the bar. No Dragoon opener yet: a countdown hands the pull to
-the planner.
+never used by the planner, only from the bar. Opener: The Balance's standard (no Piercing Talon),
+True Thrust at the pull.
+
+Paladin notes: the Royal Authority combo with Atonement/Supplication/Sepulchre and Divine Might, Fight
+or Flight with Goring Blade, Imperator into Confiteor and the Blade chain (Requiescat-boosted) and Blade
+of Honor. Holy Spirit is hard-cast only when nothing melee reaches. Opener: The Balance's standard
+(Holy Spirit at -1.75 s).
+
+**Partners:** actions cast on a party member (Dancer's Closed Position, Astrologian cards) go on the
+player picked by Settings > Partners, per action: a named player, or the best job present by a job order
+you can edit (default [Estimate]: SAM, PCT, VPR, MNK, NIN, DRG, RPR, BLM, RDM, SMN, MCH, BRD, DNC, then
+tanks, then healers). Only party members alive, within 30 y and in line of sight count. The bar tooltip
+shows who it picked and why.
 
 ## Modes (per job)
 - **Live:** Combat Pilot presses the damage buttons. RotationSolver is turned off for that job

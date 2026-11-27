@@ -63,6 +63,8 @@ public sealed class GameState
     public List<(double Mult, double From, double Until)> PartyBuffs = new();
     public Dictionary<int, CdState> Cooldowns = new();
     public bool HasTarget;
+    /// <summary>You moved since the last read (a hard cast would be interrupted).</summary>
+    public bool PlayerMoving;
     public ulong TargetId;
     /// <summary>Actions the game says can reach the target right now (range and line of sight).</summary>
     public HashSet<uint> InRange = new();
@@ -194,6 +196,9 @@ public sealed class GameState
         catch (Exception) { return true; }
     }
 
+    private static Vector3 lastPos;
+    private static DateTime lastPosAt = DateTime.MinValue;
+
     public static unsafe GameState Read(JobBinding job, PartyBuffTracker? party = null, MitBridge? mit = null, DangerBridge? danger = null, bool autoMove = false)
     {
         var s = new GameState();
@@ -202,6 +207,10 @@ public sealed class GameState
         if (me == null || am == null) return s;
 
         s.InCombat = Plugin.Condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.InCombat];
+        var nowT = DateTime.UtcNow;
+        if ((nowT - lastPosAt).TotalSeconds < 0.5) s.PlayerMoving = Vector3.Distance(me.Position, lastPos) > 0.05f;
+        lastPos = me.Position;
+        lastPosAt = nowT;
         s.AnimationLock = am->AnimationLock;
         var gcd = am->GetRecastGroupDetail(57);
         if (gcd != null)
@@ -234,6 +243,10 @@ public sealed class GameState
             if (PartyBuffTracker.ByName.TryGetValue(name, out var rb) && !job.Def.Statuses.ContainsKey(name)) s.PartyBuffs.Add((rb.Mult, 0, left));
         }
         job.AddGaugeStatuses(s.Statuses);
+        // Button chains (Confiteor -> Blade of Faith -> ...): the button shows the next step.
+        foreach (var a in job.Actions)
+            if (a.Def.ShownAs != null && !a.IsItem && a.PressId != a.Id && am->GetAdjustedActionId(a.PressId) == a.Id)
+                s.Statuses[a.Def.ShownAs] = (30, 1);
 
         // Cooldowns per recast group (charges included).
         foreach (var a in job.Actions)

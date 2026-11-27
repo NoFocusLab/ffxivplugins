@@ -1,0 +1,181 @@
+{
+  "job": "PLD",
+  "classJobs": ["PLD", "GLA"],
+  "patch": "7.55",
+  "source": "Official job guide (na.finalfantasyxiv.com/jobguide/paladin), level 100 values; rotation notes from The Balance Paladin basic guide. Potencies are re-read from the game's tooltips when they parse cleanly.",
+  "potencyPerSecond": 220,
+  "statuses": {
+    "Fight or Flight": { "damageMult": 1.25 },
+    "Requiescat": { "maxStacks": 4, "terminalValue": 400 },
+    "Divine Might": { "terminalValue": 300 },
+    "Atonement Ready": { "terminalValue": 460 },
+    "Supplication Ready": { "terminalValue": 500 },
+    "Sepulchre Ready": { "terminalValue": 540 },
+    "Goring Blade Ready": { "terminalValue": 700 },
+    "Confiteor Ready": { "terminalValue": 1000 },
+    "Blade of Faith Next": { "terminalValue": 760 },
+    "Blade of Truth Next": { "terminalValue": 880 },
+    "Blade of Valor Next": { "terminalValue": 1000 },
+    "Blade of Honor Ready": { "terminalValue": 1000 }
+  },
+  "actions": [
+    { "name": "Fast Blade", "potency": 220 },
+    { "name": "Riot Blade", "potency": 170, "comboFrom": "Fast Blade", "comboPotency": 330 },
+    {
+      "name": "Rage of Halone", "upgradedTo": "Royal Authority",
+      "potency": 100, "comboFrom": "Riot Blade", "comboPotency": 330
+    },
+    {
+      "name": "Royal Authority",
+      "potency": 200, "comboFrom": "Riot Blade", "comboPotency": 460,
+      "grants": [
+        { "status": "Divine Might", "duration": 30, "comboOnly": true, "minLevel": 64 },
+        { "status": "Atonement Ready", "duration": 30, "comboOnly": true, "minLevel": 76 }
+      ]
+    },
+    { "name": "Total Eclipse", "potency": 120, "aoe": "self", "radius": 5 },
+    {
+      "name": "Prominence",
+      "potency": 100, "comboFrom": "Total Eclipse", "comboPotency": 220, "aoe": "self", "radius": 5,
+      "grants": [ { "status": "Divine Might", "duration": 30, "comboOnly": true, "minLevel": 72 } ]
+    },
+    { "name": "Shield Lob", "potency": 100, "ranged": true, "keepsCombo": true },
+    {
+      "name": "Holy Spirit", "potency": 400, "castTime": 1.5, "castOnlyAtRange": true, "ranged": true, "keepsCombo": true,
+      "boosts": [
+        { "status": "Divine Might", "potency": 500 },
+        { "status": "Requiescat", "potency": 700 }
+      ]
+    },
+    {
+      "name": "Holy Circle", "potency": 100, "castTime": 1.5, "castOnlyAtRange": true, "keepsCombo": true, "aoe": "self", "radius": 5,
+      "boosts": [
+        { "status": "Divine Might", "potency": 250 },
+        { "status": "Requiescat", "potency": 350 }
+      ]
+    },
+    {
+      "name": "Atonement", "potency": 460, "keepsCombo": true,
+      "requires": [ { "status": "Atonement Ready" } ],
+      "consumes": [ "Atonement Ready" ],
+      "grants": [ { "status": "Supplication Ready", "duration": 30 } ]
+    },
+    {
+      "name": "Supplication", "press": "Atonement", "potency": 500, "keepsCombo": true,
+      "requires": [ { "status": "Supplication Ready" } ],
+      "consumes": [ "Supplication Ready" ],
+      "grants": [ { "status": "Sepulchre Ready", "duration": 30 } ]
+    },
+    {
+      "name": "Sepulchre", "press": "Atonement", "potency": 540, "keepsCombo": true,
+      "requires": [ { "status": "Sepulchre Ready" } ],
+      "consumes": [ "Sepulchre Ready" ]
+    },
+    {
+      "name": "Goring Blade", "potency": 700, "keepsCombo": true,
+      "requires": [ { "status": "Goring Blade Ready" } ],
+      "consumes": [ "Goring Blade Ready" ]
+    },
+    {
+      "name": "Confiteor", "potency": 500, "keepsCombo": true, "ranged": true,
+      "aoe": "target", "radius": 5, "falloff": 0.6,
+      "requires": [ { "status": "Confiteor Ready" } ],
+      "consumes": [ "Confiteor Ready" ],
+      "boosts": [ { "status": "Requiescat", "potency": 1000 } ],
+      "grants": [ { "status": "Blade of Faith Next", "duration": 30, "minLevel": 90 } ]
+    },
+    {
+      "name": "Blade of Faith", "press": "Confiteor", "shownAs": "Blade of Faith Next",
+      "potency": 260, "keepsCombo": true, "ranged": true, "aoe": "target", "radius": 5, "falloff": 0.6,
+      "requires": [ { "status": "Blade of Faith Next" } ],
+      "consumes": [ "Blade of Faith Next" ],
+      "boosts": [ { "status": "Requiescat", "potency": 760 } ],
+      "grants": [ { "status": "Blade of Truth Next", "duration": 30 } ]
+    },
+    {
+      "name": "Blade of Truth", "press": "Confiteor", "shownAs": "Blade of Truth Next",
+      "potency": 380, "keepsCombo": true, "ranged": true, "aoe": "target", "radius": 5, "falloff": 0.6,
+      "requires": [ { "status": "Blade of Truth Next" } ],
+      "consumes": [ "Blade of Truth Next" ],
+      "boosts": [ { "status": "Requiescat", "potency": 880 } ],
+      "grants": [ { "status": "Blade of Valor Next", "duration": 30 } ]
+    },
+    {
+      "name": "Blade of Valor", "press": "Confiteor", "shownAs": "Blade of Valor Next",
+      "potency": 500, "keepsCombo": true, "ranged": true, "aoe": "target", "radius": 5, "falloff": 0.6,
+      "requires": [ { "status": "Blade of Valor Next" } ],
+      "consumes": [ "Blade of Valor Next" ],
+      "boosts": [ { "status": "Requiescat", "potency": 1000 } ],
+      "grants": [ { "status": "Blade of Honor Ready", "duration": 30, "minLevel": 100 } ]
+    },
+    {
+      "name": "Fight or Flight",
+      "grants": [
+        { "status": "Fight or Flight", "duration": 20 },
+        { "status": "Goring Blade Ready", "duration": 30, "minLevel": 54 }
+      ]
+    },
+    {
+      "name": "Requiescat", "upgradedTo": "Imperator", "potency": 320,
+      "grants": [
+        { "status": "Requiescat", "stacks": 4, "duration": 30 },
+        { "status": "Confiteor Ready", "duration": 30, "minLevel": 80 }
+      ]
+    },
+    {
+      "name": "Imperator", "potency": 580, "rangedOk": true, "aoe": "target", "radius": 5, "falloff": 0.6,
+      "grants": [
+        { "status": "Requiescat", "stacks": 4, "duration": 30 },
+        { "status": "Confiteor Ready", "duration": 30 }
+      ]
+    },
+    {
+      "name": "Blade of Honor", "press": "Imperator", "potency": 1000, "rangedOk": true,
+      "aoe": "target", "radius": 5, "falloff": 0.6,
+      "requires": [ { "status": "Blade of Honor Ready" } ],
+      "consumes": [ "Blade of Honor Ready" ]
+    },
+    { "name": "Spirits Within", "upgradedTo": "Expiacion", "potency": 270 },
+    { "name": "Expiacion", "potency": 450, "aoe": "target", "radius": 5, "falloff": 0.6 },
+    {
+      "name": "Circle of Scorn", "potency": 140, "aoe": "self", "radius": 5,
+      "dot": { "status": "Circle of Scorn", "potency": 30, "duration": 15 }
+    },
+    { "name": "Intervene", "potency": 150, "rangedOk": true, "movesToTarget": true }
+  ],
+  "travel": { "action": "Intervene", "keep": 1 },
+  "burst": ["Fight or Flight", "Requiescat", "Imperator"],
+  "mainStat": "Strength",
+  "bar": [
+    "Fight or Flight", "Requiescat", "Imperator", "Circle of Scorn", "Spirits Within", "Expiacion",
+    "Intervene", "Holy Spirit", "Shield Lob"
+  ],
+  "openers": [
+    {
+      "name": "Standard",
+      "prepull": 1.75,
+      "minLevel": 100,
+      "source": "The Balance, Paladin Standard Opener (Dawntrail 7.0 graphic): Holy Spirit hard-cast at -1.75 s. After step 13 the planner takes over.",
+      "steps": [
+        ["Holy Spirit"],
+        ["Fast Blade"],
+        ["Riot Blade", "Potion"],
+        ["Royal Authority", "Fight or Flight", "Imperator"],
+        ["Confiteor", "Circle of Scorn", "Expiacion"],
+        ["Blade of Faith", "Intervene"],
+        ["Blade of Truth", "Intervene"],
+        ["Blade of Valor", "Blade of Honor"],
+        ["Goring Blade"],
+        ["Atonement"],
+        ["Supplication"],
+        ["Sepulchre"],
+        ["Holy Spirit"]
+      ]
+    }
+  ],
+  "safeOrder": [
+    "Blade of Valor", "Blade of Truth", "Blade of Faith", "Confiteor", "Goring Blade",
+    "Sepulchre", "Supplication", "Atonement", "Royal Authority", "Riot Blade", "Fast Blade", "Shield Lob"
+  ],
+  "levelNotes": "[Assumption] Supplication/Sepulchre come up on Atonement's button, the Blade chain on Confiteor's, Blade of Honor on Imperator's. MP isn't modelled (Paladin's MP holds up in normal play). Mitigation stays with Mit Planner."
+}

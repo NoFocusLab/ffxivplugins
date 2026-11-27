@@ -32,6 +32,8 @@ public sealed class Sim
     public Dictionary<int, double> Idle = new();
     public double Damage;
     public List<string> Path = new();
+    /// <summary>Cast time of the last action applied (0 = instant).</summary>
+    public double LastCast;
 
     public Sim Clone() => new()
     {
@@ -110,6 +112,13 @@ public sealed class Sim
         return true;
     }
 
+    /// <summary>The boost this action would get now, if any (first listed status that's up).</summary>
+    public Boost? BoostFor(BoundAction a) => a.Def.Boosts.FirstOrDefault(b => Has(b.Status));
+
+    /// <summary>Cast time if pressed now (0 = instant).</summary>
+    public double CastFor(BoundAction a) =>
+        a.Def.CastTime <= 0 ? 0 : BoostFor(a) is { Instant: true } ? 0 : a.Def.CastTime;
+
     public double DamageMult(JobBinding job)
     {
         var m = 1.0;
@@ -129,6 +138,9 @@ public sealed class Sim
         var d = a.Def;
         var combo = d.Follows(Combo) && ComboUntil > T;
         var potency = combo && a.ComboPotency > 0 ? a.ComboPotency : a.Potency;
+        var boost = BoostFor(a);
+        LastCast = CastFor(a);
+        if (boost != null) potency = boost.Potency;
         // Positional: lands under True North, on a target without positionals, if you're already on
         // that side, or if auto-move can get you there before this GCD.
         if (d.Positional != null && d.PositionalBonus > 0 && potency > 0 &&
@@ -174,6 +186,7 @@ public sealed class Sim
             else Gauge -= d.GaugeCost;
         }
         if (stackUsed != null && stackUsed != d.FreeWith) UseStack(stackUsed);
+        if (boost is { Consume: true }) UseStack(boost.Status);
         foreach (var c in d.Consumes) Statuses.Remove(c);
 
         foreach (var g in d.Grants)

@@ -197,7 +197,8 @@ public sealed unsafe class BarsWindow : Window
             draw.AddText(pos + new Vector2(1, 1), ShadowColor, text);
             draw.AddText(pos, TextColor, text);
         }
-        if (hovered) ImGui.SetTooltip(a.IsItem ? $"Potion: {plugin.Pilot.PotionStatus}\nClick: use it next weave (Live) / now" : $"{a.Name}\nClick: use it next {(a.IsGcd ? "GCD" : "weave")} (Live), or now");
+        if (hovered) ImGui.SetTooltip(a.IsItem ? $"Potion: {plugin.Pilot.PotionStatus}\nClick: use it next weave (Live) / now" : $"{a.Name}\nClick: use it next {(a.IsGcd ? "GCD" : "weave")} (Live), or now" +
+            (a.Def.AllyTarget ? $"\nPartner: {(plugin.Pilot.PartnerWhy.TryGetValue(a.Name, out var pw) && pw.Length > 0 ? pw : "not picked yet")} (Settings > Partners)" : ""));
         if (clicked) plugin.Pilot.Queue(a);
     }
 }

@@ -205,6 +205,7 @@ public sealed unsafe class Pilot : IDisposable
             ReserveAction = t.KeepTravel ? Job.Def.Travel?.Action : null,
             ReserveKeep = Job.Def.Travel?.Keep ?? 0,
             NoPull = config.NoPullWithAoe,
+            HasPartner = Job.Actions.Any(a => a.Def.AllyTarget) && PartnerFor(Job.Actions.First(a => a.Def.AllyTarget)) != null,
         };
         var job = Job;
         LastState = g;
@@ -278,10 +279,25 @@ public sealed unsafe class Pilot : IDisposable
         lastPressId = id;
         lastPress = now;
         var target = a.Def.Potency > 0 && g.HasTarget ? g.TargetId : 0xE000_0000UL;
+        if (a.Def.AllyTarget)
+        {
+            if (PartnerFor(a) is not { } partner) return false;
+            target = partner.GameObjectId;
+        }
         ok = am->UseAction(ActionType.Action, id, target);
         Plugin.Log.Debug($"[Pilot] press {a.Name} (#{id}) -> {(ok ? "ok" : "refused")}; gcd {g.GcdRemaining:0.00}s");
         if (a.IsGcd) CheckStall(g);
         return ok;
+    }
+
+    /// <summary>Last partner pick per action, for the bar tooltip and Pilot tab.</summary>
+    public Dictionary<string, string> PartnerWhy { get; } = new();
+
+    private Dalamud.Game.ClientState.Objects.Types.IBattleChara? PartnerFor(BoundAction a)
+    {
+        var who = Partners.Pick(a, config.PartnerFor(a.Name), out var why);
+        PartnerWhy[a.Name] = why;
+        return who;
     }
 
     // ================================================================ bar: queue, potions

@@ -37,6 +37,8 @@ public sealed class PlannerSettings
     public int ReserveKeep;
     /// <summary>Don't use an AoE that would hit an enemy that isn't fighting yet.</summary>
     public bool NoPull = true;
+    /// <summary>A party member the partner rules allow is in range (ally-targeted actions).</summary>
+    public bool HasPartner;
 }
 
 /// <summary>
@@ -127,6 +129,7 @@ public static class Planner
     private static bool Usable(Sim c, BoundAction a, JobBinding job, PlannerSettings set)
     {
         if (set.Held.Contains(a.Name) || !c.Ready(a) || !c.Allowed(a, job)) return false;
+        if (a.Def.AllyTarget && !set.HasPartner) return false;
         // Pure movement (Elusive Jump, Winged Glide) is never planned: only the bar's queue presses it.
         if (a.Def.Moves != null || (a.Def.MovesToTarget && a.Def.Potency <= 0 && a.Def.Grants.Count == 0)) return false;
         if (set.ReserveAction == a.Name && a.CooldownGroup >= 0 && c.Cd.TryGetValue(a.CooldownGroup, out var cd) && cd.Charges <= set.ReserveKeep)
@@ -151,10 +154,15 @@ public static class Planner
                 if (!a.IsGcd) continue;
                 if (!Usable(at0, a, job, set)) continue;
                 if (nearNow && (!g.HasTarget || !Reaches(a, g, set))) continue;
+                // A hard cast can't start while you're moving.
+                if (nearNow && g.PlayerMoving && at0.CastFor(a) > 0) continue;
+                if (a.Def.CastOnlyAtRange && at0.CastFor(a) > 0 &&
+                    (!nearNow || job.Actions.Any(x => x.IsGcd && !x.Def.Ranged && !x.Def.RangedOk && Reaches(x, g, set)))) continue;
                 var c = at0.Clone();
                 c.Apply(a, job, Hits(a, g, set, c.T), set.CritDhFactor, set.CritFactor);
                 c.GcdReadyAt = t + g.GcdLength;
-                c.LockUntil = t + Sim.GcdLock;
+                // Casting: no weaving until the cast (plus slide-cast margin) is done.
+                c.LockUntil = t + Math.Max(Sim.GcdLock, c.LastCast > 0 ? c.LastCast + 0.1 : 0);
                 any = true;
                 yield return After(n, c, gcd: true);
             }
@@ -181,13 +189,21 @@ public static class Planner
         foreach (var a in job.Actions)
         {
             if (a.IsGcd) continue;
+            var lockFor = a.Def.AnimationLock > 0 ? a.Def.AnimationLock : Sim.OgcdLock;
             if (!Usable(w0, a, job, set)) continue;
             if (a.Def.Potency > 0 && nearNow && (!g.HasTarget || !Reaches(a, g, set))) continue;
             if (a.Def.Potency > 0 && !g.HasTarget) continue;
             var c = w0.Clone();
             c.Apply(a, job, Hits(a, g, set, c.T), set.CritDhFactor, set.CritFactor);
-            c.LockUntil = at + Sim.OgcdLock;
-            var left = n.WeavesLeft - 1;
+            c.LockUntil = at + lockFor;
+            // Clipping: a long lock past the GCD delays the GCD.
+            if (c.LockUntil > c.GcdReadyAt)
+            {
+                // The horizon counts GCDs, so a late GCD would look free: charge the lost time.
+                c.Damage -= (c.LockUntil - c.GcdReadyAt) * job.Def.PotencyPerSecond;
+                c.GcdReadyAt = c.LockUntil;
+            }
+            var left = lockFor > Sim.OgcdLock ? 0 : n.WeavesLeft - 1;
             yield return new Node { Sim = c, NextIsGcd = left <= 0, WeavesLeft = left, Gcds = n.Gcds, Root = n.Root };
         }
     }

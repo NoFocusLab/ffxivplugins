@@ -280,6 +280,7 @@ public sealed class MainWindow : Window
 
         ImGui.Separator();
         DrawMoveRules(ref changed);
+        DrawPartners(ref changed);
 
         ImGui.Separator();
         ImGui.TextUnformatted("Potions (turned on per job on the bar):");
@@ -341,6 +342,51 @@ public sealed class MainWindow : Window
         if (changed) C.Save();
     }
 
+
+    private void DrawPartners(ref bool changed)
+    {
+        var job = plugin.Pilot.Job;
+        var ally = job?.Actions.Where(a => a.Def.AllyTarget).ToList();
+        if (job == null || ally == null || ally.Count == 0) return;
+        ImGui.Separator();
+        ImGui.TextUnformatted($"Partners for {job.Def.Job}: who your ally-targeted actions go on");
+        foreach (var a in ally)
+        {
+            var r = C.PartnerFor(a.Name);
+            ImGui.PushID("partner" + a.Name);
+            ImGui.TextUnformatted(a.Name);
+            ImGui.SameLine();
+            ImGui.SetNextItemWidth(150);
+            if (ImGui.BeginCombo("##mode", r.Mode == CombatPilot.Engine.PartnerMode.Name ? "a named player" : "best job in party"))
+            {
+                if (ImGui.Selectable("best job in party", r.Mode == CombatPilot.Engine.PartnerMode.JobOrder)) { r.Mode = CombatPilot.Engine.PartnerMode.JobOrder; changed = true; }
+                if (ImGui.Selectable("a named player", r.Mode == CombatPilot.Engine.PartnerMode.Name)) { r.Mode = CombatPilot.Engine.PartnerMode.Name; changed = true; }
+                ImGui.EndCombo();
+            }
+            if (r.Mode == CombatPilot.Engine.PartnerMode.Name)
+            {
+                ImGui.SameLine();
+                ImGui.SetNextItemWidth(160);
+                var name = r.Name;
+                if (ImGui.InputText("Name##pn", ref name, 40)) { r.Name = name; changed = true; }
+                ImGui.SameLine();
+                if (ImGui.SmallButton("Use my target") && Plugin.TargetManager.Target is { } t) { r.Name = t.Name.TextValue; changed = true; }
+            }
+            var order = string.Join(", ", r.JobOrder);
+            ImGui.SetNextItemWidth(420);
+            if (ImGui.InputText("Job order (best first)##po", ref order, 200))
+            {
+                r.JobOrder = order.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(x => x.ToUpperInvariant()).ToList();
+                changed = true;
+            }
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Default")) { r.JobOrder = new(CombatPilot.Engine.Partners.DefaultOrder); changed = true; }
+            ImGui.TextDisabled(r.Mode == CombatPilot.Engine.PartnerMode.Name
+                ? "Named player first; if they're dead or out of range, the job order decides."
+                : "Highest in the list who's alive and within 30 y; tanks, then healers, after any unlisted job.");
+            ImGui.PopID();
+        }
+    }
 
     private void DrawMoveRules(ref bool changed)
     {

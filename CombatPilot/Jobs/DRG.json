@@ -147,6 +147,7 @@
       "name": "Stardiver", "potency": 840,
       "requires": [ { "status": "Life of the Dragon" } ],
       "grants": [ { "status": "Starcross Ready", "duration": 20, "minLevel": 100 } ],
+      "animationLock": 1.5,
       "movesToTarget": true
     },
     {
@@ -183,10 +184,30 @@
     "Dragonfire Dive", "Stardiver", "Wyrmwind Thrust", "Winged Glide", "Elusive Jump",
     "True North", "Piercing Talon"
   ],
-  "openers": [],
+  "openers": [
+    {
+      "name": "Standard (no Piercing Talon)",
+      "prepull": 0.15,
+      "minLevel": 100,
+      "source": "The Balance, Dragoon Standard Opener - No PT (Dawntrail 7.1 graphic, RhyTamok/XIVdrg). True Thrust goes out 0.15 s before 0 so it lands on the pull. After step 11 the planner takes over.",
+      "steps": [
+        ["True Thrust"],
+        ["Spiral Blow", "Lance Charge", "Potion"],
+        ["Chaotic Spring", "Battle Litany", "Geirskogul"],
+        ["Wheeling Thrust", "High Jump", "Life Surge"],
+        ["Drakesbane", "Dragonfire Dive", "Nastrond"],
+        ["Raiden Thrust", "Stardiver"],
+        ["Lance Barrage", "Starcross", "Life Surge"],
+        ["Heavens' Thrust", "Rise of the Dragon", "Mirage Dive"],
+        ["Fang and Claw"],
+        ["Drakesbane"],
+        ["Raiden Thrust", "Wyrmwind Thrust"]
+      ]
+    }
+  ],
   "safeOrder": [
     "Drakesbane", "Heavens' Thrust", "Chaotic Spring", "Wheeling Thrust", "Fang and Claw",
     "Lance Barrage", "Spiral Blow", "Raiden Thrust", "True Thrust", "Piercing Talon"
   ],
-  "levelNotes": "No opener yet: the countdown hands the pull to the planner until The Balance's opener is added. [Assumption] Stardiver and Dragonfire Dive land you at the target (treated as dashes for the danger/floor check); Mirage Dive is pressed by its own id."
+  "levelNotes": "[Assumption] Stardiver and Dragonfire Dive land you at the target (treated as dashes for the danger/floor check); Mirage Dive is pressed by its own id."
 }
