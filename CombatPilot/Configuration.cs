@@ -63,6 +63,8 @@ public class JobToggles
     public bool Potions { get; set; } = false;
     /// <summary>Run the job's opener when a countdown is started (Live only).</summary>
     public bool OpenerOnCountdown { get; set; } = true;
+    /// <summary>Never spend MP below what a raise costs (jobs with a raise).</summary>
+    public bool KeepRaiseMp { get; set; } = true;
     /// <summary>Which opener (name); empty = the job file's first.</summary>
     public string Opener { get; set; } = "";
     public MoveRules Move { get; set; } = new();

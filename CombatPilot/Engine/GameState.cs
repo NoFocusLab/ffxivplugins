@@ -55,6 +55,8 @@ public sealed class GameState
     public double GcdLength = 2.5;
     public double AnimationLock;
     public int Gauge;
+    public int Mp;
+    public int MaxMp = 10000;
     public string? Combo;
     public double ComboRemaining;
     /// <summary>Your statuses (from anyone): name -> (seconds left, stacks). Permanent ones get 999.</summary>
@@ -227,6 +229,8 @@ public sealed class GameState
         }
 
         s.Gauge = job.ReadGauge();
+        s.Mp = (int)me.CurrentMp;
+        s.MaxMp = Math.Max(1, (int)me.MaxMp);
         var comboId = am->Combo.Action;
         s.ComboRemaining = am->Combo.Timer;
         if (comboId != 0 && s.ComboRemaining > 0)

@@ -29,6 +29,14 @@ Suiton (don't move). Raiju stacks, Kazematoi (Armor Crush / Aeolian Edge), Bunsh
 Zesho Meppo, Meisui, and your own Kunai's Bane / Dokumori on the target are all valued. Opener: The
 Balance's standard (4th GCD Kunai's Bane), mudras from -2.4 s so Suiton lands at about -0.9 s.
 
+**MP:** a resource like gauge. Costs come from the game (or the job file when a trait changes them),
+MP comes back from natural regen ([Estimate] 200 per 3 s), actions that restore it (Riot Blade, Expiacion)
+and MP-over-time buffs (Lucid Dreaming). The planner won't plan what you can't afford, and MP left at the
+end of its look-ahead is worth something (job file `mpValue`), so restores get used when they help and
+not when you're near full. Jobs with a raise get a bar toggle to keep that much MP back (on by default);
+when to actually raise will be part of the healing module. Black Mage-style cost changes (Astral Fire)
+use `mpCostWith`. The Pilot tab shows MP and the reserve.
+
 **Partners:** actions cast on a party member (Dancer's Closed Position, Astrologian cards) go on the
 player picked by Settings > Partners, per action: a named player, or the best job present by a job order
 you can edit (default [Estimate]: SAM, PCT, VPR, MNK, NIN, DRG, RPR, BLM, RDM, SMN, MCH, BRD, DNC, then

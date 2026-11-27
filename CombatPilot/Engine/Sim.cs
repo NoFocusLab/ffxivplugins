@@ -19,6 +19,11 @@ public sealed class Sim
     public double GcdReadyAt;
     public double LockUntil;
     public int Gauge;
+    public double Mp;
+    public int MaxMp = 10000;
+    /// <summary>MP that spending may not go below (raise reserve).</summary>
+    public int MpFloor;
+    public int MpRegenPerTick = 200;
     public string? Combo;
     public double ComboUntil;
     public Dictionary<string, (double Until, int Stacks)> Statuses = new();
@@ -35,9 +40,22 @@ public sealed class Sim
     /// <summary>Cast time of the last action applied (0 = instant).</summary>
     public double LastCast;
 
+    /// <summary>The job's status table (for MP-over-time); set once by the planner.</summary>
+    public Dictionary<string, StatusDef>? statusDefs;
+
+    /// <summary>MP this action costs if pressed now.</summary>
+    public int MpCostOf(BoundAction a)
+    {
+        if (a.MpCost <= 0) return 0;
+        var cost = (double)a.MpCost;
+        foreach (var m in a.Def.MpCostWith) if (Has(m.Status)) cost *= m.Mult;
+        return (int)cost;
+    }
+
     public Sim Clone() => new()
     {
-        T = T, GcdReadyAt = GcdReadyAt, LockUntil = LockUntil, Gauge = Gauge, Combo = Combo, ComboUntil = ComboUntil,
+        statusDefs = statusDefs,
+        T = T, GcdReadyAt = GcdReadyAt, LockUntil = LockUntil, Gauge = Gauge, Mp = Mp, MaxMp = MaxMp, MpFloor = MpFloor, MpRegenPerTick = MpRegenPerTick, Combo = Combo, ComboUntil = ComboUntil,
         Statuses = new(Statuses), PartyBuffs = PartyBuffs, Downtime = Downtime, Pos = Pos, Cd = new(Cd), Idle = new(Idle), Damage = Damage, Path = new(Path),
     };
 
@@ -48,6 +66,8 @@ public sealed class Sim
             GcdReadyAt = g.GcdRemaining,
             LockUntil = g.AnimationLock,
             Gauge = g.Gauge,
+            Mp = g.Mp,
+            MaxMp = g.MaxMp,
             Combo = g.Combo,
             ComboUntil = g.ComboRemaining,
             PartyBuffs = g.PartyBuffs.ToList(),
@@ -67,6 +87,16 @@ public sealed class Sim
     {
         if (t <= T) return;
         var dt = t - T;
+        // MP: natural regen plus MP-over-time buffs ([Estimate] smoothed; the game ticks every 3 s).
+        if (Mp < MaxMp)
+        {
+            var perTick = (double)MpRegenPerTick;
+            if (statusDefs != null)
+                foreach (var (name, v) in Statuses)
+                    if (v.Until > T && statusDefs.TryGetValue(name, out var sd) && sd.MpPerTick > 0)
+                        perTick += sd.MpPerTick * Math.Min(dt, v.Until - T) / dt;
+            Mp = Math.Min(MaxMp, Mp + perTick / 3 * dt);
+        }
         foreach (var key in Cd.Keys.ToList())
         {
             var c = Cd[key];
@@ -108,6 +138,8 @@ public sealed class Sim
         var d = a.Def;
         if (d.Requires.Any(c => !Meets(c, job))) return false;
         if (d.RequiresCombo && !(d.Follows(Combo) && ComboUntil > T)) return false;
+        var mp = MpCostOf(a);
+        if (mp > 0 && Mp - mp < MpFloor) return false;
         if (d.UsesCharge is { } u && !u.FreeWith.Any(Has) && job.ByName.TryGetValue(u.Action, out var src) &&
             Cd.TryGetValue(src.CooldownGroup, out var sc) && sc.Charges <= 0) return false;
         if (d.GaugeCost > 0 && Gauge < d.GaugeCost && !(d.FreeWith != null && Has(d.FreeWith))) return false;
@@ -141,6 +173,7 @@ public sealed class Sim
         var d = a.Def;
         var combo = d.Follows(Combo) && ComboUntil > T;
         var potency = combo && a.ComboPotency > 0 ? a.ComboPotency : a.Potency;
+        Mp -= MpCostOf(a);
         // Decided before anything is used up (Kassatsu both boosts and frees the ninjutsu).
         var freeCharge = d.UsesCharge != null && d.UsesCharge.FreeWith.Any(Has);
         var boost = BoostFor(a, combo);
@@ -223,6 +256,7 @@ public sealed class Sim
             if (g.IfStatus != null && !Has(g.IfStatus)) continue;
             if (g.MinLevel > job.Level) continue;
             if (g.Gauge != 0) Gauge = Math.Min(job.Def.Gauge?.Max ?? 100, Gauge + g.Gauge);
+            if (g.Mp != 0) Mp = Math.Min(MaxMp, Mp + g.Mp);
             if (g.Status != null) Grant(g, job);
         }
         if (d.Extends is { } e && Has(e.Status))

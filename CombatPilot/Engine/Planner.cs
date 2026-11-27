@@ -39,6 +39,8 @@ public sealed class PlannerSettings
     public bool NoPull = true;
     /// <summary>A party member the partner rules allow is in range (ally-targeted actions).</summary>
     public bool HasPartner;
+    /// <summary>MP kept back (a raise's cost when the job's toggle is on).</summary>
+    public int MpFloor;
 }
 
 /// <summary>
@@ -72,6 +74,9 @@ public static class Planner
         try
         {
             var start = Sim.From(g);
+            start.statusDefs = job.Def.Statuses;
+            start.MpRegenPerTick = job.Def.MpRegenPerTick;
+            start.MpFloor = set.MpFloor;
             var root = new Node { Sim = start, NextIsGcd = forGcd };
             if (!forGcd) root.WeavesLeft = Math.Max(0, WeavesBetween(Math.Max(0, start.LockUntil), start.GcdReadyAt) - set.ReservedWeaves);
             if (!forGcd && root.WeavesLeft == 0) { decision.Label = Skip; return decision; }
@@ -251,6 +256,15 @@ public static class Planner
         var def = job.Def;
         var v = s.Damage;
         v += s.Gauge * (def.Gauge?.ValuePerUnit ?? 0);
+        // MP in hand, plus what MP-over-time buffs will still restore (only up to the cap).
+        if (def.MpValue > 0)
+        {
+            var mp = s.Mp;
+            foreach (var (name, st) in s.Statuses)
+                if (st.Until > s.T && def.Statuses.TryGetValue(name, out var msd) && msd.MpPerTick > 0)
+                    mp += msd.MpPerTick / 3.0 * (st.Until - s.T);
+            v += Math.Min(mp, s.MaxMp) * def.MpValue;
+        }
 
         foreach (var (name, st) in s.Statuses)
         {

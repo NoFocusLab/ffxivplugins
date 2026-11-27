@@ -37,6 +37,8 @@ public sealed class BoundAction
 
     /// <summary>An inventory item (potion), used with the item's id (HQ: id + 1,000,000).</summary>
     public bool IsItem { get; init; }
+    /// <summary>MP cost (job file override, else the game's).</summary>
+    public int MpCost { get; set; }
     public string Name => Def.Name;
 }
 
@@ -48,6 +50,10 @@ public sealed class JobBinding
     public int Level { get; }
     public List<BoundAction> Actions { get; } = new();
     public Dictionary<string, BoundAction> ByName { get; } = new();
+    /// <summary>MP a raise costs on this job (0: no raise). Kept in reserve when the job's toggle says so.</summary>
+    public int RaiseMpCost { get; }
+    public string RaiseName { get; } = "";
+    private static readonly string[] RaiseNames = { "Raise", "Resurrection", "Ascend", "Egeiro", "Verraise" };
     /// <summary>Job-file names that didn't match any game action.</summary>
     public List<string> Unresolved { get; } = new();
 
@@ -95,12 +101,23 @@ public sealed class JobBinding
                 ComboPotency = a.ComboPotency,
             };
             var tip = TooltipAtLevel(transient.GetRowOrDefault(row.RowId)?.Description);
+            // [Assumption] Action sheet: PrimaryCostType 3 = MP, value in hundreds.
+            bound.MpCost = a.MpCost ?? (row.PrimaryCostType == 3 ? row.PrimaryCostValue * 100 : 0);
             ReadTooltip(bound, tip);
             if (a.Hits > 1) bound.Potency *= a.Hits; // Dream Within a Dream: three hits at the tooltip's potency
             ReadShape(bound, row, a, tip);
             Actions.Add(bound);
             ByName[a.Name] = bound;
         }
+
+        // The job's raise, if it has one at this level (for the MP reserve).
+        foreach (var n in RaiseNames)
+            if (byName.TryGetValue(n, out var raise) && raise.ClassJobLevel <= level && raise.PrimaryCostType == 3)
+            {
+                RaiseName = n;
+                RaiseMpCost = raise.PrimaryCostValue * 100;
+                break;
+            }
     }
 
     private static readonly Regex PotencyRe = new(@"(?<!Cure )[Pp]otency of ([\d,]+)", RegexOptions.Compiled);

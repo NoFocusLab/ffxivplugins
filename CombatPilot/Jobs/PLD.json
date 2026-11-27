@@ -4,6 +4,7 @@
   "patch": "7.55",
   "source": "Official job guide (na.finalfantasyxiv.com/jobguide/paladin), level 100 values; rotation notes from The Balance Paladin basic guide. Potencies are re-read from the game's tooltips when they parse cleanly.",
   "potencyPerSecond": 220,
+  "mpValue": 0.15,
   "statuses": {
     "Fight or Flight": { "damageMult": 1.25 },
     "Requiescat": { "maxStacks": 4, "terminalValue": 400 },
@@ -20,7 +21,7 @@
   },
   "actions": [
     { "name": "Fast Blade", "potency": 220 },
-    { "name": "Riot Blade", "potency": 170, "comboFrom": "Fast Blade", "comboPotency": 330 },
+    { "name": "Riot Blade", "potency": 170, "comboFrom": "Fast Blade", "comboPotency": 330, "grants": [ { "mp": 1000, "comboOnly": true, "minLevel": 58 } ] },
     {
       "name": "Rage of Halone", "upgradedTo": "Royal Authority",
       "potency": 100, "comboFrom": "Riot Blade", "comboPotency": 330
@@ -41,14 +42,14 @@
     },
     { "name": "Shield Lob", "potency": 100, "ranged": true, "keepsCombo": true },
     {
-      "name": "Holy Spirit", "potency": 400, "castTime": 1.5, "castOnlyAtRange": true, "ranged": true, "keepsCombo": true,
+      "name": "Holy Spirit", "mpCost": 1000, "potency": 400, "castTime": 1.5, "castOnlyAtRange": true, "ranged": true, "keepsCombo": true,
       "boosts": [
         { "status": "Divine Might", "potency": 500 },
         { "status": "Requiescat", "potency": 700 }
       ]
     },
     {
-      "name": "Holy Circle", "potency": 100, "castTime": 1.5, "castOnlyAtRange": true, "keepsCombo": true, "aoe": "self", "radius": 5,
+      "name": "Holy Circle", "mpCost": 1000, "potency": 100, "castTime": 1.5, "castOnlyAtRange": true, "keepsCombo": true, "aoe": "self", "radius": 5,
       "boosts": [
         { "status": "Divine Might", "potency": 250 },
         { "status": "Requiescat", "potency": 350 }
@@ -58,18 +59,19 @@
       "name": "Atonement", "potency": 460, "keepsCombo": true,
       "requires": [ { "status": "Atonement Ready" } ],
       "consumes": [ "Atonement Ready" ],
-      "grants": [ { "status": "Supplication Ready", "duration": 30 } ]
+      "grants": [ { "status": "Supplication Ready", "duration": 30 }, { "mp": 400 } ]
     },
     {
       "name": "Supplication", "press": "Atonement", "potency": 500, "keepsCombo": true,
       "requires": [ { "status": "Supplication Ready" } ],
       "consumes": [ "Supplication Ready" ],
-      "grants": [ { "status": "Sepulchre Ready", "duration": 30 } ]
+      "grants": [ { "status": "Sepulchre Ready", "duration": 30 }, { "mp": 400 } ]
     },
     {
       "name": "Sepulchre", "press": "Atonement", "potency": 540, "keepsCombo": true,
       "requires": [ { "status": "Sepulchre Ready" } ],
-      "consumes": [ "Sepulchre Ready" ]
+      "consumes": [ "Sepulchre Ready" ],
+      "grants": [ { "mp": 400 } ]
     },
     {
       "name": "Goring Blade", "potency": 700, "keepsCombo": true,
@@ -77,7 +79,7 @@
       "consumes": [ "Goring Blade Ready" ]
     },
     {
-      "name": "Confiteor", "potency": 500, "keepsCombo": true, "ranged": true,
+      "name": "Confiteor", "mpCost": 1000, "potency": 500, "keepsCombo": true, "ranged": true,
       "aoe": "target", "radius": 5, "falloff": 0.6,
       "requires": [ { "status": "Confiteor Ready" } ],
       "consumes": [ "Confiteor Ready" ],
@@ -85,7 +87,7 @@
       "grants": [ { "status": "Blade of Faith Next", "duration": 30, "minLevel": 90 } ]
     },
     {
-      "name": "Blade of Faith", "press": "Confiteor", "shownAs": "Blade of Faith Next",
+      "name": "Blade of Faith", "mpCost": 1000, "press": "Confiteor", "shownAs": "Blade of Faith Next",
       "potency": 260, "keepsCombo": true, "ranged": true, "aoe": "target", "radius": 5, "falloff": 0.6,
       "requires": [ { "status": "Blade of Faith Next" } ],
       "consumes": [ "Blade of Faith Next" ],
@@ -93,7 +95,7 @@
       "grants": [ { "status": "Blade of Truth Next", "duration": 30 } ]
     },
     {
-      "name": "Blade of Truth", "press": "Confiteor", "shownAs": "Blade of Truth Next",
+      "name": "Blade of Truth", "mpCost": 1000, "press": "Confiteor", "shownAs": "Blade of Truth Next",
       "potency": 380, "keepsCombo": true, "ranged": true, "aoe": "target", "radius": 5, "falloff": 0.6,
       "requires": [ { "status": "Blade of Truth Next" } ],
       "consumes": [ "Blade of Truth Next" ],
@@ -101,7 +103,7 @@
       "grants": [ { "status": "Blade of Valor Next", "duration": 30 } ]
     },
     {
-      "name": "Blade of Valor", "press": "Confiteor", "shownAs": "Blade of Valor Next",
+      "name": "Blade of Valor", "mpCost": 1000, "press": "Confiteor", "shownAs": "Blade of Valor Next",
       "potency": 500, "keepsCombo": true, "ranged": true, "aoe": "target", "radius": 5, "falloff": 0.6,
       "requires": [ { "status": "Blade of Valor Next" } ],
       "consumes": [ "Blade of Valor Next" ],
@@ -135,8 +137,8 @@
       "requires": [ { "status": "Blade of Honor Ready" } ],
       "consumes": [ "Blade of Honor Ready" ]
     },
-    { "name": "Spirits Within", "upgradedTo": "Expiacion", "potency": 270 },
-    { "name": "Expiacion", "potency": 450, "aoe": "target", "radius": 5, "falloff": 0.6 },
+    { "name": "Spirits Within", "upgradedTo": "Expiacion", "potency": 270, "grants": [ { "mp": 500 } ] },
+    { "name": "Expiacion", "potency": 450, "aoe": "target", "radius": 5, "falloff": 0.6, "grants": [ { "mp": 500 } ] },
     {
       "name": "Circle of Scorn", "potency": 140, "aoe": "self", "radius": 5,
       "dot": { "status": "Circle of Scorn", "potency": 30, "duration": 15 }
@@ -177,5 +179,5 @@
     "Blade of Valor", "Blade of Truth", "Blade of Faith", "Confiteor", "Goring Blade",
     "Sepulchre", "Supplication", "Atonement", "Royal Authority", "Riot Blade", "Fast Blade", "Shield Lob"
   ],
-  "levelNotes": "[Assumption] Supplication/Sepulchre come up on Atonement's button, the Blade chain on Confiteor's, Blade of Honor on Imperator's. MP isn't modelled (Paladin's MP holds up in normal play). Mitigation stays with Mit Planner."
+  "levelNotes": "[Assumption] Supplication/Sepulchre come up on Atonement's button, the Blade chain on Confiteor's, Blade of Honor on Imperator's. MP is tracked: spell costs are set here (Divine Magic Mastery halves them, so the game sheet's numbers are too high); [Estimate] Riot Blade combo +1000, Atonement chain +400 each, Expiacion +500. Mitigation stays with Mit Planner."
 }

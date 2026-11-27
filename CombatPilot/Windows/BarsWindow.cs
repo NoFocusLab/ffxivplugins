@@ -85,6 +85,14 @@ public sealed unsafe class BarsWindow : Window
             { t.KeepTravel = !t.KeepTravel; changed = true; }
         }
 
+        if (job.RaiseMpCost > 0)
+        {
+            ImGui.SameLine();
+            if (Toggle(t.KeepRaiseMp ? "Raise MP: kept##rmp" : "Raise MP: spend##rmp", t.KeepRaiseMp ? On : Neutral,
+                       $"Kept: never spend MP below {job.RaiseMpCost:N0} (what {job.RaiseName} costs).\nSpend: use all MP for damage."))
+            { t.KeepRaiseMp = !t.KeepRaiseMp; changed = true; }
+        }
+
         if (OpenerRunner.Pick(job, t) is { } op)
         {
             ImGui.SameLine();

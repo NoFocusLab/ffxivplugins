@@ -115,6 +115,9 @@ public sealed class MainWindow : Window
                                string.Join(", ", gs.Enemies.Take(6).Select(e => e.Ttk >= 999 ? "TTK ?" : $"TTK {e.Ttk:0}s")) + ")");
             ImGui.TextDisabled("AoE would hit: " + string.Join(", ", aoe));
         }
+        if (p.LastState is { } ms && p.Job is { } mj && (mj.Def.MpValue > 0 || mj.Actions.Any(a => a.MpCost > 0)))
+            ImGui.TextDisabled($"MP: {ms.Mp:N0}/{ms.MaxMp:N0}" +
+                               (mj.RaiseMpCost > 0 ? (C.TogglesFor(mj.Def.Job).KeepRaiseMp ? $", keeping {mj.RaiseMpCost:N0} for {mj.RaiseName}" : $", not keeping MP for {mj.RaiseName}") : ""));
         if (p.LastState?.Position is { } pi)
             ImGui.TextDisabled(pi.Omni ? "Positionals: target has none (all land)"
                 : $"Positionals: you're at the {pi.Side}" + (C.AutoMove ? $"; rear {Eta(pi.RearEta)}, flank {Eta(pi.FlankEta)}" : "; auto-move off (True North covers)") +

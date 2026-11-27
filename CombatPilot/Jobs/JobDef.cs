@@ -38,6 +38,10 @@ public sealed class JobDef
     public string TrueNorthStatus { get; set; } = "True North";
     /// <summary>Openers, first = default. Run from a countdown (or the bar).</summary>
     public List<OpenerDef> Openers { get; set; } = new();
+    /// <summary>[Estimate] potency one MP is worth when still in hand at the end of the look-ahead (0: MP doesn't matter to this job's damage).</summary>
+    public double MpValue { get; set; }
+    /// <summary>[Estimate] MP regained per 3 s server tick in combat (2% of 10,000).</summary>
+    public int MpRegenPerTick { get; set; } = 200;
 
     public ActionDef? Find(string name) => Actions.FirstOrDefault(a => a.Name == name);
 }
@@ -83,6 +87,8 @@ public sealed class StatusDef
     public double ExtraPerWeaponskill { get; set; }
     /// <summary>Gauge each of those extra hits gives.</summary>
     public int ExtraGauge { get; set; }
+    /// <summary>MP regained per 3 s tick while up (Lucid Dreaming 550).</summary>
+    public int MpPerTick { get; set; }
     /// <summary>At MaxStacks, this status is replaced by AtMax (Burgeoning Fury -> Wrathful).</summary>
     public string? AtMax { get; set; }
     public double AtMaxDuration { get; set; }
@@ -156,6 +162,10 @@ public sealed class ActionDef
     public int Hits { get; set; } = 1;
     /// <summary>Never chosen by the planner (mudras, the Ninjutsu button): only pressed as a step.</summary>
     public bool PlanNever { get; set; }
+    /// <summary>MP cost; null = the game's (Action sheet). Set it when a trait changes the cost (Paladin halves spell costs).</summary>
+    public int? MpCost { get; set; }
+    /// <summary>Cost multipliers while a status is up (Black Mage: Astral Fire doubles fire costs).</summary>
+    public List<MpCostWith> MpCostWith { get; set; } = new();
     /// <summary>Cast time in seconds (spells). A boost marked instant removes it (Divine Might, Requiescat).</summary>
     public double CastTime { get; set; }
     /// <summary>The hard cast (no instant boost) is only for when no melee GCD reaches (Paladin's Holy Spirit).</summary>
@@ -179,6 +189,12 @@ public sealed class ActionDef
     /// <summary>True if this action continues a combo after <paramref name="previous"/>.</summary>
     public bool Follows(string? previous) =>
         previous != null && ComboFrom != null && (comboFroms ??= ComboFrom.Split('|', StringSplitOptions.TrimEntries)).Contains(previous);
+}
+
+public sealed class MpCostWith
+{
+    public string Status { get; set; } = "";
+    public double Mult { get; set; } = 1;
 }
 
 public sealed class ChargeUse
@@ -220,6 +236,8 @@ public sealed class Condition
 public sealed class Grant
 {
     public int Gauge { get; set; }
+    /// <summary>MP restored (Paladin's Riot Blade combo: 1000).</summary>
+    public int Mp { get; set; }
     public string? Status { get; set; }
     public double Duration { get; set; }
     public int Stacks { get; set; }
