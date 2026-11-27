@@ -101,7 +101,10 @@ public sealed class GameState
         foreach (var a in job.Actions)
         {
             if (a.CooldownGroup < 0 || s.Cooldowns.ContainsKey(a.CooldownGroup)) continue;
-            var id = am->GetAdjustedActionId(a.Id);
+            // The action's own id, not the button's current form: while Wrathful, Inner Release's
+            // button is Primal Wrath (1 s recast), and reading that made Inner Release look ready
+            // every GCD in the plan.
+            var id = a.Id;
             var total = am->GetRecastTime(ActionType.Action, id);
             var elapsed = am->GetRecastTimeElapsed(ActionType.Action, id);
             var max = Math.Max(1, (int)ActionManager.GetMaxCharges(id, 0));
