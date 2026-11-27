@@ -72,11 +72,26 @@ public sealed class Plugin : IDalamudPlugin
     // "MitPlanner.NextMechanicIn"(type): seconds until the next timeline line of that kind, or
     // float.MaxValue. type 1 = tank buster (incl. shared), 2 = raidwide (incl. stacks).
     private Dalamud.Plugin.Ipc.ICallGateProvider<int, float>? nextMechanicIpc;
+    // "MitPlanner.PressDueIn": seconds until the plan's next auto-press (Combat Pilot leaves a
+    // weave slot for it), or float.MaxValue when none is coming.
+    private Dalamud.Plugin.Ipc.ICallGateProvider<float>? pressDueIpc;
 
     private void RegisterIpc()
     {
         nextMechanicIpc = PluginInterface.GetIpcProvider<int, float>("MitPlanner.NextMechanicIn");
         nextMechanicIpc.RegisterFunc(NextMechanicIn);
+        pressDueIpc = PluginInterface.GetIpcProvider<float>("MitPlanner.PressDueIn");
+        pressDueIpc.RegisterFunc(PressDueIn);
+    }
+
+    private float PressDueIn()
+    {
+        if (!Configuration.AllowAutoUse) return float.MaxValue;
+        var due = float.MaxValue;
+        foreach (var p in Tracker.Active)
+            if (!p.Done && !p.Skipped && !p.NotReady && p.Entry.AutoUse && p.SecondsToPress > -2)
+                due = Math.Min(due, Math.Max(0, p.SecondsToPress));
+        return due;
     }
 
     private float NextMechanicIn(int type)
@@ -96,6 +111,7 @@ public sealed class Plugin : IDalamudPlugin
     public void Dispose()
     {
         nextMechanicIpc?.UnregisterFunc();
+        pressDueIpc?.UnregisterFunc();
         PluginInterface.UiBuilder.Draw -= windowSystem.Draw;
         PluginInterface.UiBuilder.OpenConfigUi -= ToggleConfig;
         PluginInterface.UiBuilder.OpenMainUi -= ToggleConfig;

@@ -12,6 +12,7 @@
   <!-- Our own plugins' icons ship inside the hub, so their tiles have icons even before Dalamud has their icon link.
        New plugin: add a line here (see docs/NEW_PLUGIN.md). -->
   <ItemGroup>
+    <EmbeddedResource Include="..\CombatPilot\images\icon.png" LogicalName="PluginHub.Icons.CombatPilot.png" />
     <EmbeddedResource Include="..\CombatRecorder\images\icon.png" LogicalName="PluginHub.Icons.CombatRecorder.png" />
     <EmbeddedResource Include="..\CooldownGrid\images\icon.png" LogicalName="PluginHub.Icons.CooldownGrid.png" />
     <EmbeddedResource Include="..\MapClickNav\images\icon.png" LogicalName="PluginHub.Icons.MapClickNav.png" />

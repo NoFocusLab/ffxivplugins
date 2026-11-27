@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <PropertyGroup>
+    <Version>0.1.0.0</Version>
+    <Author>NoFocusLab</Author>
+    <Name>Combat Pilot</Name>
+    <Punchline>Your own damage rotation: plans a few GCDs ahead from what's happening now and re-plans every GCD.</Punchline>
+    <Description>A damage rotation engine that doesn't follow a fixed priority list. Each job is described as data (actions, combos, gauge, buffs; potencies read from the game's tooltips where possible), and the engine looks a few GCDs ahead, scores the possible sequences and presses the first move of the best one. It re-plans every GCD, so a missed GCD, walking out for a mechanic or being out of range just becomes the new starting point. Live mode presses the buttons (RotationSolver is turned off for that job); Listen mode lets RotationSolver fly and logs where Combat Pilot would have differed. Every fight is logged with an after-action report. Mitigation stays with Mit Planner. Warrior first.</Description>
+    <Tags>rotation;combat;dps;automation;warrior</Tags>
+    <RepoUrl>https://github.com/NoFocusLab/ffxivplugins</RepoUrl>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Jobs\*.json" LogicalName="CombatPilot.Jobs.%(Filename).json" />
+  </ItemGroup>
+</Project>

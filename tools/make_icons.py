@@ -45,6 +45,12 @@ GLYPHS = {
       <circle cx="184" cy="172" r="11" fill="{W}"/>
       <circle cx="128" cy="172" r="15" fill="{W}"/>
       <path d="M128 46 L170 61 V94 C170 120 152 136 128 146 C104 136 86 120 86 94 V61 Z" fill="{W}"/>"""),
+    # Steering wheel: the pilot.
+    "CombatPilot": ("combat", f"""
+      <circle cx="128" cy="128" r="74" fill="none" stroke="{W}" stroke-width="20"/>
+      <circle cx="128" cy="128" r="18" fill="{W}"/>
+      <rect x="62" y="121" width="132" height="14" rx="7" fill="{W}"/>
+      <rect x="121" y="128" width="14" height="66" rx="7" fill="{W}"/>"""),
     # Waveform bars with a record dot.
     "CombatRecorder": ("combat", "".join(
         f'<rect x="{58 + i * 26}" y="{128 - h / 2}" width="16" height="{h}" rx="8" fill="{W}"/>'

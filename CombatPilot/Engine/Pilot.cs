@@ -1,0 +1,352 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using CombatPilot.Jobs;
+using Dalamud.Game.ClientState.Conditions;
+using Dalamud.Plugin.Services;
+using FFXIVClientStructs.FFXIV.Client.Game;
+
+namespace CombatPilot.Engine;
+
+/// <summary>
+/// The main loop. Every frame: keep the job binding current, watch what gets used (for the logs),
+/// and when a GCD or a weave window comes up, plan. Live: press the plan's first move. Listen:
+/// only record how it compares with what the other pilot pressed.
+/// Safety: if the planner fails, or something was usable but nothing was pressed for two GCDs,
+/// a fixed safe priority takes over; if that also stalls for two more GCDs, the pilot pauses and
+/// tells you.
+/// </summary>
+public sealed unsafe class Pilot : IDisposable
+{
+    private readonly Configuration config;
+    private readonly MitBridge mit = new();
+    private readonly RsrBridge rsr = new();
+    public FightLog Log { get; }
+
+    public JobBinding? Job { get; private set; }
+    public PilotMode Mode { get; private set; }
+    /// <summary>Kill switch: Live acts as Off until resumed.</summary>
+    public bool Paused { get; private set; }
+    public Decision? LastGcd { get; private set; }
+    public Decision? LastWeave { get; private set; }
+    public string Status { get; private set; } = "";
+    public bool SafeMode { get; private set; }
+
+    private uint jobId;
+    private int level;
+    private DateTime nextPlan = DateTime.MinValue;
+    private DateTime lastPress = DateTime.MinValue;
+    private uint lastPressId;
+    private bool wasInFight;
+    private bool killHeld;
+
+    // Stall detection.
+    private DateTime? stallSince;
+    private DateTime? safeSince;
+
+    // What actually got used (observed from the recast timers).
+    private uint lastGcdAction;
+    private float lastGcdElapsed;
+    private readonly Dictionary<int, (int Charges, float Elapsed)> lastCd = new();
+    private Decision? pendingGcd;
+    private Decision? pendingWeave;
+    private bool weaveUsedThisWindow;
+
+    public Pilot(Configuration config)
+    {
+        this.config = config;
+        Log = new FightLog(config.KeepFights);
+        Plugin.Framework.Update += OnUpdate;
+    }
+
+    public void Dispose()
+    {
+        Plugin.Framework.Update -= OnUpdate;
+        Log.End();
+    }
+
+    public void SetPaused(bool paused, string why)
+    {
+        if (Paused == paused) return;
+        Paused = paused;
+        Plugin.ChatGui.Print($"[Combat Pilot] {(paused ? "Paused" : "Resumed")}{(why.Length > 0 ? $": {why}" : "")}.");
+        if (paused) { SafeMode = false; stallSince = safeSince = null; }
+    }
+
+    private void OnUpdate(IFramework fw)
+    {
+        try { Tick(); }
+        catch (Exception ex) { Plugin.Log.Error(ex, "Combat Pilot tick failed"); }
+    }
+
+    private void Tick()
+    {
+        KillSwitch();
+        var me = Plugin.ObjectTable.LocalPlayer;
+        if (me == null) { Job = null; return; }
+
+        // Job / level changes: rebind, and turn RSR off or hand it back.
+        var cj = me.ClassJob.RowId;
+        if (cj != jobId || me.Level != level || Job == null)
+        {
+            jobId = cj;
+            level = me.Level;
+            var abbr = me.ClassJob.ValueNullable?.Abbreviation.ExtractText() ?? "";
+            var def = JobLibrary.For(abbr);
+            Job = def == null ? null : new JobBinding(def, abbr, level);
+            var mode = Job == null ? PilotMode.Off : config.ModeFor(Job.Def.Job);
+            if (mode == PilotMode.Live && config.TurnOffRsr && !Paused) rsr.TurnOff();
+            else if (mode != PilotMode.Live && config.HandBackToRsr) rsr.HandBack();
+        }
+        Mode = Job == null ? PilotMode.Off : config.ModeFor(Job.Def.Job);
+        if (Job == null || Mode == PilotMode.Off) { Status = Job == null ? "No job file for this job" : "Off"; EndFight(); return; }
+
+        var inCombat = Plugin.Condition[ConditionFlag.InCombat];
+        if (!inCombat && config.OnlyInCombat) { Status = "Waiting for combat"; EndFight(); return; }
+        if (!wasInFight)
+        {
+            wasInFight = true;
+            var place = Plugin.DataManager.GetExcelSheet<Lumina.Excel.Sheets.TerritoryType>()
+                .GetRowOrDefault(Plugin.ClientState.TerritoryType)?.PlaceName.ValueNullable?.Name.ExtractText() ?? "";
+            Log.Start(Job.Def.Job, Paused && Mode == PilotMode.Live ? "Paused" : Mode.ToString(), place);
+        }
+
+        Observe();
+
+        var am = ActionManager.Instance();
+        if (am == null || me.IsCasting) return;
+
+        // Planning runs off the game thread; its result is used on a later frame if still current.
+        if (planning != null)
+        {
+            if (!planning.IsCompleted) return;
+            var (d, forGcdPlanned, at) = planning.Result;
+            planning = null;
+            Act(d, forGcdPlanned, at);
+            return;
+        }
+        if (DateTime.UtcNow < nextPlan) return;
+        nextPlan = DateTime.UtcNow.AddMilliseconds(80);
+
+        var g = GameState.Read(Job);
+        if (g.AnimationLock > 0.05) return;
+
+        var forGcd = g.GcdRemaining <= config.QueueWindow;
+        if (!forGcd && g.GcdRemaining < Sim.OgcdLock + 0.05) return; // too late to weave, too early to queue
+        if (!forGcd && weaveUsedThisWindow && Planner.WeavesBetween(0, g.GcdRemaining) == 0) return;
+
+        var set = new PlannerSettings
+        {
+            HorizonGcds = Math.Clamp(config.HorizonGcds, 2, 12),
+            BeamWidth = Math.Clamp(config.BeamWidth, 8, 256),
+            CritDhFactor = config.CritDhFactor,
+            ReservedWeaves = !forGcd && mit.PressDueIn() <= g.GcdRemaining + 0.3f ? 1 : 0,
+        };
+        var job = Job;
+        var started = DateTime.UtcNow;
+        planning = Task.Run(() => (Planner.Decide(g, job, set, forGcd), forGcd, started));
+    }
+
+    private Task<(Decision, bool, DateTime)>? planning;
+
+    /// <summary>Use a finished plan, if the moment it was made for hasn't passed.</summary>
+    private void Act(Decision d, bool forGcd, DateTime plannedAt)
+    {
+        if (Job == null) return;
+        if (forGcd) { LastGcd = d; pendingGcd = d; } else { LastWeave = d; pendingWeave = d; }
+
+        var live = Mode == PilotMode.Live && !Paused;
+        Status = live ? (SafeMode ? "LIVE (safe mode)" : "LIVE") : Mode == PilotMode.Live ? "Paused" : "Listening";
+        if (!live) return;
+
+        var g = GameState.Read(Job);
+        if (g.AnimationLock > 0.05) return;
+        // Stale: the slot it was planned for is gone (a weave plan after the window closed, etc.).
+        if ((DateTime.UtcNow - plannedAt).TotalMilliseconds > 400) return;
+        if (forGcd && g.GcdRemaining > config.QueueWindow) return;
+        if (!forGcd && (g.GcdRemaining <= config.QueueWindow || g.GcdRemaining < Sim.OgcdLock + 0.05)) return;
+
+        if (d.Error != null)
+        {
+            Log.Note($"planner error: {d.Error}");
+            if (forGcd && g.GcdRemaining <= 0.05) SafePress(g);
+            return;
+        }
+        if (d.Action != null) { Press(d.Action, g); return; }
+        if (forGcd) CheckStall(g);
+    }
+
+    // ================================================================ pressing
+
+    private void Press(BoundAction a, GameState g)
+    {
+        var am = ActionManager.Instance();
+        var id = am->GetAdjustedActionId(a.PressId);
+        var now = DateTime.UtcNow;
+        if (id == lastPressId && (now - lastPress).TotalSeconds < 0.25) return;
+        lastPressId = id;
+        lastPress = now;
+        var target = a.Def.Potency > 0 && g.HasTarget ? g.TargetId : 0xE000_0000UL;
+        am->UseAction(ActionType.Action, id, target);
+        if (a.IsGcd) CheckStall(g);
+    }
+
+    /// <summary>Something usable sat unpressed for two GCDs: safe mode; two more: pause.</summary>
+    private void CheckStall(GameState g)
+    {
+        if (g.GcdRemaining > 0.05 || !g.HasTarget) { stallSince = null; return; }
+        if (SafeCandidates(g).Count == 0) { stallSince = null; return; } // nothing usable: holding is right
+        var now = DateTime.UtcNow;
+        stallSince ??= now;
+        if ((now - stallSince.Value).TotalSeconds < g.GcdLength * 2) return;
+        SafePress(g);
+    }
+
+    private void SafePress(GameState g)
+    {
+        var now = DateTime.UtcNow;
+        if (!SafeMode)
+        {
+            SafeMode = true;
+            safeSince = now;
+            Log.Note("safe mode");
+            Plugin.ChatGui.PrintError("[Combat Pilot] Planner stalled: safe mode (fixed priority).");
+        }
+        var pick = SafeCandidates(g).FirstOrDefault();
+        if (pick != null) { Log.SafeModePress(); Press(pick, g); }
+        if (safeSince is { } since && (now - since).TotalSeconds > g.GcdLength * 4 && g.GcdRemaining <= 0.05)
+        {
+            SetPaused(true, "stalled in safe mode too, pausing; press the kill-switch key or /pilot resume");
+            Log.Note("paused after stall");
+        }
+    }
+
+    private List<BoundAction> SafeCandidates(GameState g)
+    {
+        var list = new List<BoundAction>();
+        var am = ActionManager.Instance();
+        if (am == null) return list;
+        foreach (var name in Job!.Def.SafeOrder)
+        {
+            if (!Job.ByName.TryGetValue(name, out var a)) continue;
+            var id = am->GetAdjustedActionId(a.PressId);
+            if (id != a.Id) continue;
+            if (!Planner.Reaches(a, g)) continue;
+            if (am->GetActionStatus(ActionType.Action, id, g.TargetId) != 0 && g.GcdRemaining <= 0.05) continue;
+            list.Add(a);
+        }
+        return list;
+    }
+
+    // ================================================================ watching what got used
+
+    /// <summary>
+    /// Detect new GCDs (recast group 58 restarts) and oGCDs (their recast group loses a charge or
+    /// restarts), and log each against the last decision made for that slot.
+    /// </summary>
+    private void Observe()
+    {
+        var am = ActionManager.Instance();
+        if (am == null || Job == null) return;
+
+        var gcd = am->GetRecastGroupDetail(57);
+        if (gcd != null && gcd->IsActive)
+        {
+            var restarted = gcd->ActionId != lastGcdAction ? gcd->Elapsed < 0.5f : gcd->Elapsed + 0.05f < lastGcdElapsed;
+            if (restarted)
+            {
+                var used = NameOf(gcd->ActionId);
+                Record(pendingGcd, used, true);
+                pendingGcd = null;
+                // The weave window before this GCD is over.
+                if (pendingWeave != null && !weaveUsedThisWindow) Record(pendingWeave, "(nothing)", false);
+                pendingWeave = null;
+                weaveUsedThisWindow = false;
+                stallSince = null;
+                if (SafeMode && safeSince is { } s && (DateTime.UtcNow - s).TotalSeconds > 1 && LastGcd?.Error == null && LastGcd?.Action != null)
+                {
+                    SafeMode = false;
+                    safeSince = null;
+                }
+            }
+            lastGcdAction = gcd->ActionId;
+            lastGcdElapsed = gcd->Elapsed;
+        }
+
+        foreach (var a in Job.Actions)
+        {
+            if (a.IsGcd || a.CooldownGroup < 0) continue;
+            var id = am->GetAdjustedActionId(a.Id);
+            var charges = (int)am->GetCurrentCharges(id);
+            var elapsed = am->GetRecastTimeElapsed(ActionType.Action, id);
+            if (lastCd.TryGetValue(a.CooldownGroup, out var prev))
+            {
+                var used = charges < prev.Charges || (am->IsRecastTimerActive(ActionType.Action, id) && elapsed + 0.05f < prev.Elapsed && elapsed < 1f);
+                if (used)
+                {
+                    var det = am->GetRecastGroupDetail(am->GetRecastGroup((int)ActionType.Action, id));
+                    var name = NameOf(det != null && det->ActionId != 0 ? det->ActionId : id);
+                    Record(pendingWeave, name, false);
+                    pendingWeave = null;
+                    weaveUsedThisWindow = true;
+                }
+            }
+            lastCd[a.CooldownGroup] = (charges, elapsed);
+        }
+    }
+
+    private void Record(Decision? d, string actual, bool gcd)
+    {
+        if (d == null) return;
+        var wanted = d.Label;
+        double? lost = null;
+        if (d.RootScores.TryGetValue(actual, out var got) && d.RootScores.Count > 0)
+            lost = Math.Max(0, d.RootScores.Values.Max() - got);
+        else if (actual == "(nothing)" && d.RootScores.TryGetValue("(skip)", out var skipped))
+            lost = Math.Max(0, d.RootScores.Values.Max() - skipped);
+        if (actual == "(nothing)" && wanted == "(skip)") return;
+        Log.Add(new DecisionRecord(Log.FightTime, gcd, wanted, actual, lost, string.Join(" > ", d.Path.Take(8)), d.Error ?? ""));
+    }
+
+    private string NameOf(uint actionId)
+    {
+        var a = Job?.Actions.FirstOrDefault(x => x.Id == actionId);
+        if (a != null) return a.Name;
+        return Plugin.DataManager.GetExcelSheet<Lumina.Excel.Sheets.Action>().GetRowOrDefault(actionId)?.Name.ExtractText() ?? $"#{actionId}";
+    }
+
+    private void EndFight()
+    {
+        if (!wasInFight) return;
+        wasInFight = false;
+        pendingGcd = pendingWeave = null;
+        SafeMode = false;
+        stallSince = safeSince = null;
+        Log.End();
+    }
+
+    // ================================================================ kill switch
+
+    private void KillSwitch()
+    {
+        var ks = Plugin.KeyState;
+        var down = ks[config.KillKey] &&
+                   (!config.KillCtrl || ks[Dalamud.Game.ClientState.Keys.VirtualKey.CONTROL]) &&
+                   (!config.KillShift || ks[Dalamud.Game.ClientState.Keys.VirtualKey.SHIFT]) &&
+                   (!config.KillAlt || ks[Dalamud.Game.ClientState.Keys.VirtualKey.MENU]);
+        if (down && !killHeld) SetPaused(!Paused, "kill-switch key");
+        killHeld = down;
+    }
+
+    /// <summary>Mode change from the UI or a command: also turns RSR off / hands it back.</summary>
+    public void ModeChanged()
+    {
+        if (Job == null) return;
+        var mode = config.ModeFor(Job.Def.Job);
+        if (mode == PilotMode.Live && config.TurnOffRsr) rsr.TurnOff();
+        else if (mode != PilotMode.Live && config.HandBackToRsr) rsr.HandBack();
+    }
+
+    public void Rebind() => Job = null;
+}

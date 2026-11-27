@@ -6,6 +6,7 @@ Personal Dalamud plugins (API 15).
 |---|---|
 | [Cooldown Grid](CooldownGrid/README.md) | Clickable cooldown windows: Defensive (self), Defensive (group), Support, OT Sent Mits (casts on the co-tank), plus custom groups. |
 | [Map Click Nav](MapClickNav/README.md) | Ctrl+click any map: teleports if faster, mounts, and flies there with vnavmesh. |
+| [Combat Pilot](CombatPilot/README.md) | Your own damage rotation: plans a few GCDs ahead and re-plans every GCD (misses, mechanics, range handled). Live or Listen (alongside RSR) per job, with after-action reports. Warrior first. |
 | [Combat Recorder](CombatRecorder/README.md) | Records fights (actions, damage/heals, buffs, HP, positions) to local files for review; `/crec mark` to flag moments. |
 | [Materia Manager](MateriaManager/README.md) | Auto-stores materia to saddlebag or retainer when you open them; plans transmutation batches with keep-at-least rules and takes you to Mutamix. |
 | [Material Stash](MaterialStash/README.md) | One button above the retainer list puts gathered and mob-dropped crafting mats and crystals on your retainers, in the order you choose per category. Also tidies, keeps stock through ventures, audits retainer junk (Clean-up tab), and works scrip goals ("I want 20 Mason's Abrasive": craft collectables, turn in, buy). |
