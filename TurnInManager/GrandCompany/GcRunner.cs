@@ -112,6 +112,7 @@ public sealed unsafe class GcRunner : IDisposable
         probing = false; refreshAfterDelivery = false;
         spendAfterDeliveries = config.SpendAtEnd;
 
+        Stock.Refresh();
         var candidates = GcData.Scan(config).Where(c => c.Allowed).ToList();
         Log($"Start: {gc.Name}, rank {GcData.Rank()}, seals {GcData.Seals()}/{GcData.SealCap()}, {candidates.Count} allowed items, mode {mode}");
 
@@ -664,7 +665,7 @@ public sealed unsafe class GcRunner : IDisposable
     // ================================================================ 4. buying
 
     private bool NeedsAnyPurchase() =>
-        config.Purchases.Any(r => r.Enabled && r.ItemId != 0 && GcData.Count(r.ItemId) < r.Target);
+        config.Purchases.Any(r => r.Enabled && r.ItemId != 0 && GcData.Owned(r.ItemId, config) < r.Target);
 
     private void BeginBuying()
     {
@@ -696,7 +697,7 @@ public sealed unsafe class GcRunner : IDisposable
             currencyHandled = true;
             var rule = config.Purchases[ruleIndex];
             var cost = Math.Max(1, lastCost);
-            var dialogQty = Math.Min(rule.Target - GcData.Count(rule.ItemId), (GcData.Seals() - config.SealReserve) / cost);
+            var dialogQty = Math.Min(rule.Target - GcData.Owned(rule.ItemId, config), (GcData.Seals() - config.SealReserve) / cost);
             dialogQty = Math.Clamp(dialogQty, 1, 999);
             var numeric = (AtkComponentNumericInput*)currency->UldManager.NodeList[8]->GetComponent();
             if (numeric != null) numeric->SetValue(dialogQty);
@@ -731,7 +732,7 @@ public sealed unsafe class GcRunner : IDisposable
         while (ruleIndex < config.Purchases.Count)
         {
             var r = config.Purchases[ruleIndex];
-            if (r.Enabled && r.ItemId != 0 && GcData.Count(r.ItemId) < r.Target && GcData.Seals() - config.SealReserve > 0) break;
+            if (r.Enabled && r.ItemId != 0 && GcData.Owned(r.ItemId, config) < r.Target && GcData.Seals() - config.SealReserve > 0) break;
             ruleIndex++; tabCombo = -1;
         }
         if (ruleIndex >= config.Purchases.Count)
@@ -763,13 +764,18 @@ public sealed unsafe class GcRunner : IDisposable
         var opensDialog = GameUi.Bool(shop, 467 + row);
         var rankOk = GcData.Rank() >= (int)GameUi.UInt(shop, 417 + row);
         var afford = (GcData.Seals() - config.SealReserve) / Math.Max(1, lastCost);
-        var need = rule2.Target - GcData.Count(rule2.ItemId);
+        var need = rule2.Target - GcData.Owned(rule2.ItemId, config);
         var qty = Math.Min(need, afford);
         if (!stackable) qty = Math.Min(qty, 1);
         qty = Math.Min(qty, 99);
         if (!rankOk || qty < 1) { Log($"  {rule2.Name}: {(rankOk ? "can't afford" : "rank too low")}; skipping."); ruleIndex++; tabCombo = -1; return; }
 
         Status = $"Buying {(opensDialog ? "" : qty + " x ")}{rule2.Name} ({lastCost} seals each)...";
+        if (config.CountRetainerStock)
+        {
+            var (away, from) = Stock.Elsewhere(rule2.ItemId);
+            Log($"  {rule2.Name}: {GcData.Count(rule2.ItemId)} on you + {away} on retainers/saddlebag ({Stock.Describe(from)}), target {rule2.Target}");
+        }
         countBefore = GcData.Count(rule2.ItemId);
         sealsBeforeBuy = GcData.Seals();
         awaitingPurchase = true;

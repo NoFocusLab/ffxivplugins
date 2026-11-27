@@ -18,6 +18,10 @@ Company (`/li gc`); without it, start the run at your GC. English client.
 4. **Seal cap:** before a delivery would push seals over the cap, walks to the Quartermaster, buys
    your purchase list (each item up to its target, e.g. Ventures up to 65,000), then returns
    and keeps delivering. Seal Sweetener bonuses are counted.
+   Targets count what you hold across bags, retainers and saddlebag (setting on by default): the
+   retainer/saddlebag numbers come from **Material Stash**'s records (as each was last seen), else
+   **Allagan Tools** (retainers only). With neither, only your own inventory counts. Hover a
+   purchase row's "Have" to see the split.
 5. Optional: spend down to a reserve at the end.
 
 **Strip materia only** (button or `/turnin strip`): retrieves materia from every item that passes

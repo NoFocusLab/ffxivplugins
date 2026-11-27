@@ -2,6 +2,7 @@ using Dalamud.Game.Command;
 using Dalamud.Interface.Windowing;
 using Dalamud.IoC;
 using Dalamud.Plugin;
+using Dalamud.Plugin.Ipc;
 using Dalamud.Plugin.Services;
 using MaterialStash.Core;
 using MaterialStash.Windows;
@@ -52,6 +53,8 @@ public sealed class Plugin : IDalamudPlugin
     private readonly VentureWindow ventures;
     private readonly ScripWindow scripWindow;
     private readonly ReportWindow results;
+    /// <summary>For Turn-In Manager: copies of an item on retainers + saddlebag (-1 = no retainer seen yet).</summary>
+    private readonly ICallGateProvider<uint, int> ipcHeldElsewhere;
 
     public Plugin()
     {
@@ -90,6 +93,8 @@ public sealed class Plugin : IDalamudPlugin
         windows.AddWindow(scripWindow);
         windows.AddWindow(results);
         Runner.Reported += OnRunReported;
+        ipcHeldElsewhere = PluginInterface.GetIpcProvider<uint, int>("MaterialStash.HeldElsewhere");
+        ipcHeldElsewhere.RegisterFunc(Tracker.HeldElsewhere);
         CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
         {
             HelpMessage = "Material Stash. /stash (settings) | deposit (at the bell) | tidy (sort items between retainers) | sell (list the to-sell items) | clean (carry out the approved clean-up) | desynth (desynthesize the approved items in your bags) | looks (store approved looks at an inn) | furnish (furnishings off the retainers, at the bell) | storeroom (furnishings in your bags into the house storeroom) | bell (go to the nearest summoning bell) | scan (record every retainer) | saddle in|out (mats into / out of the open saddlebag) | scrips (work through the scrip goals) | turnin (turn in the collectables in your bags) | results (what the last runs put where) | closebags (close a stuck inventory window) | resume (after buying on the market board) | icebreak (toggle: pause ICE for retainers) | icebreak now | stop",
@@ -157,6 +162,7 @@ public sealed class Plugin : IDalamudPlugin
         PluginInterface.UiBuilder.OpenConfigUi -= ToggleMain;
         windows.RemoveAllWindows();
         CommandManager.RemoveHandler(CommandName);
+        ipcHeldElsewhere.UnregisterFunc();
         ArtisanWatch.Dispose();
         IceBreak.Dispose();
         Bags.Dispose();

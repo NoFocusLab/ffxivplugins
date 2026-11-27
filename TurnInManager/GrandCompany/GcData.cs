@@ -67,11 +67,19 @@ public static unsafe class GcData
         return 1f;
     }
 
+    /// <summary>Copies on you (bags, equipped, armoury, currency), NQ + HQ. Used to see a purchase land.</summary>
     public static int Count(uint itemId)
     {
         var im = InventoryManager.Instance();
-        return im == null ? 0 : im->GetInventoryItemCount(itemId, false, true, true);
+        return im == null ? 0 : im->GetInventoryItemCount(itemId, false, true, true) + im->GetInventoryItemCount(itemId, true, true, true);
     }
+
+    /// <summary>
+    /// What counts toward a purchase target: copies on you plus, if enabled, those on retainers and in
+    /// the saddlebag (from Material Stash / Allagan Tools records, as last seen).
+    /// </summary>
+    public static int Owned(uint itemId, Configuration c) =>
+        Count(itemId) + (c.CountRetainerStock ? Core.Stock.Elsewhere(itemId).Qty : 0);
 
     public static int FreeSlots()
     {

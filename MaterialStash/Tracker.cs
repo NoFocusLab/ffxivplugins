@@ -55,6 +55,23 @@ public sealed unsafe class Tracker : IDisposable
         return d;
     }
 
+    /// <summary>
+    /// This character's copies of an item (NQ + HQ) on retainers and in the saddlebag, as last seen.
+    /// -1 if no retainer has been seen yet (nothing to go on). Shared with Turn-In Manager over IPC.
+    /// </summary>
+    public int HeldElsewhere(uint itemId)
+    {
+        var me = Me();
+        if (me == null || !me.Retainers.Values.Any(r => r.Seen != null)) return -1;
+        var nq = itemId % 1_000_000;
+        var hq = nq + 1_000_000;
+        var n = 0;
+        foreach (var r in me.Retainers.Values)
+            n += r.Items.GetValueOrDefault(nq) + r.Items.GetValueOrDefault(hq) + r.Crystals.GetValueOrDefault(nq);
+        n += me.Saddlebag.GetValueOrDefault(nq) + me.Saddlebag.GetValueOrDefault(hq);
+        return n;
+    }
+
     public static bool SaddlebagOpen => GameUi.IsOpen("InventoryBuddy") || GameUi.IsOpen("InventoryBuddy2");
 
     public static bool RetainerInventoryOpen => GameUi.IsOpen("InventoryRetainer") || GameUi.IsOpen("InventoryRetainerLarge");

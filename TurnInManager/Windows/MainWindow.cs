@@ -6,6 +6,7 @@ using Dalamud.Game;
 using Dalamud.Interface.Windowing;
 using Lumina.Excel.Sheets;
 using NoFocusLab.Shared;
+using TurnInManager.Core;
 using TurnInManager.GrandCompany;
 
 namespace TurnInManager.Windows;
@@ -107,7 +108,15 @@ public sealed class MainWindow : Window
         ImGui.SetNextItemWidth(120);
         if (ImGui.InputInt("Keep at least (seals)", ref reserve, 1000, 10000)) { C.SealReserve = Math.Max(0, reserve); changed = true; }
 
-        ImGui.TextDisabled("Bought top to bottom, each up to its target (items you already hold count):");
+        x = C.CountRetainerStock;
+        if (ImGui.Checkbox("Count what's on retainers and in the saddlebag", ref x)) { C.CountRetainerStock = x; changed = true; }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Targets count copies on your retainers and in your saddlebag too, so nothing is bought\n" +
+                             "past what you hold across all of them. Read from Material Stash's records (retainers +\n" +
+                             "saddlebag, as last seen), else Allagan Tools (retainers only). Neither: bags only.");
+        ImGui.TextDisabled(C.CountRetainerStock
+            ? "Bought top to bottom, each up to its target (copies on you, your retainers and saddlebag count):"
+            : "Bought top to bottom, each up to its target (copies on you count):");
         if (ImGui.BeginTable("##buy", 5, ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp))
         {
             ImGui.TableSetupColumn("On", ImGuiTableColumnFlags.WidthFixed, 30);
@@ -125,7 +134,14 @@ public sealed class MainWindow : Window
                 var on = p.Enabled;
                 if (ImGui.Checkbox("##on", ref on)) { p.Enabled = on; changed = true; }
                 ImGui.TableNextColumn(); ImGui.TextUnformatted(p.Name);
-                ImGui.TableNextColumn(); ImGui.TextUnformatted(GcData.Count(p.ItemId).ToString("N0"));
+                ImGui.TableNextColumn(); ImGui.TextUnformatted(GcData.Owned(p.ItemId, C).ToString("N0"));
+                if (ImGui.IsItemHovered())
+                {
+                    var (away, from) = Stock.Elsewhere(p.ItemId);
+                    ImGui.SetTooltip(C.CountRetainerStock
+                        ? $"On you: {GcData.Count(p.ItemId):N0}\nRetainers/saddlebag: {away:N0}\nFrom: {Stock.Describe(from)}"
+                        : $"On you: {GcData.Count(p.ItemId):N0} (retainers not counted)");
+                }
                 ImGui.TableNextColumn();
                 var t = p.Target;
                 ImGui.SetNextItemWidth(-1);

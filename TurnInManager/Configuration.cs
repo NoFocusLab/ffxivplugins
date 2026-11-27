@@ -40,6 +40,8 @@ public class Configuration : IPluginConfiguration
     /// <summary>Also spend down at the end of a run (to this reserve).</summary>
     public bool SpendAtEnd { get; set; } = false;
     public int SealReserve { get; set; } = 0;
+    /// <summary>Purchase targets count copies on retainers and in the saddlebag too (Material Stash / Allagan Tools records).</summary>
+    public bool CountRetainerStock { get; set; } = true;
     // Replace, don't append: otherwise every load adds the saved rows to the default Venture row.
     [Newtonsoft.Json.JsonProperty(ObjectCreationHandling = Newtonsoft.Json.ObjectCreationHandling.Replace)]
     public List<PurchaseRule> Purchases { get; set; } = new()
