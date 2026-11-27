@@ -57,6 +57,9 @@ public class Configuration : IPluginConfiguration
     public bool RescueOffscreenWindows { get; set; } = true;
     public int RescueIntervalSeconds { get; set; } = 15;
 
+    /// <summary>At game start, send crash reports from the last session(s) to the repository's "logs" branch.</summary>
+    public bool AutoSendCrashReports { get; set; } = true;
+
     /// <summary>Files bigger than this are never synced (caches, logs).</summary>
     public int MaxFileMb { get; set; } = 5;
 

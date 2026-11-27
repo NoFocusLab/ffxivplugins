@@ -38,6 +38,9 @@ public sealed class LocalState
     /// </summary>
     public bool FirstSyncDone { get; set; }
 
+    /// <summary>Crash log file names already sent to the logs branch.</summary>
+    public HashSet<string> SentCrashes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>While the first sync is open: files you chose "keep this PC's copy" for, allowed up once.</summary>
     public HashSet<string> AllowedPushes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, string> BaseShas { get; set; } = new(StringComparer.OrdinalIgnoreCase);

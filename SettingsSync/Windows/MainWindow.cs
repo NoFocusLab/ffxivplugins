@@ -41,6 +41,7 @@ public sealed class MainWindow : Window
         if (!ImGui.BeginTabBar("##ssynctabs")) return;
         if (ImGui.BeginTabItem("Sync")) { DrawSync(); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("History")) { DrawHistory(); ImGui.EndTabItem(); }
+        if (ImGui.BeginTabItem("Logs")) { DrawLogs(); ImGui.EndTabItem(); }
         if (ImGui.BeginTabItem("Settings")) { DrawSettings(); ImGui.EndTabItem(); }
         ImGui.EndTabBar();
     }
@@ -300,6 +301,37 @@ public sealed class MainWindow : Window
         }
         if (ImGui.SmallButton($"{label}##{key}")) confirmKey = key;
         return false;
+    }
+
+    // ------------------------------------------------------------------ Logs tab
+
+    private string logNote = "";
+
+    private void DrawLogs()
+    {
+        if (!S.Configured) { ImGui.TextColored(Warn, "Set up sign-in and the repository first (Settings tab)."); return; }
+        ImGui.TextWrapped("Sends Dalamud logs to your private settings repository (branch \"logs\"), so you can look at a problem " +
+                          "from another PC or your phone. Each report: a summary, the crash report (if any), the last ~2 MB of " +
+                          "dalamud.log and the plugin list. Crash dumps are never sent. Reports older than 30 days are removed.");
+        var changed = Box("Send crash reports automatically when the game starts", C.AutoSendCrashReports, v => C.AutoSendCrashReports = v,
+            "A crashed game can't send anything, so new crash reports (last 7 days) go up the next time the game starts.");
+        if (changed) C.Save();
+
+        ImGui.Spacing();
+        ImGui.SetNextItemWidth(-1);
+        ImGui.InputTextWithHint("##lognote", "Optional note, e.g. \"stutter entering the dungeon\"", ref logNote, 200);
+        ImGui.BeginDisabled(S.Logs.Busy);
+        if (ImGui.Button("Send logs now"))
+        {
+            var note = logNote;
+            logNote = "";
+            _ = Task.Run(() => S.SendLogs(note, plugin.Life));
+        }
+        ImGui.EndDisabled();
+        ImGui.SameLine();
+        if (ImGui.Button("Open logs on GitHub")) Dalamud.Utility.Util.OpenLink(S.LogsUrl);
+        if (S.Logs.Status.Length > 0) ImGui.TextColored(S.Logs.Busy ? Warn : Dim, S.Logs.Status);
+        ImGui.TextColored(Dim, $"On your phone: github.com/{C.Repository} > branch \"logs\" > logs > {C.MachineName}.");
     }
 
     // ------------------------------------------------------------------ device type

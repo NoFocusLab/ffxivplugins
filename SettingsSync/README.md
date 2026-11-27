@@ -44,6 +44,20 @@ the same across PCs:
 
 Everything else in Dalamud's settings (UI scale, fonts, logs, dev options) stays per PC.
 
+## Logs (troubleshoot another PC remotely)
+
+The **Logs** tab sends Dalamud logs to the settings repository's `logs` branch, so you can look at a
+problem from another PC or your phone (github.com > your repository > branch `logs` > `logs/<PC>/`).
+Each report is a folder of plain-text files: `README.md` (summary, first crash line, your note),
+`crash.log` (Dalamud's crash report: error, call stack, loaded plugins), `dalamud.log` (the session up to
+the crash, at most ~2 MB, with giant lines shortened) and `troubleshooting.json` (plugin list and versions).
+
+- **Automatic:** a crashed game can't send anything, so new crash reports (last 7 days) go up the next
+  time the game starts. Switch on the Logs tab (on by default).
+- **Send logs now:** the current session's log and plugin list, with an optional note.
+- Crash dumps (`.dmp`, ~150 MB) are never sent. Reports older than 30 days are removed.
+- Logs contain character names and your Windows user folder: keep the repository private.
+
 ## Off-screen windows
 
 Window positions saved in plugin settings come along with the sync, so a position from a PC with a

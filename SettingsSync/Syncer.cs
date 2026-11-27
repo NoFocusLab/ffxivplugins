@@ -81,6 +81,7 @@ public sealed class Syncer : IDisposable
     public DateTime LastAttempt { get; private set; } = DateTime.MinValue;
 
     public DalamudSetup Dalamud { get; }
+    public LogReporter Logs { get; }
     public List<MissingPlugin> Missing { get; private set; } = new();
     /// <summary>Custom repo URLs on GitHub's copy that this PC doesn't have yet (Dalamud only loads repos at start).</summary>
     public List<string> MissingRepos { get; private set; } = new();
@@ -88,7 +89,9 @@ public sealed class Syncer : IDisposable
     public Syncer(Configuration cfg, string pluginConfigsRoot, string ownDir)
     {
         this.cfg = cfg;
-        Dalamud = new DalamudSetup(Directory.GetParent(pluginConfigsRoot.TrimEnd('\\', '/'))!.FullName, ownDir);
+        var xivLauncherDir = Directory.GetParent(pluginConfigsRoot.TrimEnd('\\', '/'))!.FullName;
+        Dalamud = new DalamudSetup(xivLauncherDir, ownDir);
+        Logs = new LogReporter(xivLauncherDir);
         root = pluginConfigsRoot;
         this.ownDir = ownDir;
         pendingDir = Path.Combine(ownDir, "pending");
@@ -672,6 +675,35 @@ public sealed class Syncer : IDisposable
         Conflicts = Conflicts.Except(list).ToList();
         return Run(mode, ct);
     }
+
+    // ------------------------------------------------------------------ logs
+
+    /// <summary>"Send logs now": the current session's log (last ~2 MB) and plugin list, with your note.</summary>
+    public async Task SendLogs(string note, CancellationToken ct)
+    {
+        if (!Configured) return;
+        gh.Token = Token!;
+        gh.Repo = cfg.Repository.Trim();
+        if (await Logs.Send(gh, cfg.MachineName, cfg.DeviceType, null, note, ct))
+        { State.Log("Logs", "Sent logs" + (note.Trim().Length > 0 ? $": {note.Trim()}" : "")); SaveState(); }
+    }
+
+    /// <summary>Game start: sends crash reports (last 7 days) not sent yet.</summary>
+    public async Task SendNewCrashes(CancellationToken ct)
+    {
+        if (!Configured) return;
+        gh.Token = Token!;
+        gh.Repo = cfg.Repository.Trim();
+        foreach (var (file, when) in Logs.NewCrashes(State.SentCrashes))
+        {
+            if (!await Logs.Send(gh, cfg.MachineName, cfg.DeviceType, file, "", ct)) break;
+            State.SentCrashes.Add(Path.GetFileName(file));
+            State.Log("Logs", $"Sent crash report from {when:g}");
+            SaveState();
+        }
+    }
+
+    public string LogsUrl => $"https://github.com/{cfg.Repository.Trim()}/tree/{LogReporter.Branch}/logs";
 
     // ------------------------------------------------------------------ history / restore
 

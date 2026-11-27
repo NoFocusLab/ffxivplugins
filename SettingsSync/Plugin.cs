@@ -100,6 +100,8 @@ public sealed class Plugin : IDalamudPlugin
         var groups = (pendingRunningSync ? SyncGroups.Plugins : SyncGroups.None) |
                      (Configuration.DalamudAuto && Syncer.Configured ? SyncGroups.Dalamud : SyncGroups.None);
         if (groups != SyncGroups.None) SyncNow(groups: groups);
+        if (Configuration.AutoSendCrashReports && Syncer.Configured)
+            _ = Task.Run(() => Syncer.SendNewCrashes(life.Token));
     }
 
     private void OnDraw()
