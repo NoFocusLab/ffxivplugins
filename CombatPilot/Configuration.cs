@@ -118,6 +118,8 @@ public class Configuration : IPluginConfiguration
     // ---- RotationSolver Reborn
     public bool TurnOffRsr { get; set; } = true;
     public bool HandBackToRsr { get; set; } = true;
+    /// <summary>Unload RotationSolver entirely while a job is Live (reloaded when you leave Live).</summary>
+    public bool UnloadRsr { get; set; } = true;
 
     // ---- planner
     public int HorizonGcds { get; set; } = 6;

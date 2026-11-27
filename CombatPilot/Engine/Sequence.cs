@@ -21,6 +21,8 @@ public sealed unsafe class SequenceRunner
 
     /// <summary>Steps still to press.</summary>
     public bool Running => action != null;
+    /// <summary>Called before a step that hits the target (the Pilot stops auto-move).</summary>
+    public System.Action? onPress;
     public string Status { get; private set; } = "";
 
     public void Start(BoundAction a)
@@ -70,7 +72,7 @@ public sealed unsafe class SequenceRunner
         // Buttons that hit something (a ninjutsu, Ten Chi Jin's steps) go on your target; mudras on you.
         var row = Plugin.DataManager.GetExcelSheet<Lumina.Excel.Sheets.Action>().GetRowOrDefault(id);
         var target = row?.CanTargetHostile == true && g.HasTarget ? g.TargetId : 0xE000_0000UL;
-        if (target != 0xE000_0000UL) Facing.Face(Plugin.TargetManager.Target);
+        if (target != 0xE000_0000UL) { onPress?.Invoke(); Facing.Face(Plugin.TargetManager.Target); }
         if (am->GetActionStatus(ActionType.Action, id, target) != 0) return true; // not yet (GCD, lock)
         lastPress = now;
         if (!am->UseAction(ActionType.Action, id, target)) return true;

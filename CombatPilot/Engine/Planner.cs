@@ -273,7 +273,7 @@ public static class Planner
         {
             var left = st.Until - s.T;
             if (left <= 0 || !def.Statuses.TryGetValue(name, out var sd)) continue;
-            if (sd.DamageMult > 1) v += (sd.DamageMult - 1) * def.PotencyPerSecond * Math.Min(left, 30);
+            if (sd.DamageMult > 1 && !sd.Maintained) v += (sd.DamageMult - 1) * def.PotencyPerSecond * Math.Min(left, 30);
             // A proc or stack only counts as "still in hand" if there's time left to use it: one
             // about to run out is worth nothing (testing: an Inner Release stack ran out unused).
             if (sd.TerminalValue > 0 && left > ExpirySafety) v += sd.TerminalValue * Math.Max(1, st.Stacks);

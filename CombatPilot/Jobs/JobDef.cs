@@ -82,6 +82,12 @@ public sealed class StatusDef
 {
     /// <summary>Multiplies all damage while up (e.g. Surging Tempest 1.10).</summary>
     public double DamageMult { get; set; } = 1.0;
+    /// <summary>
+    /// Kept up by the normal rotation (Dragoon's Power Surge from every other combo): no value for
+    /// time left at the end of the plan. Otherwise the planner refreshes it early just to end with a
+    /// longer timer (seen live: Chaotic Spring combo every cycle, a Lance Barrage combo broken for it).
+    /// </summary>
+    public bool Maintained { get; set; }
     /// <summary>While up, these actions are guaranteed critical direct hits (one stack used per action).</summary>
     public List<string> CritDhFor { get; set; } = new();
     /// <summary>While up, these actions are guaranteed critical hits (not direct hits); "*" = the next weaponskill (Life Surge).</summary>

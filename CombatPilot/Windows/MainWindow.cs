@@ -115,6 +115,8 @@ public sealed class MainWindow : Window
                                string.Join(", ", gs.Enemies.Take(6).Select(e => e.Ttk >= 999 ? "TTK ?" : $"TTK {e.Ttk:0}s")) + ")");
             ImGui.TextDisabled("AoE would hit: " + string.Join(", ", aoe));
         }
+        if (p.RsrUnloads > 0)
+            ImGui.TextDisabled($"RotationSolver unloaded while Live ({p.RsrUnloads}x); it's loaded again when you leave Live.");
         if (p.RsrForcedOff > 0)
             ImGui.TextDisabled($"RotationSolver switched itself on {p.RsrForcedOff}x while Live and was turned off again (its auto-on/countdown settings).");
         if (p.LastState is { } ms && p.Job is { } mj && (mj.Def.MpValue > 0 || mj.Actions.Any(a => a.MpCost > 0)))
@@ -302,9 +304,17 @@ public sealed class MainWindow : Window
         ImGui.TextDisabled("Now: " + plugin.Pilot.PotionStatus + ". [Estimate] valued at +6% damage for 30 s; placed by the planner (lines up with party buffs it can see coming).");
 
         ImGui.Separator();
-        b = C.TurnOffRsr;
-        if (ImGui.Checkbox("Keep RotationSolver off while a job is Live", ref b)) { C.TurnOffRsr = b; changed = true; }
-        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Turned off when you go Live, and again whenever it switches itself back on\n(start on countdown, auto-on when attacked): checked every frame.");
+        b = C.UnloadRsr;
+        if (ImGui.Checkbox("Unload RotationSolver while a job is Live", ref b)) { C.UnloadRsr = b; changed = true; plugin.Pilot.ModeChanged(); }
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("RSR is unloaded (Dalamud's temporary disable) while a job is Live, so it can't switch itself on\n" +
+                                                   "for a countdown or when attacked. Loaded again when you leave Live, when Combat Pilot closes,\n" +
+                                                   "or when the game restarts. Your saved plugin list isn't changed (Settings Sync won't copy it).");
+        if (!C.UnloadRsr)
+        {
+            b = C.TurnOffRsr;
+            if (ImGui.Checkbox("Keep RotationSolver off while a job is Live", ref b)) { C.TurnOffRsr = b; changed = true; }
+            if (ImGui.IsItemHovered()) ImGui.SetTooltip("Turned off when you go Live, and again whenever it switches itself back on: checked every frame.");
+        }
         b = C.HandBackToRsr;
         if (ImGui.Checkbox("Turn RotationSolver back on for jobs that aren't Live", ref b)) { C.HandBackToRsr = b; changed = true; }
         b = C.ShowOverlay;

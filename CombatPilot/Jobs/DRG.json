@@ -11,7 +11,7 @@
   "potencyPerSecond": 240,
   "minHorizonGcds": 11,
   "statuses": {
-    "Power Surge": { "damageMult": 1.1 },
+    "Power Surge": { "damageMult": 1.1, "maintained": true },
     "Lance Charge": { "damageMult": 1.1 },
     "Life of the Dragon": { "damageMult": 1.15 },
     "Battle Litany": { "damageMult": 1.04 },

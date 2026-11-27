@@ -64,12 +64,14 @@ public sealed unsafe class Pilot : IDisposable
     {
         this.config = config;
         Log = new FightLog(config.KeepFights);
+        Sequence.onPress = StopWalking;
         Plugin.Framework.Update += OnUpdate;
     }
 
     public void Dispose()
     {
         Plugin.Framework.Update -= OnUpdate;
+        rsr.Reload(config.HandBackToRsr); // never leave RSR unloaded behind us
         Log.End();
     }
 
@@ -89,6 +91,7 @@ public sealed unsafe class Pilot : IDisposable
 
     private void Tick()
     {
+        rsr.Tick();
         KillSwitch();
         var me = Plugin.ObjectTable.LocalPlayer;
         if (me == null) { Job = null; return; }
@@ -104,13 +107,16 @@ public sealed unsafe class Pilot : IDisposable
             Job = def == null ? null : new JobBinding(def, abbr, level);
             nextPotionCheck = DateTime.MinValue;
             var mode = Job == null ? PilotMode.Off : config.ModeFor(Job.Def.Job);
-            if (mode == PilotMode.Live && config.TurnOffRsr && !Paused) rsr.TurnOff();
-            else if (mode != PilotMode.Live && config.HandBackToRsr) rsr.HandBack();
+            if (mode == PilotMode.Live && config.UnloadRsr) rsr.KeepUnloaded();
+            else if (mode == PilotMode.Live && config.TurnOffRsr && !Paused) rsr.TurnOff();
+            else if (mode != PilotMode.Live) HandBackRsr();
         }
         Mode = Job == null ? PilotMode.Off : config.ModeFor(Job.Def.Job);
         if (Job == null || Mode == PilotMode.Off) { Status = Job == null ? "No job file for this job" : "Off"; EndFight(); return; }
-        // Two pilots fight over the controls: while Live, RSR stays off even if its own settings turn it on.
-        if (Mode == PilotMode.Live && !Paused && config.TurnOffRsr) rsr.KeepOff();
+        // Two pilots fight over the controls: while Live, RSR is unloaded (or kept off) even if its own
+        // settings turn it on (start on countdown, auto-on). Paused counts as Live: you take over, not RSR.
+        if (Mode == PilotMode.Live && config.UnloadRsr) rsr.KeepUnloaded();
+        else if (Mode == PilotMode.Live && !Paused && config.TurnOffRsr) rsr.KeepOff();
 
         Opener.WatchCountdown(Plugin.Condition[ConditionFlag.InCombat]);
 
@@ -308,8 +314,13 @@ public sealed unsafe class Pilot : IDisposable
             if (PartnerFor(a) is not { } partner) return false;
             target = partner.GameObjectId;
         }
-        // Auto-move can leave you facing away: turn to the target first.
-        if (target != 0xE000_0000UL && Plugin.ObjectTable.SearchById(target) is { } tgo && !a.Def.AllyTarget) Facing.Face(tgo);
+        // Auto-move walks facing the way it goes, and vnavmesh keeps turning you that way while it
+        // walks: stop it, then turn to the target, then press (it picks the walk up again next think).
+        if (target != 0xE000_0000UL && Plugin.ObjectTable.SearchById(target) is { } tgo && !a.Def.AllyTarget)
+        {
+            if (Mover.Moving) Mover.Halt("stopped to use " + a.Name);
+            Facing.Face(tgo);
+        }
         ok = am->UseAction(ActionType.Action, id, target);
         Plugin.Log.Debug($"[Pilot] press {a.Name} (#{id}) -> {(ok ? "ok" : "refused")}; gcd {g.GcdRemaining:0.00}s");
         if (a.IsGcd) CheckStall(g);
@@ -318,6 +329,7 @@ public sealed unsafe class Pilot : IDisposable
 
     /// <summary>Multi-button actions (ninjutsu) in progress.</summary>
     public SequenceRunner Sequence { get; } = new();
+    private void StopWalking() { if (Mover.Moving) Mover.Halt("stopped for a ninjutsu"); }
 
     /// <summary>Last partner pick per action, for the bar tooltip and Pilot tab.</summary>
     public Dictionary<string, string> PartnerWhy { get; } = new();
@@ -498,7 +510,11 @@ public sealed unsafe class Pilot : IDisposable
         // A decision made well before the slot it's logged against may be about the slot before
         // (Listen: RSR pressed before this plan was ready).
         var age = (DateTime.UtcNow - d.MadeAt).TotalSeconds;
-        var note = string.Join(" | ", new[] { d.Error ?? "", age > 1.5 ? $"stale {age:0.0}s" : "", d.State }.Where(x => x.Length > 0));
+        // The closest alternatives the planner weighed (score relative to its pick).
+        var alts = d.RootScores.Count > 1
+            ? "alts: " + string.Join(", ", d.RootScores.OrderByDescending(r => r.Value).Take(4).Select(r => $"{r.Key} {r.Value - d.RootScores.Values.Max():+0;-0}"))
+            : "";
+        var note = string.Join(" | ", new[] { d.Error ?? "", age > 1.5 ? $"stale {age:0.0}s" : "", d.State, alts }.Where(x => x.Length > 0));
         Log.Add(new DecisionRecord(Log.FightTime, gcd, wanted, actual, lost, string.Join(" > ", d.Path.Take(8)), note));
     }
 
@@ -558,11 +574,21 @@ public sealed unsafe class Pilot : IDisposable
     {
         if (Job == null) return;
         var mode = config.ModeFor(Job.Def.Job);
-        if (mode == PilotMode.Live && config.TurnOffRsr) rsr.TurnOff();
-        else if (mode != PilotMode.Live && config.HandBackToRsr) rsr.HandBack();
+        if (mode == PilotMode.Live && config.UnloadRsr) rsr.KeepUnloaded();
+        else if (mode == PilotMode.Live && config.TurnOffRsr) rsr.TurnOff();
+        else if (mode != PilotMode.Live) HandBackRsr();
     }
 
     public void Rebind() => Job = null;
+
+    /// <summary>Leaving Live: load RSR again if we unloaded it (and start it if we'd stopped it).</summary>
+    private void HandBackRsr()
+    {
+        if (rsr.WeUnloaded) { rsr.Reload(config.HandBackToRsr); return; }
+        if (config.HandBackToRsr) rsr.HandBack();
+    }
+
+    public int RsrUnloads => rsr.TimesUnloaded;
 
     /// <summary>How many times RSR turned itself back on while Live (Pilot tab).</summary>
     public int RsrForcedOff => rsr.TimesForcedOff;

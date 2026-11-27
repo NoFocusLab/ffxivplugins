@@ -29,11 +29,13 @@ Suiton (don't move). Raiju stacks, Kazematoi (Armor Crush / Aeolian Edge), Bunsh
 Zesho Meppo, Meisui, and your own Kunai's Bane / Dokumori on the target are all valued. Opener: The
 Balance's standard (4th GCD Kunai's Bane), mudras from -2.4 s so Suiton lands at about -0.9 s.
 
-**RSR and facing:** while a job is Live, RotationSolver is kept off: it's turned off when you go
-Live and again the moment it switches itself back on (its start-on-countdown or auto-on settings),
-checked every frame through its `AutorotationActive` IPC. Before any action on the target, Combat
-Pilot turns you to face it (the game's own auto-face), and does so again when auto-move stops, so
-walking to a positional never leaves you facing away.
+**RSR and facing:** while a job is Live (paused included), RotationSolver is **unloaded** with
+Dalamud's temporary disable, so it can't switch itself on for a countdown or when attacked. It's loaded
+again (and started, if "turn it back on" is set) when you leave Live, when Combat Pilot closes, or when
+the game restarts; your saved plugin list isn't changed, so Settings Sync doesn't copy it to other PCs.
+(Unticking "Unload" falls back to turning it off every time it switches on.) Before any action on the
+target, Combat Pilot stops auto-move if it's walking, turns you to face the target (the game's own
+auto-face) and then presses; it also turns you to the target whenever auto-move stops.
 
 **MP:** a resource like gauge. Costs come from the game (or the job file when a trait changes them),
 MP comes back from natural regen ([Estimate] 200 per 3 s), actions that restore it (Riot Blade, Expiacion)

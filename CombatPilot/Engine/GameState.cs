@@ -200,6 +200,14 @@ public sealed class GameState
         catch (Exception) { return true; }
     }
 
+    private static double? DurationOf(JobBinding job, string status)
+    {
+        foreach (var a in job.Def.Actions)
+            foreach (var gr in a.Grants)
+                if (gr.Status == status && gr.Duration > 0 && gr.Duration < 900) return gr.Duration;
+        return null;
+    }
+
     private static Vector3 lastPos;
     private static DateTime lastPosAt = DateTime.MinValue;
 
@@ -244,7 +252,9 @@ public sealed class GameState
             if (st.StatusId == 0) continue;
             var name = StatusNames.Of(st.StatusId);
             if (name.Length == 0) continue;
-            var left = st.RemainingTime > 0 ? st.RemainingTime : 999;
+            // 0 = no timer (permanent), or one just applied whose timer isn't filled in yet: use the
+            // job file's duration when it grants this status (seen: Power Surge "999 s" right after Spiral Blow).
+            var left = st.RemainingTime > 0 ? st.RemainingTime : DurationOf(job, name) ?? 999;
             s.Statuses[name] = (left, Math.Max(1, (int)st.Param));
             // Your own raid buff (Battle Litany on a Dragoon) is valued by the job file, not counted twice.
             if (PartyBuffTracker.ByName.TryGetValue(name, out var rb) && !job.Def.Statuses.ContainsKey(name)) s.PartyBuffs.Add((rb.Mult, 0, left));

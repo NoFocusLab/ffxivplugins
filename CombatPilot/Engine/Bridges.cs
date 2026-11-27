@@ -99,10 +99,50 @@ public sealed class RsrBridge
 {
     public bool WeTurnedItOff { get; private set; }
 
-    public static bool Loaded =>
-        Plugin.PluginInterface.InstalledPlugins.Any(p => p.IsLoaded &&
-            (p.InternalName.Equals("RotationSolver", StringComparison.OrdinalIgnoreCase) ||
-             p.InternalName.StartsWith("RotationSolver", StringComparison.OrdinalIgnoreCase)));
+    public static bool Loaded => Find() is { IsLoaded: true };
+
+    private static Dalamud.Plugin.IExposedPlugin? Find() =>
+        Plugin.PluginInterface.InstalledPlugins.FirstOrDefault(p =>
+            p.InternalName.StartsWith("RotationSolver", StringComparison.OrdinalIgnoreCase));
+
+    // ---- Unloading RSR while Live (Dalamud's /xldisableplugintemp: until re-enabled or the game
+    // restarts; your saved plugin list is untouched, so Settings Sync doesn't carry it to other PCs).
+    private string? unloadedName;
+    private DateTime lastUnload = DateTime.MinValue, reloadedAt = DateTime.MinValue;
+    private bool autoAfterReload;
+    public bool WeUnloaded => unloadedName != null;
+    public int TimesUnloaded { get; private set; }
+
+    /// <summary>Unload RSR if it's loaded (checked every frame while Live; at most every 5 s).</summary>
+    public void KeepUnloaded()
+    {
+        if (Find() is not { IsLoaded: true } p || (DateTime.UtcNow - lastUnload).TotalSeconds < 5) return;
+        lastUnload = DateTime.UtcNow;
+        TimesUnloaded++;
+        unloadedName = p.InternalName;
+        autoAfterReload = false;
+        Plugin.CommandManager.ProcessCommand($"/xldisableplugintemp \"{p.InternalName}\"");
+        Plugin.Log.Information($"[Pilot] RotationSolver unloaded while Live ({p.InternalName})");
+    }
+
+    /// <summary>Load RSR again if we unloaded it; autoOn: then start its rotation (hand back).</summary>
+    public void Reload(bool autoOn)
+    {
+        if (unloadedName == null) return;
+        Plugin.CommandManager.ProcessCommand($"/xlenableplugintemp \"{unloadedName}\"");
+        Plugin.Log.Information($"[Pilot] RotationSolver loaded again ({unloadedName})");
+        unloadedName = null;
+        reloadedAt = DateTime.UtcNow;
+        autoAfterReload = autoOn;
+    }
+
+    /// <summary>Every frame: once a reloaded RSR is up, turn its rotation on (when handing back).</summary>
+    public void Tick()
+    {
+        if (!autoAfterReload || !Loaded || (DateTime.UtcNow - reloadedAt).TotalSeconds < 3) return;
+        autoAfterReload = false;
+        Plugin.CommandManager.ProcessCommand("/rotation auto");
+    }
 
     public void TurnOff()
     {
