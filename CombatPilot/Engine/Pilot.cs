@@ -174,7 +174,7 @@ public sealed unsafe class Pilot : IDisposable
             {
                 if (g.UnsafeDash.Contains(oa.Id))
                 {
-                    Log.Note($"opener: held {oa.Name} (would land in a danger zone)");
+                    Log.Note($"opener: held {oa.Name} ({g.UnsafeWhy.GetValueOrDefault(oa.Id, "unsafe")})");
                     if (forGcd) Opener.SkipGcd(); else Opener.WeavePressed(); // skip it; the planner can use it later
                     return;
                 }

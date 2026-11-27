@@ -6,6 +6,7 @@ using CombatPilot.Jobs;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.ClientState.Objects.Types;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using FFXIVClientStructs.FFXIV.Common.Component.BGCollision;
 using GameObjectStruct = FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject;
 
 namespace CombatPilot.Engine;
@@ -75,6 +76,7 @@ public sealed class GameState
     public HashSet<uint> WouldPull = new();
     /// <summary>Dash/jump actions that would land you (or take you through) a danger zone right now.</summary>
     public HashSet<uint> UnsafeDash = new();
+    public Dictionary<uint, string> UnsafeWhy = new();
     /// <summary>Danger info: "BossMod: N zones", or why there's none.</summary>
     public string DangerNote = "";
     /// <summary>Per AoE action: it would hit something other than your target.</summary>
@@ -173,6 +175,22 @@ public sealed class GameState
     }
 
     private static Vector3 Flat(Vector3 v) => new(v.X, 0, v.Z);
+
+    /// <summary>
+    /// Is there floor at this spot? A ray from 3 y above straight down (game collision). No hit, or
+    /// floor more than 4 y below where you stand now, counts as no floor ([Assumption] thresholds:
+    /// small steps and slopes are fine, ledges and the edge of the map aren't).
+    /// </summary>
+    public static bool FloorAt(Vector3 spot, float myY)
+    {
+        try
+        {
+            var origin = spot + new Vector3(0, 3, 0);
+            if (!BGCollisionModule.RaycastMaterialFilter(origin, new Vector3(0, -1, 0), out var hit, 12f)) return false;
+            return hit.Point.Y >= myY - 4f;
+        }
+        catch (Exception) { return true; }
+    }
 
     public static unsafe GameState Read(JobBinding job, PartyBuffTracker? party = null, MitBridge? mit = null, DangerBridge? danger = null)
     {
@@ -274,18 +292,29 @@ public sealed class GameState
 
         ReadEnemies(s, job, me, target, starterId);
 
-        // Dashes: where would it put me? [Assumption] the landing spot is the edge of the target's
-        // hitbox on the line from me to it.
-        if (danger != null && s.HasTarget && target != null)
+        // Movement actions: where would it put me? Unsafe if BossMod says the path/spot is in a danger
+        // zone, or there's no floor there (off a ledge, off the map).
+        var zones = danger?.Zones() ?? -1;
+        s.DangerNote = zones < 0 ? "BossMod not loaded: danger zones unchecked (floor still checked)" : $"BossMod: {zones} danger zone(s); floor checked";
+        var facing = new Vector3((float)Math.Sin(me.Rotation), 0, (float)Math.Cos(me.Rotation));
+        foreach (var a in job.Actions)
         {
-            var zones = danger.Zones();
-            s.DangerNote = zones < 0 ? "BossMod not loaded: dashes unchecked" : $"BossMod: {zones} danger zone(s)";
-            var dir = target.Position - me.Position;
-            var dist = dir.Length();
-            var land = dist > target.HitboxRadius && dist > 0.01f ? target.Position - dir / dist * target.HitboxRadius : me.Position;
-            foreach (var a in job.Actions)
-                if (a.Def.MovesToTarget && zones > 0 && !danger.DashSafe(me.Position, land, out var known) && known)
-                    s.UnsafeDash.Add(a.Id);
+            Vector3 land;
+            if (a.Def.MovesToTarget)
+            {
+                if (!s.HasTarget || target == null) continue;
+                // [Assumption] you land at the edge of the target's hitbox on the line from you to it.
+                var dir = target.Position - me.Position;
+                var dist = dir.Length();
+                land = dist > target.HitboxRadius && dist > 0.01f ? target.Position - dir / dist * target.HitboxRadius : me.Position;
+            }
+            else if (a.Def.Moves is "back" or "forward" && a.Def.MoveDistance > 0)
+                land = me.Position + facing * (float)(a.Def.Moves == "back" ? -a.Def.MoveDistance : a.Def.MoveDistance);
+            else continue;
+
+            if (!FloorAt(land, me.Position.Y)) { s.UnsafeDash.Add(a.Id); s.UnsafeWhy[a.Id] = "no floor"; continue; }
+            if (danger != null && zones > 0 && !danger.DashSafe(me.Position, land, out var known) && known)
+            { s.UnsafeDash.Add(a.Id); s.UnsafeWhy[a.Id] = "danger zone"; }
         }
 
         if (mit != null) s.Downtime = mit.Downtime();

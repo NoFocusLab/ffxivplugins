@@ -83,12 +83,16 @@ Chaos from 72), potencies come from the tooltip as the game shows it at your lev
 any action still on the job file's level-100 number), crit/direct-hit math uses your level's
 constants, and openers written for level 100 aren't used below it (the planner opens instead).
 
-## Dashes and danger zones
-Actions that move you to the target (Warrior: Onslaught, Primal Rend) are checked with BossMod
-(`BossMod.Hints.IsDashSafe`, the same data Rescue Helper uses) before they're used: if the landing
-spot or the path is in a danger zone BossMod knows (boss AoEs, puddles, the arena edge), the planner
-won't use it, and an opener step that would is skipped. Clicking it on the bar still uses it (your
-call). Without BossMod loaded, dashes are unchecked (the Pilot tab says so).
+## Dashes, jumps and danger
+Every action that moves you is checked before the planner uses it: dashes/jumps to the target
+(`movesToTarget`, Warrior: Onslaught, Primal Rend) and fixed moves from where you face (`moves`:
+"back"/"forward" with `moveDistance`, e.g. Elusive Jump or Displacement for other jobs).
+- **Floor:** a ray straight down at the landing spot (game collision). No floor there, or floor more
+  than 4 y below you, = held ([Assumption] thresholds): no jumping off ledges or the map, any zone.
+- **Danger zones:** BossMod (`BossMod.Hints.IsDashSafe`, the same data Rescue Helper uses) for boss
+  AoEs, puddles and the arena edge. Without BossMod loaded this part is skipped (the Pilot tab says so).
+- Held actions aren't used by the planner and an opener step that would use one is skipped; the Pilot
+  tab says which and why. Clicking it on the bar still uses it (your call).
 
 ## Your stats
 GCD length (and so opener step timing) comes from your actual recast: skill/spell speed and haste

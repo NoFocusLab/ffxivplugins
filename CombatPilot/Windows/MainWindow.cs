@@ -117,7 +117,7 @@ public sealed class MainWindow : Window
         }
         if (p.LastState is { } ds && ds.DangerNote.Length > 0)
             ImGui.TextDisabled(ds.DangerNote + (ds.UnsafeDash.Count > 0
-                ? " - held: " + string.Join(", ", p.Job.Actions.Where(a => ds.UnsafeDash.Contains(a.Id)).Select(a => a.Name)) + " (would land in one)"
+                ? " - held: " + string.Join(", ", p.Job.Actions.Where(a => ds.UnsafeDash.Contains(a.Id)).Select(a => $"{a.Name} ({ds.UnsafeWhy.GetValueOrDefault(a.Id, "?")})"))
                 : ""));
         DrawDecision("Next GCD", p.LastGcd);
         DrawDecision("Last weave check", p.LastWeave);

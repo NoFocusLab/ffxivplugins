@@ -114,8 +114,11 @@ public sealed class ActionDef
     public List<string> Consumes { get; set; } = new();
     public List<Grant> Grants { get; set; } = new();
     public Extend? Extends { get; set; }
-    /// <summary>Moves you to the target (dash/jump): checked against known danger zones first.</summary>
+    /// <summary>Moves you to the target (dash/jump): checked against danger zones and for floor first.</summary>
     public bool MovesToTarget { get; set; }
+    /// <summary>Moves you a fixed distance from where you face: "back" (Elusive Jump, Displacement) or "forward".</summary>
+    public string? Moves { get; set; }
+    public double MoveDistance { get; set; }
     public Reduce? ReducesRecast { get; set; }
 
     [JsonIgnore] public string PressName => Press ?? Name;
