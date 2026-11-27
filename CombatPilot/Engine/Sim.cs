@@ -158,6 +158,7 @@ public sealed class Sim
         {
             if (g.ComboOnly && !combo) continue;
             if (g.IfStatus != null && !Has(g.IfStatus)) continue;
+            if (g.MinLevel > job.Level) continue;
             if (g.Gauge != 0) Gauge = Math.Min(job.Def.Gauge?.Max ?? 100, Gauge + g.Gauge);
             if (g.Status != null) Grant(g, job);
         }
@@ -166,7 +167,7 @@ public sealed class Sim
             var cur = Statuses[e.Status];
             Statuses[e.Status] = (Math.Min(T + e.Max, cur.Until + e.Seconds), cur.Stacks);
         }
-        if (d.ReducesRecast is { } r && job.ByName.TryGetValue(r.Action, out var other) && Cd.TryGetValue(other.CooldownGroup, out var oc))
+        if (d.ReducesRecast is { } r && r.MinLevel <= job.Level && job.ByName.TryGetValue(r.Action, out var other) && Cd.TryGetValue(other.CooldownGroup, out var oc))
         {
             var left = r.Seconds;
             while (left > 0 && oc.Charges < oc.MaxCharges)

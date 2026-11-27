@@ -204,6 +204,7 @@ public static class Planner
     /// </summary>
     public static bool Reaches(BoundAction a, GameState g, PlannerSettings? set = null)
     {
+        if (g.UnsafeDash.Contains(a.Id)) return false; // would land in a known danger zone
         if (!a.IsAoe) return g.InRange.Contains(a.Id);
         if (set != null && set.NoPull && g.WouldPull.Contains(a.Id)) return false;
         if (set?.Aoe == AoeMode.SingleTarget && g.HitsOthers.Contains(a.Id)) return false;

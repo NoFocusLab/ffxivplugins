@@ -73,6 +73,10 @@ public sealed class GameState
     public Dictionary<uint, double[]> HitTtks = new();
     /// <summary>Per AoE action: it would also hit an enemy that isn't fighting yet (pulls it).</summary>
     public HashSet<uint> WouldPull = new();
+    /// <summary>Dash/jump actions that would land you (or take you through) a danger zone right now.</summary>
+    public HashSet<uint> UnsafeDash = new();
+    /// <summary>Danger info: "BossMod: N zones", or why there's none.</summary>
+    public string DangerNote = "";
     /// <summary>Per AoE action: it would hit something other than your target.</summary>
     public HashSet<uint> HitsOthers = new();
     public bool InCombat;
@@ -170,7 +174,7 @@ public sealed class GameState
 
     private static Vector3 Flat(Vector3 v) => new(v.X, 0, v.Z);
 
-    public static unsafe GameState Read(JobBinding job, PartyBuffTracker? party = null, MitBridge? mit = null)
+    public static unsafe GameState Read(JobBinding job, PartyBuffTracker? party = null, MitBridge? mit = null, DangerBridge? danger = null)
     {
         var s = new GameState();
         var me = Plugin.ObjectTable.LocalPlayer;
@@ -269,6 +273,20 @@ public sealed class GameState
         }
 
         ReadEnemies(s, job, me, target, starterId);
+
+        // Dashes: where would it put me? [Assumption] the landing spot is the edge of the target's
+        // hitbox on the line from me to it.
+        if (danger != null && s.HasTarget && target != null)
+        {
+            var zones = danger.Zones();
+            s.DangerNote = zones < 0 ? "BossMod not loaded: dashes unchecked" : $"BossMod: {zones} danger zone(s)";
+            var dir = target.Position - me.Position;
+            var dist = dir.Length();
+            var land = dist > target.HitboxRadius && dist > 0.01f ? target.Position - dir / dist * target.HitboxRadius : me.Position;
+            foreach (var a in job.Actions)
+                if (a.Def.MovesToTarget && zones > 0 && !danger.DashSafe(me.Position, land, out var known) && known)
+                    s.UnsafeDash.Add(a.Id);
+        }
 
         if (mit != null) s.Downtime = mit.Downtime();
         if (party != null)

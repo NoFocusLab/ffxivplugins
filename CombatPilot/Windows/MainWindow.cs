@@ -115,6 +115,10 @@ public sealed class MainWindow : Window
                                string.Join(", ", gs.Enemies.Take(6).Select(e => e.Ttk >= 999 ? "TTK ?" : $"TTK {e.Ttk:0}s")) + ")");
             ImGui.TextDisabled("AoE would hit: " + string.Join(", ", aoe));
         }
+        if (p.LastState is { } ds && ds.DangerNote.Length > 0)
+            ImGui.TextDisabled(ds.DangerNote + (ds.UnsafeDash.Count > 0
+                ? " - held: " + string.Join(", ", p.Job.Actions.Where(a => ds.UnsafeDash.Contains(a.Id)).Select(a => a.Name)) + " (would land in one)"
+                : ""));
         DrawDecision("Next GCD", p.LastGcd);
         DrawDecision("Last weave check", p.LastWeave);
         if (p.Log.Current is { } f)
@@ -168,7 +172,7 @@ public sealed class MainWindow : Window
             ImGui.TableNextColumn(); ImGui.TextUnformatted(a.IsGcd ? "GCD" : "oGCD");
             ImGui.TableNextColumn(); ImGui.TextUnformatted(a.Potency > 0 ? a.Potency.ToString("0") : "");
             ImGui.TableNextColumn(); ImGui.TextUnformatted(a.ComboPotency > 0 ? a.ComboPotency.ToString("0") : "");
-            ImGui.TableNextColumn(); ImGui.TextUnformatted(a.Def.Potency > 0 ? a.PotencySource : "");
+            ImGui.TableNextColumn(); ImGui.TextUnformatted(a.Def.Potency > 0 ? (a.PotencySource == "data" && job.Level < 100 ? "data (Lv100!)" : a.PotencySource) : "");
             ImGui.TableNextColumn(); ImGui.TextUnformatted(a.Shape switch
             {
                 Shape.CircleSelf => $"circle {a.Radius:0}y (you)",

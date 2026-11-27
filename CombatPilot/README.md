@@ -74,6 +74,22 @@ Worked out per decision, for every job, from the enemies each AoE would actually
 
 Both combos give the same gauge per GCD (10), and Mythril Tempest keeps Surging Tempest up too.
 
+## Your level
+Everything follows the level you're at (level sync included): actions you don't have yet aren't
+considered, trait upgrades swap in (Berserk -> Inner Release), effects a trait adds only count from
+that level (job file `minLevel`: e.g. Primal Rend Ready from 90, Burgeoning Fury from 96, Nascent
+Chaos from 72), potencies come from the tooltip as the game shows it at your level
+([Assumption] Dalamud's string evaluator resolves the tooltips' level checks; the Job data tab marks
+any action still on the job file's level-100 number), crit/direct-hit math uses your level's
+constants, and openers written for level 100 aren't used below it (the planner opens instead).
+
+## Dashes and danger zones
+Actions that move you to the target (Warrior: Onslaught, Primal Rend) are checked with BossMod
+(`BossMod.Hints.IsDashSafe`, the same data Rescue Helper uses) before they're used: if the landing
+spot or the path is in a danger zone BossMod knows (boss AoEs, puddles, the arena edge), the planner
+won't use it, and an opener step that would is skipped. Clicking it on the bar still uses it (your
+call). Without BossMod loaded, dashes are unchecked (the Pilot tab says so).
+
 ## Your stats
 GCD length (and so opener step timing) comes from your actual recast: skill/spell speed and haste
 included. The value of a guaranteed critical direct hit is worked out from your Critical Hit and

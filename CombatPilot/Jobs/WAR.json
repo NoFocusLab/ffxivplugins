@@ -1,89 +1,488 @@
 {
   "job": "WAR",
-  "classJobs": ["WAR", "MRD"],
+  "classJobs": [
+    "WAR",
+    "MRD"
+  ],
   "patch": "7.55",
   "source": "Official job guide (na.finalfantasyxiv.com/jobguide/warrior), level 100 values. Potencies are re-read from the game's tooltips when they parse cleanly.",
-  "gauge": { "name": "Beast Gauge", "max": 100, "valuePerUnit": 10.0 },
+  "gauge": {
+    "name": "Beast Gauge",
+    "max": 100,
+    "valuePerUnit": 10.0
+  },
   "potencyPerSecond": 230,
   "statuses": {
-    "Surging Tempest":       { "damageMult": 1.10 },
-    "Inner Release":         { "critDhFor": ["Fell Cleave", "Decimate", "Inner Beast", "Steel Cyclone"], "terminalValue": 450 },
-    "Berserk":               { "critDhFor": ["Heavy Swing", "Maim", "Storm's Path", "Storm's Eye", "Inner Beast", "Steel Cyclone", "Overpower", "Mythril Tempest", "Tomahawk"], "terminalValue": 150 },
-    "Nascent Chaos":         { "terminalValue": 150 },
-    "Primal Rend Ready":     { "terminalValue": 900 },
-    "Primal Ruination Ready":{ "terminalValue": 950 },
-    "Wrathful":              { "terminalValue": 650 },
-    "Burgeoning Fury":       { "maxStacks": 3, "atMax": "Wrathful", "atMaxDuration": 30 }
+    "Surging Tempest": {
+      "damageMult": 1.1
+    },
+    "Inner Release": {
+      "critDhFor": [
+        "Fell Cleave",
+        "Decimate",
+        "Inner Beast",
+        "Steel Cyclone"
+      ],
+      "terminalValue": 450
+    },
+    "Berserk": {
+      "critDhFor": [
+        "Heavy Swing",
+        "Maim",
+        "Storm's Path",
+        "Storm's Eye",
+        "Inner Beast",
+        "Steel Cyclone",
+        "Overpower",
+        "Mythril Tempest",
+        "Tomahawk"
+      ],
+      "terminalValue": 150
+    },
+    "Nascent Chaos": {
+      "terminalValue": 150
+    },
+    "Primal Rend Ready": {
+      "terminalValue": 900
+    },
+    "Primal Ruination Ready": {
+      "terminalValue": 950
+    },
+    "Wrathful": {
+      "terminalValue": 650
+    },
+    "Burgeoning Fury": {
+      "maxStacks": 3,
+      "atMax": "Wrathful",
+      "atMaxDuration": 30
+    }
   },
   "actions": [
-    { "name": "Heavy Swing", "potency": 240 },
-    { "name": "Maim", "potency": 190, "comboFrom": "Heavy Swing", "comboPotency": 340,
-      "grants": [ { "gauge": 10, "comboOnly": true } ] },
-    { "name": "Storm's Path", "potency": 220, "comboFrom": "Maim", "comboPotency": 500,
-      "grants": [ { "gauge": 20, "comboOnly": true } ] },
-    { "name": "Storm's Eye", "potency": 220, "comboFrom": "Maim", "comboPotency": 500,
-      "grants": [ { "gauge": 10, "comboOnly": true }, { "status": "Surging Tempest", "duration": 30, "extend": true, "max": 60, "comboOnly": true } ] },
-    { "name": "Tomahawk", "potency": 150, "ranged": true, "keepsCombo": true },
-
-    { "name": "Overpower", "potency": 110, "aoe": "self", "radius": 5 },
-    { "name": "Mythril Tempest", "potency": 100, "comboFrom": "Overpower", "comboPotency": 140, "aoe": "self", "radius": 5,
-      "grants": [ { "gauge": 20, "comboOnly": true }, { "status": "Surging Tempest", "duration": 30, "extend": true, "max": 60, "comboOnly": true } ] },
-
-    { "name": "Inner Beast", "upgradedTo": "Fell Cleave", "potency": 330, "keepsCombo": true, "gaugeCost": 50, "freeWith": "Inner Release" },
-    { "name": "Steel Cyclone", "upgradedTo": "Decimate", "potency": 160, "aoe": "self", "radius": 5, "keepsCombo": true, "gaugeCost": 50, "freeWith": "Inner Release" },
-    { "name": "Fell Cleave", "potency": 580, "keepsCombo": true, "gaugeCost": 50, "freeWith": "Inner Release",
-      "requires": [ { "not": { "status": "Nascent Chaos", "gauge": 50 } } ],
-      "grants": [ { "status": "Burgeoning Fury", "stacks": 1, "duration": 30, "ifStatus": "Inner Release" } ],
-      "reducesRecast": { "action": "Infuriate", "seconds": 5 } },
-    { "name": "Decimate", "potency": 180, "aoe": "self", "radius": 5, "keepsCombo": true, "gaugeCost": 50, "freeWith": "Inner Release",
-      "requires": [ { "not": { "status": "Nascent Chaos", "gauge": 50 } } ],
-      "grants": [ { "status": "Burgeoning Fury", "stacks": 1, "duration": 30, "ifStatus": "Inner Release" } ],
-      "reducesRecast": { "action": "Infuriate", "seconds": 5 } },
-    { "name": "Inner Chaos", "press": "Fell Cleave", "potency": 700, "critDh": true, "keepsCombo": true, "gaugeCost": 50,
-      "requires": [ { "status": "Nascent Chaos" } ], "consumes": ["Nascent Chaos"],
-      "reducesRecast": { "action": "Infuriate", "seconds": 5 } },
-    { "name": "Chaotic Cyclone", "press": "Decimate", "potency": 200, "critDh": true, "aoe": "self", "radius": 5, "keepsCombo": true, "gaugeCost": 50,
-      "requires": [ { "status": "Nascent Chaos" } ], "consumes": ["Nascent Chaos"],
-      "reducesRecast": { "action": "Infuriate", "seconds": 5 } },
-    { "name": "Primal Rend", "potency": 720, "critDh": true, "keepsCombo": true, "aoe": "target", "radius": 5, "falloff": 0.5, "rangedOk": true,
-      "requires": [ { "status": "Primal Rend Ready" } ], "consumes": ["Primal Rend Ready"],
-      "grants": [ { "status": "Primal Ruination Ready", "duration": 20 } ] },
-    { "name": "Primal Ruination", "press": "Primal Rend", "potency": 800, "critDh": true, "keepsCombo": true, "aoe": "target", "radius": 5, "falloff": 0.5,
-      "requires": [ { "status": "Primal Ruination Ready" } ], "consumes": ["Primal Ruination Ready"] },
-
-    { "name": "Berserk", "upgradedTo": "Inner Release", "grants": [ { "status": "Berserk", "stacks": 3, "duration": 15 } ],
-      "extends": { "status": "Surging Tempest", "seconds": 10, "max": 60 } },
-    { "name": "Inner Release",
-      "requires": [ { "not": { "status": "Wrathful" } } ],
-      "grants": [ { "status": "Inner Release", "stacks": 3, "duration": 15 }, { "status": "Primal Rend Ready", "duration": 30 } ],
-      "extends": { "status": "Surging Tempest", "seconds": 10, "max": 60 } },
-    { "name": "Primal Wrath", "press": "Inner Release", "potency": 700, "aoe": "self", "radius": 5, "falloff": 0.5,
-      "requires": [ { "status": "Wrathful" } ], "consumes": ["Wrathful"] },
-    { "name": "Infuriate", "requires": [ { "not": { "status": "Nascent Chaos" } } ], "grants": [ { "gauge": 50 }, { "status": "Nascent Chaos", "duration": 30 } ] },
-    { "name": "Upheaval", "potency": 420 },
-    { "name": "Orogeny", "potency": 150, "aoe": "self", "radius": 5 },
-    { "name": "Onslaught", "potency": 150, "rangedOk": true }
+    {
+      "name": "Heavy Swing",
+      "potency": 240
+    },
+    {
+      "name": "Maim",
+      "potency": 190,
+      "comboFrom": "Heavy Swing",
+      "comboPotency": 340,
+      "grants": [
+        {
+          "gauge": 10,
+          "comboOnly": true,
+          "minLevel": 35
+        }
+      ]
+    },
+    {
+      "name": "Storm's Path",
+      "potency": 220,
+      "comboFrom": "Maim",
+      "comboPotency": 500,
+      "grants": [
+        {
+          "gauge": 20,
+          "comboOnly": true,
+          "minLevel": 35
+        }
+      ]
+    },
+    {
+      "name": "Storm's Eye",
+      "potency": 220,
+      "comboFrom": "Maim",
+      "comboPotency": 500,
+      "grants": [
+        {
+          "gauge": 10,
+          "comboOnly": true
+        },
+        {
+          "status": "Surging Tempest",
+          "duration": 30,
+          "extend": true,
+          "max": 60,
+          "comboOnly": true
+        }
+      ]
+    },
+    {
+      "name": "Tomahawk",
+      "potency": 150,
+      "ranged": true,
+      "keepsCombo": true
+    },
+    {
+      "name": "Overpower",
+      "potency": 110,
+      "aoe": "self",
+      "radius": 5
+    },
+    {
+      "name": "Mythril Tempest",
+      "potency": 100,
+      "comboFrom": "Overpower",
+      "comboPotency": 140,
+      "aoe": "self",
+      "radius": 5,
+      "grants": [
+        {
+          "gauge": 20,
+          "comboOnly": true,
+          "minLevel": 74
+        },
+        {
+          "status": "Surging Tempest",
+          "duration": 30,
+          "extend": true,
+          "max": 60,
+          "comboOnly": true
+        }
+      ]
+    },
+    {
+      "name": "Inner Beast",
+      "upgradedTo": "Fell Cleave",
+      "potency": 330,
+      "keepsCombo": true,
+      "gaugeCost": 50,
+      "freeWith": "Inner Release"
+    },
+    {
+      "name": "Steel Cyclone",
+      "upgradedTo": "Decimate",
+      "potency": 160,
+      "aoe": "self",
+      "radius": 5,
+      "keepsCombo": true,
+      "gaugeCost": 50,
+      "freeWith": "Inner Release"
+    },
+    {
+      "name": "Fell Cleave",
+      "potency": 580,
+      "keepsCombo": true,
+      "gaugeCost": 50,
+      "freeWith": "Inner Release",
+      "requires": [
+        {
+          "not": {
+            "status": "Nascent Chaos",
+            "gauge": 50
+          }
+        }
+      ],
+      "grants": [
+        {
+          "status": "Burgeoning Fury",
+          "stacks": 1,
+          "duration": 30,
+          "ifStatus": "Inner Release",
+          "minLevel": 96
+        }
+      ],
+      "reducesRecast": {
+        "action": "Infuriate",
+        "seconds": 5,
+        "minLevel": 66
+      }
+    },
+    {
+      "name": "Decimate",
+      "potency": 180,
+      "aoe": "self",
+      "radius": 5,
+      "keepsCombo": true,
+      "gaugeCost": 50,
+      "freeWith": "Inner Release",
+      "requires": [
+        {
+          "not": {
+            "status": "Nascent Chaos",
+            "gauge": 50
+          }
+        }
+      ],
+      "grants": [
+        {
+          "status": "Burgeoning Fury",
+          "stacks": 1,
+          "duration": 30,
+          "ifStatus": "Inner Release",
+          "minLevel": 96
+        }
+      ],
+      "reducesRecast": {
+        "action": "Infuriate",
+        "seconds": 5,
+        "minLevel": 66
+      }
+    },
+    {
+      "name": "Inner Chaos",
+      "press": "Fell Cleave",
+      "potency": 700,
+      "critDh": true,
+      "keepsCombo": true,
+      "gaugeCost": 50,
+      "requires": [
+        {
+          "status": "Nascent Chaos"
+        }
+      ],
+      "consumes": [
+        "Nascent Chaos"
+      ],
+      "reducesRecast": {
+        "action": "Infuriate",
+        "seconds": 5,
+        "minLevel": 66
+      }
+    },
+    {
+      "name": "Chaotic Cyclone",
+      "press": "Decimate",
+      "potency": 200,
+      "critDh": true,
+      "aoe": "self",
+      "radius": 5,
+      "keepsCombo": true,
+      "gaugeCost": 50,
+      "requires": [
+        {
+          "status": "Nascent Chaos"
+        }
+      ],
+      "consumes": [
+        "Nascent Chaos"
+      ],
+      "reducesRecast": {
+        "action": "Infuriate",
+        "seconds": 5,
+        "minLevel": 66
+      }
+    },
+    {
+      "name": "Primal Rend",
+      "potency": 720,
+      "critDh": true,
+      "keepsCombo": true,
+      "aoe": "target",
+      "radius": 5,
+      "falloff": 0.5,
+      "rangedOk": true,
+      "requires": [
+        {
+          "status": "Primal Rend Ready"
+        }
+      ],
+      "consumes": [
+        "Primal Rend Ready"
+      ],
+      "grants": [
+        {
+          "status": "Primal Ruination Ready",
+          "duration": 20,
+          "minLevel": 100
+        }
+      ],
+      "movesToTarget": true
+    },
+    {
+      "name": "Primal Ruination",
+      "press": "Primal Rend",
+      "potency": 800,
+      "critDh": true,
+      "keepsCombo": true,
+      "aoe": "target",
+      "radius": 5,
+      "falloff": 0.5,
+      "requires": [
+        {
+          "status": "Primal Ruination Ready"
+        }
+      ],
+      "consumes": [
+        "Primal Ruination Ready"
+      ]
+    },
+    {
+      "name": "Berserk",
+      "upgradedTo": "Inner Release",
+      "grants": [
+        {
+          "status": "Berserk",
+          "stacks": 3,
+          "duration": 15
+        }
+      ],
+      "extends": {
+        "status": "Surging Tempest",
+        "seconds": 10,
+        "max": 60
+      }
+    },
+    {
+      "name": "Inner Release",
+      "requires": [
+        {
+          "not": {
+            "status": "Wrathful"
+          }
+        }
+      ],
+      "grants": [
+        {
+          "status": "Inner Release",
+          "stacks": 3,
+          "duration": 15
+        },
+        {
+          "status": "Primal Rend Ready",
+          "duration": 30,
+          "minLevel": 90
+        }
+      ],
+      "extends": {
+        "status": "Surging Tempest",
+        "seconds": 10,
+        "max": 60
+      }
+    },
+    {
+      "name": "Primal Wrath",
+      "press": "Inner Release",
+      "potency": 700,
+      "aoe": "self",
+      "radius": 5,
+      "falloff": 0.5,
+      "requires": [
+        {
+          "status": "Wrathful"
+        }
+      ],
+      "consumes": [
+        "Wrathful"
+      ]
+    },
+    {
+      "name": "Infuriate",
+      "requires": [
+        {
+          "not": {
+            "status": "Nascent Chaos"
+          }
+        }
+      ],
+      "grants": [
+        {
+          "gauge": 50
+        },
+        {
+          "status": "Nascent Chaos",
+          "duration": 30,
+          "minLevel": 72
+        }
+      ]
+    },
+    {
+      "name": "Upheaval",
+      "potency": 420
+    },
+    {
+      "name": "Orogeny",
+      "potency": 150,
+      "aoe": "self",
+      "radius": 5
+    },
+    {
+      "name": "Onslaught",
+      "potency": 150,
+      "rangedOk": true,
+      "movesToTarget": true
+    }
   ],
-  "travel": { "action": "Onslaught", "keep": 1 },
-  "burst": ["Inner Release", "Infuriate"],
+  "travel": {
+    "action": "Onslaught",
+    "keep": 1
+  },
+  "burst": [
+    "Inner Release",
+    "Infuriate"
+  ],
   "mainStat": "Strength",
-  "bar": ["Inner Release", "Infuriate", "Upheaval", "Onslaught", "Primal Rend", "Orogeny", "Tomahawk"],
+  "bar": [
+    "Inner Release",
+    "Infuriate",
+    "Upheaval",
+    "Onslaught",
+    "Primal Rend",
+    "Orogeny",
+    "Tomahawk"
+  ],
   "openers": [
-    { "name": "All-Around", "prepull": 0.7,
+    {
+      "name": "All-Around",
+      "prepull": 0.7,
       "source": "The Balance, Warrior basic guide (Dawntrail, 2.47 GCD). After step 11 the planner takes over.",
       "steps": [
-        ["Tomahawk", "Infuriate"],
-        ["Heavy Swing"],
-        ["Maim"],
-        ["Storm's Eye", "Inner Release", "Potion"],
-        ["Inner Chaos", "Upheaval", "Onslaught"],
-        ["Primal Rend", "Onslaught"],
-        ["Primal Ruination", "Onslaught"],
-        ["Fell Cleave"],
-        ["Fell Cleave"],
-        ["Fell Cleave", "Primal Wrath", "Infuriate"],
-        ["Inner Chaos"]
-      ] }
+        [
+          "Tomahawk",
+          "Infuriate"
+        ],
+        [
+          "Heavy Swing"
+        ],
+        [
+          "Maim"
+        ],
+        [
+          "Storm's Eye",
+          "Inner Release",
+          "Potion"
+        ],
+        [
+          "Inner Chaos",
+          "Upheaval",
+          "Onslaught"
+        ],
+        [
+          "Primal Rend",
+          "Onslaught"
+        ],
+        [
+          "Primal Ruination",
+          "Onslaught"
+        ],
+        [
+          "Fell Cleave"
+        ],
+        [
+          "Fell Cleave"
+        ],
+        [
+          "Fell Cleave",
+          "Primal Wrath",
+          "Infuriate"
+        ],
+        [
+          "Inner Chaos"
+        ]
+      ],
+      "minLevel": 100
+    }
   ],
-  "safeOrder": ["Inner Chaos", "Primal Ruination", "Primal Rend", "Fell Cleave", "Storm's Eye", "Storm's Path", "Maim", "Heavy Swing", "Tomahawk"]
+  "safeOrder": [
+    "Inner Chaos",
+    "Primal Ruination",
+    "Primal Rend",
+    "Fell Cleave",
+    "Storm's Eye",
+    "Storm's Path",
+    "Maim",
+    "Heavy Swing",
+    "Tomahawk"
+  ],
+  "levelNotes": "Potencies are read from the tooltip as the game shows it at your level; numbers here are level 100 fallbacks. minLevel on grants = the trait that adds the effect."
 }

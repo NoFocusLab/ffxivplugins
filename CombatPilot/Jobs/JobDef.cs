@@ -44,6 +44,8 @@ public sealed class OpenerDef
     public string Source { get; set; } = "";
     /// <summary>Seconds before the countdown ends to press the first action (Warrior: Tomahawk at 0.7).</summary>
     public double Prepull { get; set; }
+    /// <summary>Written for this level and up (below it the planner opens instead).</summary>
+    public int MinLevel { get; set; }
     /// <summary>Each step: a GCD, then the oGCDs woven after it. "Potion" is skipped when potions are off.</summary>
     public List<List<string>> Steps { get; set; } = new();
 }
@@ -112,6 +114,8 @@ public sealed class ActionDef
     public List<string> Consumes { get; set; } = new();
     public List<Grant> Grants { get; set; } = new();
     public Extend? Extends { get; set; }
+    /// <summary>Moves you to the target (dash/jump): checked against known danger zones first.</summary>
+    public bool MovesToTarget { get; set; }
     public Reduce? ReducesRecast { get; set; }
 
     [JsonIgnore] public string PressName => Press ?? Name;
@@ -137,6 +141,8 @@ public sealed class Grant
     public bool ComboOnly { get; set; }
     /// <summary>Only while this status is up.</summary>
     public string? IfStatus { get; set; }
+    /// <summary>Only from this level (the trait that adds it).</summary>
+    public int MinLevel { get; set; }
 }
 
 public sealed class Extend
@@ -150,6 +156,7 @@ public sealed class Reduce
 {
     public string Action { get; set; } = "";
     public double Seconds { get; set; }
+    public int MinLevel { get; set; }
 }
 
 public static class JobLibrary

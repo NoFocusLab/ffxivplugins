@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using Dalamud.Plugin.Ipc;
 
 namespace CombatPilot.Engine;
@@ -53,6 +54,39 @@ public sealed class MitBridge
     {
         try { return territory.InvokeFunc(); }
         catch (Exception) { return 0; }
+    }
+}
+
+/// <summary>
+/// BossMod's danger knowledge (as Rescue Helper uses it): "BossMod.Hints.IsDashSafe(from, to)" checks
+/// a dash's path and landing spot against every forbidden zone BossMod knows (boss AoEs, puddles,
+/// the arena edge). Not loaded / no answer = no information (treated as safe), and it's said so on
+/// the Pilot tab.
+/// </summary>
+public sealed class DangerBridge
+{
+    private readonly ICallGateSubscriber<Vector3, Vector3, bool> isDashSafe =
+        Plugin.PluginInterface.GetIpcSubscriber<Vector3, Vector3, bool>("BossMod.Hints.IsDashSafe");
+    private readonly ICallGateSubscriber<int> zoneCount =
+        Plugin.PluginInterface.GetIpcSubscriber<int>("BossMod.Hints.ForbiddenZonesCount");
+
+    /// <summary>True: safe or unknown. False: BossMod says the dash ends (or passes) somewhere bad.</summary>
+    public bool DashSafe(Vector3 from, Vector3 to, out bool known)
+    {
+        known = false;
+        try
+        {
+            var ok = isDashSafe.InvokeFunc(from, to);
+            known = true;
+            return ok;
+        }
+        catch (Exception) { return true; }
+    }
+
+    public int Zones()
+    {
+        try { return zoneCount.InvokeFunc(); }
+        catch (Exception) { return -1; }
     }
 }
 

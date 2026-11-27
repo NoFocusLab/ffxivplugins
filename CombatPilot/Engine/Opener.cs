@@ -57,8 +57,10 @@ public sealed unsafe class OpenerRunner
         return agent->TimeRemaining;
     }
 
+    /// <summary>The chosen opener, if your level has what it was written for (else the planner opens).</summary>
     public static OpenerDef? Pick(JobBinding job, JobToggles t) =>
-        job.Def.Openers.FirstOrDefault(o => o.Name == t.Opener) ?? job.Def.Openers.FirstOrDefault();
+        job.Def.Openers.Where(o => o.MinLevel <= job.Level).FirstOrDefault(o => o.Name == t.Opener)
+        ?? job.Def.Openers.FirstOrDefault(o => o.MinLevel <= job.Level);
 
     /// <summary>
     /// Countdown watch: when it reaches the opener's prepull time, returns the first GCD to press
@@ -127,6 +129,14 @@ public sealed unsafe class OpenerRunner
     }
 
     public void WeavePressed() => weave++;
+
+    /// <summary>Skip this step's GCD (and its weaves): e.g. a jump that would land in a danger zone.</summary>
+    public void SkipGcd()
+    {
+        if (!Active || Def == null || Step >= Def.Steps.Count) return;
+        gcdDone = true;
+        weave = Def.Steps[Step].Count;
+    }
 
     /// <summary>A GCD went out (seen from the recast timer).</summary>
     public void OnGcdUsed(string name)

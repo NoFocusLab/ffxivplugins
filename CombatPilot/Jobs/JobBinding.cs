@@ -92,7 +92,7 @@ public sealed class JobBinding
                 Potency = a.Potency,
                 ComboPotency = a.ComboPotency,
             };
-            var tip = transient.GetRowOrDefault(row.RowId)?.Description.ExtractText();
+            var tip = TooltipAtLevel(transient.GetRowOrDefault(row.RowId)?.Description);
             ReadTooltip(bound, tip);
             ReadShape(bound, row, a, tip);
             Actions.Add(bound);
@@ -118,6 +118,19 @@ public sealed class JobBinding
         a.PotencySource = "game";
         var combos = ComboRe.Matches(text).Select(m => Num(m.Groups[1].Value)).Distinct().ToList();
         if (combos.Count == 1 && a.Def.ComboPotency > 0) a.ComboPotency = combos[0];
+    }
+
+    /// <summary>
+    /// The tooltip as the game would show it to you now: its level conditions evaluated, so the
+    /// potencies are the ones at your (synced) level. [Assumption] Dalamud's string evaluator
+    /// resolves the player-level checks in tooltips; if it can't, the raw text is used (and a
+    /// tooltip with several values falls back to the job file).
+    /// </summary>
+    private static string? TooltipAtLevel(Lumina.Text.ReadOnly.ReadOnlySeString? desc)
+    {
+        if (desc is not { } d) return null;
+        try { return Plugin.SeStringEvaluator.Evaluate(d).ExtractText(); }
+        catch (Exception) { return d.ExtractText(); }
     }
 
     private static readonly Regex FalloffRe = new(@"(\d+)% less for all remaining enemies", RegexOptions.Compiled);
