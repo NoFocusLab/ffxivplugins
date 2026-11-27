@@ -13,6 +13,11 @@ on:
 permissions:
   contents: write
 
+# One release step at a time: two runs pushing repo.json at once can both fail.
+concurrency:
+  group: build-main
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: windows-latest
@@ -91,7 +96,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Release failed for $tag" }
 
             python .github/scripts/update_repo_json.py $plugin $tag
-            if ($LASTEXITCODE -ne 0) { throw "repo.json update failed for $plugin" }
+            if ($LASTEXITCODE -ne 0) { throw "repo.json update failed for $plugin (release $tag exists; the next run lists it)" }
             $changed = $true
           }
           if ($changed) {
@@ -103,7 +108,7 @@ jobs:
             for ($i = 1; $i -le 5 -and -not $pushed; $i++) {
               git pull --rebase origin main
               git push origin HEAD:main
-              if ($LASTEXITCODE -eq 0) { $pushed = $true } else { Write-Host "push of repo.json failed (try $i); retrying"; Start-Sleep -Seconds (5 * $i) }
+              if ($LASTEXITCODE -eq 0) { $pushed = $true } else { Write-Host "push of repo.json failed (try $i); retrying"; git status --short | Select-Object -First 20; Start-Sleep -Seconds (5 * $i) }
             }
             if (-not $pushed) { throw "Couldn't push repo.json: Dalamud won't see the new versions" }
           }
