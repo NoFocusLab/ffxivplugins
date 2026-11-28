@@ -63,10 +63,16 @@ public class CharacterData
     public List<NameRule> NameRules { get; set; } = new();
     /// <summary>Items a tidy run took out of a retainer and hasn't put back yet (NQ ids): deposited next run.</summary>
     public HashSet<uint> TidyCarry { get; set; } = new();
-    /// <summary>Items fetched by a money venture, to sell (NQ ids): they stay in your bags, highlighted.</summary>
+    /// <summary>Clean-up items you approved for the market (NQ ids): every one in your bags is listed.</summary>
     public HashSet<uint> SellQueue { get; set; } = new();
-    /// <summary>To-sell items waiting on retainers (venture results land in the retainer's inventory): item (NQ) -> retainers.</summary>
+    /// <summary>Old format (before the venture ledger): item -> retainers. Moved into the ledger once, then empty.</summary>
     public Dictionary<uint, HashSet<ulong>> SellAt { get; set; } = new();
+    /// <summary>Money ventures: what each one brought back. Only this is taken out and sold, never stock or stored stacks.</summary>
+    public List<SellLot> SellLots { get; set; } = new();
+    /// <summary>Venture results taken out to sell and not listed yet: item (NQ) -> quantity.</summary>
+    public Dictionary<uint, int> SellOwed { get; set; } = new();
+    /// <summary>What selling did, newest first (kept 200), so nothing is forgotten between runs.</summary>
+    public List<string> SellLog { get; set; } = new();
     /// <summary>What we listed recently (item NQ -> (quantity, when)), until Universalis shows it.</summary>
     public Dictionary<uint, List<ListedLot>> Listed { get; set; } = new();
     /// <summary>The retainer that lists them on the market (auto-sell).</summary>
@@ -79,6 +85,23 @@ public class CharacterData
     /// <summary>Items stored in the Armoire when it was last loaded (at an inn).</summary>
     public HashSet<uint> Armoire { get; set; } = new();
     public DateTime? ArmoireSeen { get; set; }
+}
+
+/// <summary>One money venture: sent from a retainer for an item; what came back once collected.</summary>
+[Serializable]
+public class SellLot
+{
+    public ulong RetainerId { get; set; }
+    public uint ItemId { get; set; }
+    /// <summary>How many the retainer held when the venture went out.</summary>
+    public int Baseline { get; set; }
+    public int Expected { get; set; }
+    public DateTime SentAt { get; set; }
+    /// <summary>What it brought back (-1 = not collected yet).</summary>
+    public int Got { get; set; } = -1;
+    public int Taken { get; set; }
+    public bool Done { get; set; }
+    public int Left => Done || Got < 0 ? 0 : Math.Max(0, Got - Taken);
 }
 
 [Serializable]

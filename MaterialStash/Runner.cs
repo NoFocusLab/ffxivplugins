@@ -734,26 +734,34 @@ public sealed unsafe class Runner : IDisposable
 
     private bool collectSell;
 
-    /// <summary>Take this retainer's to-sell items into your bags. True if something moved.</summary>
+    /// <summary>
+    /// Take this retainer's money-venture results into your bags (only what the ledger says they brought
+    /// back; never stock or stacks you stored there). True if something moved.
+    /// </summary>
     private bool SellWithdrawStep()
     {
-        var me = tracker.Me();
-        var im = InventoryManager.Instance();
-        if (me == null || im == null || me.SellQueue.Count == 0) return false;
-        var left = false;
-        foreach (var s in Tracker.Stacks(Tracker.RetainerPages, id => me.SellQueue.Contains(id % 1_000_000)))
+        if (current == 0 || bagsFull) return false;
+        foreach (var (item, want) in selling.OwedAt(current))
         {
-            left = true;
-            if (skipStacks.Contains((s.Type, s.Slot)) || bagsFull) continue;
-            if (BagSlot(s.ItemId) is not { } dst) { bagsFull = true; continue; }
+            var stacks = Tracker.Stacks(Tracker.RetainerPages, id => id % 1_000_000 == item)
+                .Where(s => !skipStacks.Contains((s.Type, s.Slot)) && !Tracker.Spiritbound(s.Type, s.Slot)).ToList();
+            if (stacks.Count == 0) { selling.GiveUp(current, item, "none on the retainer any more"); continue; }
+            // Whole stacks only, and none bigger than what the ventures brought: a bigger one has your own
+            // stored items merged in, so it stays put.
+            var fit = stacks.Where(s => s.Qty <= want).OrderByDescending(s => s.Qty).ToList();
+            if (fit.Count == 0) { selling.GiveUp(current, item, $"the {want} merged into a stack of {stacks.Min(s => s.Qty)}"); continue; }
+            var s = fit[0];
+            if (BagSlot(s.ItemId) is not { } dst) { bagsFull = true; return false; }
+            var im = InventoryManager.Instance();
+            if (im == null) return false;
             im->MoveItemSlot(s.Type, (ushort)s.Slot, dst.Type, (ushort)dst.Slot, true);
             skipStacks.Add((s.Type, s.Slot));
             withdrawn++;
-            Plugin.Log.Info($"Stash: took {Items.Info(s.ItemId)?.Name} x{s.Qty} out of {tracker.NameOf(current)} to sell");
+            selling.Took(current, item, s.Qty);
+            Plugin.Log.Info($"Stash: took {Items.Info(s.ItemId)?.Name} x{s.Qty} (venture results) out of {tracker.NameOf(current)} to sell");
             next = DateTime.UtcNow.AddSeconds(0.6);
             return true;
         }
-        if (!left) selling.ClearHolder(current);
         return false;
     }
 
@@ -772,13 +780,15 @@ public sealed unsafe class Runner : IDisposable
             if (ms != null && ms->ItemId == 0) { dst = i; break; }
         }
         if (dst < 0) return false; // market full
-        foreach (var s in Tracker.Stacks(Tracker.Bags, id => me.SellQueue.Contains(id % 1_000_000)))
+        foreach (var s in Tracker.Stacks(Tracker.Bags, id => selling.SellableQty(id, 1) > 0))
         {
             if (skipStacks.Contains((s.Type, s.Slot))) continue;
+            var allowed = selling.SellableQty(s.ItemId, s.Qty);
+            if (allowed <= 0) continue;
             if (Tracker.Spiritbound(s.Type, s.Slot)) { noPrice.Add((Items.Info(s.ItemId)?.Name ?? $"#{s.ItemId}") + " (spiritbound)"); skipStacks.Add((s.Type, s.Slot)); continue; }
             var price = selling.ListPrice(s.ItemId);
             if (price <= 0) { noPrice.Add(Items.Info(s.ItemId)?.Name ?? $"#{s.ItemId}"); skipStacks.Add((s.Type, s.Slot)); continue; }
-            var qty = Math.Min(s.Qty, Math.Max(1, config.MaxPerListing));
+            var qty = Math.Min(allowed, Math.Max(1, config.MaxPerListing));
             im->MoveToRetainerMarket(s.Type, (ushort)s.Slot, InventoryType.RetainerMarket, (ushort)dst, (uint)qty, (uint)Math.Min(price, uint.MaxValue));
             usedMarketSlots.Add(dst);
             listed++;

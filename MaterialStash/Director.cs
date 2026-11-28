@@ -175,6 +175,8 @@ public sealed unsafe class Director : IDisposable
         {
             var r = Retainers().FirstOrDefault(x => x.Name == retainerName);
             if (r.Id == 0) return;
+            // The last venture's results just landed on this retainer: record what a money venture brought.
+            Selling?.Collected(r.Id);
             if (!config.RedirectVentures) return;
             if (tracker.Me() is { } me0 && me0.NoRedirect.Contains(r.Id)) return;
             if (Choose(r) is not { } c)
@@ -183,7 +185,7 @@ public sealed unsafe class Director : IDisposable
                 if (Selling?.Choose(r, Stats(r.Name)) is not { } m) return;
                 setVenture.InvokeAction(m.Task.TaskId);
                 recent[r.Id] = (m.Task.TaskId, DateTime.UtcNow);
-                Selling.Queue(m.Task.ItemId, r.Id);
+                Selling.VentureSent(r.Id, m.Task.ItemId, m.Yield);
                 var name = Items.Info(m.Task.ItemId)?.Name ?? $"#{m.Task.ItemId}";
                 var mwhy = $"money: ~{m.Value:N0} gil at {m.UnitPrice:N0} each, sells {m.UnitsPerDay:N0}/day";
                 Log.Insert(0, new Decision(DateTime.Now, retainerName, name, m.Yield, mwhy));

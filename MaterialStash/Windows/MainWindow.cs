@@ -834,17 +834,35 @@ public sealed class MainWindow : Window
 
         ImGui.Separator();
         var queued = plugin.Selling.InBags();
-        ImGui.TextUnformatted($"To sell ({me.SellQueue.Count} item(s) queued, {queued.Sum(q => q.Value)} in your bags)");
-        foreach (var id in me.SellQueue.ToList())
+        ImGui.TextUnformatted($"To sell: {queued.Sum(q => q.Value)} in your bags");
+        foreach (var (id, owed) in me.SellOwed.ToList())
         {
             ImGui.PushID((int)id);
             var info = plugin.Market.Get(id);
-            ImGui.BulletText($"{Items.Info(id)?.Name}: {queued.GetValueOrDefault(id)} in bags" +
+            ImGui.BulletText($"{Items.Info(id)?.Name}: {owed} from ventures, {queued.GetValueOrDefault(id)} in bags" +
                              (info != null ? $", lowest {info.Lowest:N0}, median {info.Median:N0}, {info.UnitsPerDay:N0}/day" : ""));
+            ImGui.SameLine();
+            if (ImGui.SmallButton("Not for sale")) { me.SellOwed.Remove(id); changed = true; }
+            ImGui.PopID();
+        }
+        foreach (var id in me.SellQueue.ToList())
+        {
+            ImGui.PushID((int)(id + 2_000_000));
+            ImGui.BulletText($"{Items.Info(id)?.Name}: clean-up, {queued.GetValueOrDefault(id)} in bags");
             ImGui.SameLine();
             if (ImGui.SmallButton("Not for sale")) { me.SellQueue.Remove(id); changed = true; }
             ImGui.PopID();
         }
+        var onRetainers = me.SellLots.Where(l => !l.Done).ToList();
+        if (onRetainers.Count > 0)
+        {
+            ImGui.TextColored(Dim, "Money ventures (only their results are taken out to sell):");
+            foreach (var l in onRetainers)
+                ImGui.BulletText($"{plugin.Tracker.NameOf(l.RetainerId)}: {Items.Info(l.ItemId)?.Name} " +
+                                 (l.Got < 0 ? $"out (~{l.Expected})" : $"{l.Left} waiting to be taken out"));
+        }
+        if (me.SellLog.Count > 0 && ImGui.CollapsingHeader($"Selling log ({me.SellLog.Count})"))
+            foreach (var line in me.SellLog.Take(40)) ImGui.TextUnformatted(line);
         if (changed) C.Save();
     }
 
