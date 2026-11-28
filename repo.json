@@ -3,7 +3,7 @@
     "Author": "NoFocusLab",
     "Name": "Combat Pilot",
     "InternalName": "CombatPilot",
-    "AssemblyVersion": "0.15.2.0",
+    "AssemblyVersion": "0.15.3.0",
     "Description": "A damage rotation engine that doesn't follow a fixed priority list. Each job is described as data (actions, combos, gauge, buffs; potencies read from the game's tooltips where possible), and the engine looks a few GCDs ahead, scores the possible sequences and presses the first move of the best one. It re-plans every GCD, so a missed GCD, walking out for a mechanic or being out of range just becomes the new starting point. Live mode presses the buttons (RotationSolver is turned off for that job); Listen mode lets RotationSolver fly and logs where Combat Pilot would have differed. Every fight is logged with an after-action report. Mitigation stays with Mit Planner. Warrior first.",
     "ApplicableVersion": "any",
     "RepoUrl": "https://github.com/NoFocusLab/ffxivplugins",
@@ -22,9 +22,9 @@
     "Punchline": "Your own damage rotation: plans a few GCDs ahead from what's happening now and re-plans every GCD.",
     "AcceptsFeedback": true,
     "IconUrl": "https://raw.githubusercontent.com/NoFocusLab/ffxivplugins/main/CombatPilot/images/icon.png",
-    "DownloadLinkInstall": "https://github.com/NoFocusLab/ffxivplugins/releases/download/CombatPilot-v0.15.2.0/CombatPilot.zip",
-    "DownloadLinkUpdate": "https://github.com/NoFocusLab/ffxivplugins/releases/download/CombatPilot-v0.15.2.0/CombatPilot.zip",
-    "DownloadLinkTesting": "https://github.com/NoFocusLab/ffxivplugins/releases/download/CombatPilot-v0.15.2.0/CombatPilot.zip"
+    "DownloadLinkInstall": "https://github.com/NoFocusLab/ffxivplugins/releases/download/CombatPilot-v0.15.3.0/CombatPilot.zip",
+    "DownloadLinkUpdate": "https://github.com/NoFocusLab/ffxivplugins/releases/download/CombatPilot-v0.15.3.0/CombatPilot.zip",
+    "DownloadLinkTesting": "https://github.com/NoFocusLab/ffxivplugins/releases/download/CombatPilot-v0.15.3.0/CombatPilot.zip"
   },
   {
     "Author": "NoFocusLab",
