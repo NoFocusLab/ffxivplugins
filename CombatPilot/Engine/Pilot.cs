@@ -602,7 +602,8 @@ public sealed unsafe class Pilot : IDisposable
         var alts = d.RootScores.Count > 1
             ? "alts: " + string.Join(", ", d.RootScores.OrderByDescending(r => r.Value).Take(4).Select(r => $"{r.Key} {r.Value - d.RootScores.Values.Max():+0;-0}"))
             : "";
-        var note = string.Join(" | ", new[] { d.Error ?? "", age > 1.5 ? $"stale {age:0.0}s" : "", d.State, alts }.Where(x => x.Length > 0));
+        var outs = d.Excluded.Count > 0 ? "out: " + string.Join(", ", d.Excluded.Take(5)) : "";
+        var note = string.Join(" | ", new[] { d.Error ?? "", age > 1.5 ? $"stale {age:0.0}s" : "", d.State, alts, outs }.Where(x => x.Length > 0));
         Log.Add(new DecisionRecord(Log.FightTime, gcd, wanted, actual, lost, string.Join(" > ", d.Path.Take(8)), note));
     }
 
@@ -621,6 +622,12 @@ public sealed unsafe class Pilot : IDisposable
         if (job.Def.Gauge != null) parts.Add($"gauge {g.Gauge}");
         if (g.TargetTtk < 999) parts.Add($"ttk {g.TargetTtk:0}s");
         if (g.RangeNote.Length > 0) parts.Add(g.RangeNote);
+        // Test logging: where you were and which way you faced when this was decided.
+        if (Plugin.ObjectTable.LocalPlayer is { } me && Plugin.TargetManager.Target is { } tg)
+        {
+            var ring = System.Numerics.Vector2.Distance(new(me.Position.X, me.Position.Z), new(tg.Position.X, tg.Position.Z)) - tg.HitboxRadius - me.HitboxRadius;
+            parts.Add($"facing {Facing.OffBy(me, tg):0}° off; {(g.PlayerMoving ? "moving" : "still")}; {ring:0.0} y from ring");
+        }
         if (job.Def.MpValue > 0) parts.Add($"MP {g.Mp}");
         if (g.Position is { Omni: false } pos) parts.Add($"at {pos.Side}");
         return string.Join("; ", parts);

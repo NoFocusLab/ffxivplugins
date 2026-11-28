@@ -17,6 +17,8 @@ public sealed class FightSummary
     public DateTime Start { get; set; }
     public double Seconds { get; set; }
     public string Job { get; set; } = "";
+    /// <summary>Combat Pilot version that flew the fight (so a log is never guessed against the wrong build).</summary>
+    public string Version { get; set; } = typeof(FightLog).Assembly.GetName().Version?.ToString() ?? "";
     public string Mode { get; set; } = "";
     public string Place { get; set; } = "";
     public int Decisions { get; set; }

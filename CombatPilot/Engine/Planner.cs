@@ -22,6 +22,8 @@ public sealed class Decision
     public string? Error;
     /// <summary>Something the planner refused at the root and why (logged as a note).</summary>
     public string? Guard;
+    /// <summary>GCDs ruled out for the first move, with the reason (test logging).</summary>
+    public List<string> Excluded = new();
     /// <summary>What the planner saw (combo, tracked buffs and timers, gauge, MP), for the log.</summary>
     public string State = "";
     public DateTime MadeAt = DateTime.UtcNow;
@@ -76,6 +78,7 @@ public static class Planner
     private const double ExpirySafety = 5.0;
 
     [ThreadStatic] private static string? guardNote;
+    [ThreadStatic] private static List<string>? excluded;
 
     private const string Skip = "(skip)";
     private const string Hold = "(hold)";
@@ -84,6 +87,7 @@ public static class Planner
     {
         var decision = new Decision { ForGcd = forGcd };
         guardNote = null;
+        excluded = new List<string>();
         try
         {
             var start = Sim.From(g);
@@ -127,6 +131,7 @@ public static class Planner
             decision.Label = best.Root;
             decision.Action = job.ByName.GetValueOrDefault(best.Root);
             decision.Guard = guardNote;
+            decision.Excluded = excluded ?? new();
         }
         catch (Exception ex)
         {
@@ -185,9 +190,9 @@ public static class Planner
             {
                 if (!a.IsGcd) continue;
                 if (!Usable(at0, a, job, set)) continue;
-                if (nearNow && (!g.HasTarget || !Reaches(a, g, set))) continue;
+                if (nearNow && (!g.HasTarget || !Reaches(a, g, set))) { excluded?.Add($"{a.Name}: {(g.HasTarget ? "can't reach" : "no target")}"); continue; }
                 // A hard cast can't start while you're moving.
-                if (nearNow && g.PlayerMoving && at0.CastFor(a) > 0) continue;
+                if (nearNow && g.PlayerMoving && at0.CastFor(a) > 0) { excluded?.Add($"{a.Name}: moving"); continue; }
                 // A weaker area GCD that hits only your target while a stronger single-target GCD reaches
                 // it is never right (seen live: Death Blossom 10x in 5 min on one dummy, chosen by the
                 // Pilot itself). Only plain fillers: procs and buffed area hits (Primal Rend, Confiteor) stay; the simulator caught both.
@@ -195,6 +200,7 @@ public static class Planner
                     job.Actions.Any(x => x.IsGcd && !x.IsAoe && x.Def.Potency > a.Def.Potency && x.Def.Sequence == null &&
                                          Usable(at0, x, job, set) && Reaches(x, g, set)))
                 {
+                    excluded?.Add($"{a.Name}: 1-target filler");
                     guardNote = $"held {a.Name}: hits 1 (target ttk {(g.TargetTtk >= 999 ? "none" : g.TargetTtk.ToString("0.0"))}s)";
                     continue;
                 }
