@@ -115,7 +115,13 @@ public sealed class Mover
         var pick = Choose(me, target, job, g, plan, rules, danger, out var reason);
         Reason = reason;
         if (pick == null) { Halt(reason); return; }
-        if (Vector3.Distance(Flat(pick.Value), Flat(me.Position)) < 1.2f) { Halt($"in place ({reason})"); return; }
+        // Close enough: for a positional, when you're well inside the zone (by angle, not distance:
+        // 1 y off at a dummy's edge is 30° and can be the wrong side); otherwise within 1.2 y.
+        var forPositional = reason.EndsWith("for the positional");
+        var inPlace = forPositional
+            ? Positionals.SafeSideOf(me.Position, target) == reason.Split(' ')[0] || Vector3.Distance(Flat(pick.Value), Flat(me.Position)) < 0.4f
+            : Vector3.Distance(Flat(pick.Value), Flat(me.Position)) < 1.2f;
+        if (inPlace) { Halt($"in place ({reason})"); return; }
         if (Moving && (now - startedAt).TotalSeconds > 4) { Halt("gave up (4 s)"); return; }
         if (!Moving || Vector3.Distance(pick.Value, dest) > 1f)
         {
@@ -152,7 +158,8 @@ public sealed class Mover
                 if (a.Def.Positional != null) { need = a.Def.Positional; break; }
                 if (++gcds >= 2) break;
             }
-            if (need != null && pos.Side == need) need = null;
+            // Already well inside that zone (not just over its edge): stay.
+            if (need != null && pos.SafeSide == need) need = null;
         }
 
         bool Ok(Vector3 p) => GameState.FloorAt(p, me.Position.Y) && Bmr.Safe(p) &&

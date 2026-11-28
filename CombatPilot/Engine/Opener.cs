@@ -130,6 +130,15 @@ public sealed unsafe class OpenerRunner
 
     public void WeavePressed() => weave++;
 
+    /// <summary>The opener's GCDs still to come, as a plan auto-move can read (positionals during the opener).</summary>
+    public Decision? Upcoming()
+    {
+        if (!Active || Def == null) return null;
+        var d = new Decision();
+        for (var i = Math.Max(0, Step + (gcdDone ? 1 : 0)); i < Def.Steps.Count; i++) d.Path.Add(Def.Steps[i][0]);
+        return d;
+    }
+
     /// <summary>Skip this step's GCD (and its weaves): e.g. a jump that would land in a danger zone.</summary>
     public void SkipGcd()
     {

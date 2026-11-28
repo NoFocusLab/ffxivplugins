@@ -16,13 +16,15 @@ public sealed class PositionInfo
     public bool Omni;
     /// <summary>"rear", "flank" or "front": where you are now.</summary>
     public string Side = "front";
+    /// <summary>The side you're on with a safety margin (15° inside the zone); "edge" near a boundary.</summary>
+    public string SafeSide = "front";
     /// <summary>Seconds to walk to the rear / nearest flank; +inf when auto-move is off or the spot isn't safe.</summary>
     public double RearEta = double.PositiveInfinity, FlankEta = double.PositiveInfinity;
     public Vector3 RearSpot, FlankSpot;
     public string Note = "";
 
     public bool Satisfied(string positional, double t) =>
-        Omni || Side == positional || (positional == "rear" ? RearEta : FlankEta) <= t;
+        Omni || SafeSide == positional || (positional == "rear" ? RearEta : FlankEta) <= t;
 }
 
 /// <summary>
@@ -59,9 +61,32 @@ public static class Positionals
         return angle >= 135 ? "rear" : angle >= 45 ? "flank" : "front";
     }
 
+    /// <summary>Degrees from the target's facing to the point (0 = straight in front, 180 = straight behind).</summary>
+    public static double AngleOf(Vector3 point, IGameObject target)
+    {
+        var facing = new Vector3((float)Math.Sin(target.Rotation), 0, (float)Math.Cos(target.Rotation));
+        var v = point - target.Position;
+        v.Y = 0;
+        if (v.LengthSquared() < 0.0001f) return 180;
+        return Math.Acos(Math.Clamp(Vector3.Dot(Vector3.Normalize(v), facing), -1, 1)) * 180 / Math.PI;
+    }
+
+    /// <summary>
+    /// [Estimate] Degrees to stay inside a zone's edge. Seen live: Chaotic Spring from -108° to -127°
+    /// (flank, just short of the rear's 135°) after auto-move called "close enough" by distance.
+    /// </summary>
+    public const double Margin = 15;
+
+    /// <summary>The side you're on with the margin: rear beyond 150°, flank 60-120°, front under 30°, else "edge".</summary>
+    public static string SafeSideOf(Vector3 point, IGameObject target)
+    {
+        var a = AngleOf(point, target);
+        return a >= 135 + Margin ? "rear" : a >= 45 + Margin && a <= 135 - Margin ? "flank" : a <= 45 - Margin ? "front" : "edge";
+    }
+
     public static PositionInfo Read(IGameObject me, IGameObject target, bool autoMove, DangerBridge? danger)
     {
-        var p = new PositionInfo { Omni = IsOmni(target), Side = SideOf(me.Position, target) };
+        var p = new PositionInfo { Omni = IsOmni(target), Side = SideOf(me.Position, target), SafeSide = SafeSideOf(me.Position, target) };
         if (p.Omni) { p.Note = "target has no positionals"; return p; }
         var facing = new Vector3((float)Math.Sin(target.Rotation), 0, (float)Math.Cos(target.Rotation));
         var right = new Vector3(facing.Z, 0, -facing.X);

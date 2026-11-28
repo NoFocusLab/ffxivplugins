@@ -145,7 +145,18 @@ public sealed unsafe class Pilot : IDisposable
         // Auto-move (Live, not paused, bar toggle on): mechanics (BossMod) first, then positionals and your rules.
         var rules = config.TogglesFor(Job.Def.Job).Move;
         if (!rules.Initialized) { Mover.Defaults(rules, me.ClassJob.ValueNullable?.Role ?? 0); config.Save(); }
-        Mover.Update(me, Job, LastState, LastGcd, rules, danger, Mode == PilotMode.Live && !Paused && config.AutoMove);
+        // During the opener nothing is planned: give auto-move the opener's next GCDs and a fresh view.
+        var movePlan = LastGcd;
+        if (Opener.Active)
+        {
+            movePlan = Opener.Upcoming();
+            if ((DateTime.UtcNow - openerStateAt).TotalSeconds > 0.25)
+            {
+                LastState = GameState.Read(Job, Party, mit, danger, config.AutoMove);
+                openerStateAt = DateTime.UtcNow;
+            }
+        }
+        Mover.Update(me, Job, LastState, movePlan, rules, danger, Mode == PilotMode.Live && !Paused && config.AutoMove);
 
         var am = ActionManager.Instance();
         if (am == null || me.IsCasting) return;
@@ -351,6 +362,7 @@ public sealed unsafe class Pilot : IDisposable
     }
 
     private float lastOffBy;
+    private DateTime openerStateAt = DateTime.MinValue;
     private readonly Dictionary<string, DateTime> refusedNoted = new();
 
     /// <summary>The game said no: log its own reason (LogMessage text) and how far off-facing you were.</summary>
