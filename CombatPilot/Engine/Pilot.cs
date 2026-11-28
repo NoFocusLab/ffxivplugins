@@ -157,7 +157,9 @@ public sealed unsafe class Pilot : IDisposable
                 openerStateAt = DateTime.UtcNow;
             }
         }
-        Mover.Update(me, Job, LastState, movePlan, rules, danger, Mode == PilotMode.Live && !Paused && config.AutoMove);
+        // Never walk during a mudra sequence: moving cancels Ten Chi Jin, and its steps are ~1 s apart
+        // (longer than auto-move's 0.35 s pause after a press).
+        Mover.Update(me, Job, LastState, movePlan, rules, danger, Mode == PilotMode.Live && !Paused && config.AutoMove && !Sequence.Running);
 
         var am = ActionManager.Instance();
         if (am == null || me.IsCasting) return;
