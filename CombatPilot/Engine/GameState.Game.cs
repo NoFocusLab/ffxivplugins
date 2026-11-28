@@ -268,15 +268,20 @@ public sealed partial class GameState
             var src = (GameObjectStruct*)me.Address;
             var dst = (GameObjectStruct*)target.Address;
             var actions = Plugin.DataManager.GetExcelSheet<Lumina.Excel.Sheets.Action>();
-            var reach = Vector2.Distance(new(me.Position.X, me.Position.Z), new(target.Position.X, target.Position.Z)) - target.HitboxRadius;
+            // Ring to ring, the way the game measures range: centre distance minus both hitbox radii.
+            var reach = Vector2.Distance(new(me.Position.X, me.Position.Z), new(target.Position.X, target.Position.Z))
+                        - target.HitboxRadius - me.HitboxRadius;
             foreach (var a in job.Actions)
             {
                 if (a.IsItem) continue;
                 var rc = ActionManager.GetActionInRangeOrLoS(a.Id, src, dst);
                 // 562 "not in line of sight" is also what the game says while you face away (auto-move
-                // walking to a positional). The Pilot turns to the target before pressing, so up close it
-                // counts as in range (seen live: melee GCDs dropped mid-walk, Death Blossom 9x in 7.5 min).
-                if (rc == 0 || (rc == 562 && reach <= 6)) s.InRange.Add(a.Id);
+                // walking to a positional). The Pilot turns to the target before pressing, so it counts as
+                // in range when you're within the action's own range of the target's ring (melee: 3 y),
+                // however big the boss is (seen live: melee GCDs dropped mid-walk, Death Blossom 9x in 7.5 min).
+                var rawRange = actions.GetRowOrDefault(a.Id) is { } row ? (int)row.Range : 0;
+                var range = rawRange > 0 ? rawRange : 3;
+                if (rc == 0 || (rc == 562 && reach <= range)) s.InRange.Add(a.Id);
                 // Pressed on yourself but hits through later buttons (Ten Chi Jin: Fuma, Raiton, Suiton):
                 // the game's range check on the self-cast button always says no, so the planner never
                 // started it (seen live: Ten Chi Jin "next" for 2.5 min, used once in 6 min). Ninjutsu reach 25 y.
