@@ -132,6 +132,8 @@ public sealed class Selling : IDisposable
     {
         var active = Tracker.ActiveRetainer()?.Id ?? 0;
         if (active == openRetainer) return;
+        // The retainer we were at closed: its venture results are in your bags by now.
+        if (openRetainer != 0) Settle(me, openRetainer);
         openRetainer = active;
         if (active == 0) return;
         foreach (var lot in me.SellLots.Where(l => l.RetainerId == active && l.Got < 0))
@@ -139,30 +141,52 @@ public sealed class Selling : IDisposable
     }
 
     /// <summary>
-    /// The retainer's last venture was just collected (we're at its next venture): what came back is the
-    /// increase in your bags since the retainer was opened. [Estimate] Capped at 1.5x the expected yield,
-    /// so anything else that landed in your bags meanwhile isn't counted.
+    /// This retainer is at its next venture. Seen live: Stash's redirect runs BEFORE the game hands over
+    /// the finished venture's items ("You obtain 15 ..." comes after it), so they're counted later,
+    /// when the retainer closes.
     /// </summary>
     public void Collected(ulong retainerId)
     {
         var me = tracker.Me();
         if (me == null) return;
+        foreach (var lot in me.SellLots.Where(l => l.RetainerId == retainerId && l.Got < 0 && !l.Collecting)) lot.Collecting = true;
+    }
+
+    /// <summary>
+    /// Count what came back: the increase in your bags since the retainer was opened. [Estimate] Capped
+    /// at 1.5x the expected yield, so anything else that landed in your bags meanwhile isn't counted.
+    /// </summary>
+    private void Settle(CharacterData me, ulong retainerId)
+    {
         var changed = false;
-        foreach (var lot in me.SellLots.Where(l => l.RetainerId == retainerId && l.Got < 0))
+        foreach (var lot in me.SellLots.Where(l => l.RetainerId == retainerId && l.Got < 0 && l.Collecting))
         {
             lot.Done = true;
             changed = true;
             if (lot.Baseline < 0) { lot.Got = 0; Note(me, $"{RName(me, retainerId)}: {IName(lot.ItemId)} came back, but the bags weren't counted first; not sold"); continue; }
-            lot.Got = Math.Clamp(InBagsNow(lot.ItemId) - lot.Baseline, 0, (int)Math.Ceiling(lot.Expected * 1.5));
-            if (lot.Got == 0) { Note(me, $"{RName(me, retainerId)}: {IName(lot.ItemId)}: nothing new in your bags"); continue; }
+            var now = InBagsNow(lot.ItemId);
+            lot.Got = Math.Clamp(now - lot.Baseline, 0, (int)Math.Ceiling(lot.Expected * 1.5));
+            if (lot.Got == 0) { Note(me, $"{RName(me, retainerId)}: {IName(lot.ItemId)}: nothing new in your bags ({lot.Baseline} before, {now} after)"); continue; }
             // Stock comes first: a stocked item is kept (stashed as usual), not sold.
             if (Stock.Wanted(config).ContainsKey(lot.ItemId)) { Note(me, $"{RName(me, retainerId)}: {IName(lot.ItemId)} x{lot.Got} back; on the stock list, kept"); continue; }
             me.SellOwed[lot.ItemId] = me.SellOwed.GetValueOrDefault(lot.ItemId) + lot.Got;
             owedSince[lot.ItemId] = DateTime.UtcNow;
-            Note(me, $"{RName(me, retainerId)}: {IName(lot.ItemId)} x{lot.Got} back in your bags, to sell");
+            Note(me, $"{RName(me, retainerId)}: {IName(lot.ItemId)} x{lot.Got} back in your bags ({lot.Baseline} -> {now}), to sell");
         }
         me.SellLots.RemoveAll(l => l.Done && (DateTime.UtcNow - l.SentAt).TotalDays > 7);
         if (changed) tracker.Save(force: true);
+    }
+
+    /// <summary>Put items you already have in your bags on the to-sell list (e.g. results the ledger missed).</summary>
+    public void SellFromBags(uint itemId, int qty)
+    {
+        var me = tracker.Me();
+        if (me == null || qty <= 0) return;
+        var id = itemId % 1_000_000;
+        me.SellOwed[id] = me.SellOwed.GetValueOrDefault(id) + qty;
+        owedSince[id] = DateTime.UtcNow;
+        Note(me, $"you added {IName(id)} x{qty} from your bags to sell");
+        tracker.Save(force: true);
     }
 
     /// <summary>How much of this bag stack may be listed: clean-up items all of it, venture results what's owed.</summary>

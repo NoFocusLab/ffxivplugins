@@ -861,6 +861,18 @@ public sealed class MainWindow : Window
                 ImGui.BulletText($"{plugin.Tracker.NameOf(l.RetainerId)}: {Items.Info(l.ItemId)?.Name} " +
                                  $"out (~{l.Expected})");
         }
+        // Ventures whose results weren't counted (before 0.15.2, or the bags weren't seen first): offer to sell them.
+        foreach (var l in me.SellLots.Where(l => l.Done && l.Got == 0 && (DateTime.UtcNow - l.SentAt).TotalDays < 2 && !me.SellOwed.ContainsKey(l.ItemId)).ToList())
+        {
+            var inBags = Tracker.Stacks(Tracker.Bags, x => x % 1_000_000 == l.ItemId).Sum(x => x.Qty);
+            if (inBags <= 0) continue;
+            ImGui.PushID($"miss{l.RetainerId}{l.ItemId}{l.SentAt.Ticks}");
+            var n = Math.Min(inBags, Math.Max(1, l.Expected));
+            ImGui.BulletText($"{plugin.Tracker.NameOf(l.RetainerId)}'s {Items.Info(l.ItemId)?.Name} venture wasn't counted; {inBags} in your bags.");
+            ImGui.SameLine();
+            if (ImGui.SmallButton($"Sell {n}")) { plugin.Selling.SellFromBags(l.ItemId, n); l.Got = n; }
+            ImGui.PopID();
+        }
         if (me.SellLog.Count > 0 && ImGui.CollapsingHeader($"Selling log ({me.SellLog.Count})"))
             foreach (var line in me.SellLog.Take(40)) ImGui.TextUnformatted(line);
         if (changed) C.Save();

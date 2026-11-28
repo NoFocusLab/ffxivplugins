@@ -100,6 +100,8 @@ public class SellLot
     /// <summary>What it brought back (-1 = not collected yet).</summary>
     public int Got { get; set; } = -1;
     public int Taken { get; set; }
+    /// <summary>Its retainer reached the next venture; the results are counted when that retainer closes.</summary>
+    public bool Collecting { get; set; }
     public bool Done { get; set; }
     public int Left => Done || Got < 0 ? 0 : Math.Max(0, Got - Taken);
 }
