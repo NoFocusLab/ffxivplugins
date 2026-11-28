@@ -31,9 +31,12 @@ public static class HpHistory
     /// <summary>A dummy (by name, or any target whose HP jumped back up by 10%+): never dies.</summary>
     public static bool NeverDies(ulong id, uint nameId) => DummyNames.Contains(nameId) || refills.Contains(id);
 
-    public static double Ttk(ulong id, uint nameId, uint hp, uint maxHp)
+    public static double Ttk(ulong id, uint nameId, string name, uint hp, uint maxHp)
     {
-        if (DummyNames.Contains(nameId) || refills.Contains(id)) return 999;
+        // Belt and braces: anything called "... dummy" (the wiki's furniture variants: Oriental, Riviera,
+        // Glade, Oasis, Alps, Old World, Faust, Gyr Abanian, Crystarium, Thavnairian, Everkeep, Palanx,
+        // Ondo, Bozjan, Omicron, Turali) in case a placed one spawns under its own name.
+        if (DummyNames.Contains(nameId) || refills.Contains(id) || name.Contains("dummy", StringComparison.OrdinalIgnoreCase)) return 999;
         var now = DateTime.UtcNow;
         if (!samples.TryGetValue(id, out var q)) samples[id] = q = new();
         // HP jumped back up (a dummy we don't know by name, or a full heal): no time to kill for it.
@@ -80,7 +83,7 @@ public sealed partial class GameState
             if (Invulnerable(n)) continue;
             var inCombat = (n.StatusFlags & StatusFlags.InCombat) != 0;
             var info = new EnemyInfo(n.GameObjectId, n.Name.TextValue, n.Position, n.HitboxRadius, inCombat, isTarget,
-                HpHistory.Ttk(n.GameObjectId, n.NameId, n.CurrentHp, n.MaxHp));
+                HpHistory.Ttk(n.GameObjectId, n.NameId, n.Name.TextValue, n.CurrentHp, n.MaxHp));
             if (isTarget) s.TargetTtk = info.Ttk;
             others.Add((info, inCombat || isTarget));
         }
