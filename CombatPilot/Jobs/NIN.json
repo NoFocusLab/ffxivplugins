@@ -2,6 +2,7 @@
   "job": "NIN",
   "classJobs": ["NIN", "ROG"],
   "patch": "7.55",
+  "dataPolicy": "Current patch only; when unsure, work back from the latest patch notes.",
   "source": "Official job guide (na.finalfantasyxiv.com/jobguide/ninja), level 100 values; opener and priorities from The Balance Ninja basic guide. Potencies are re-read from the game's tooltips when they parse cleanly.",
   "gauge": { "name": "Ninki", "max": 100, "valuePerUnit": 7.0 },
   "potencyPerSecond": 260,
@@ -119,7 +120,7 @@
     },
     {
       "name": "Ten Chi Jin", "potency": 1820, "ranged": true, "keepsCombo": true,
-      "sequence": ["Ten Chi Jin", "Ten", "Chi", "Jin"], "gcdTime": 3.0, "castTime": 2.9,
+      "sequence": ["Ten Chi Jin", "Ten", "Chi", "Jin"], "gcdTime": 3.0, "weaveFrom": 3.0,
       "requires": [ { "not": { "status": "Kassatsu" } } ],
       "grants": [
         { "status": "Raiju Ready", "stacks": 1, "duration": 30, "minLevel": 90 },
@@ -227,5 +228,5 @@
   "safeOrder": [
     "Fleeting Raiju", "Phantom Kamaitachi", "Armor Crush", "Aeolian Edge", "Gust Slash", "Spinning Edge", "Throwing Dagger"
   ],
-  "levelNotes": "Ninjutsu are planned as one GCD and pressed mudra by mudra; Kassatsu makes the next one free and 30% stronger (boost potencies are 1.3x). [Assumption] Ten Chi Jin's three ninjutsu take about 1 s each and you must not move during it; Phantom Kamaitachi is on Bunshin's button, Zesho Meppo on Bhavacakra's, Tenri Jindo on Ten Chi Jin's; Fleeting/Forked Raiju are pressed by their own ids. Kunai's Bane needs Shadow Walker (Suiton/Huton), not Hide. Mudra-only openers below level 100 are left to the planner."
+  "levelNotes": "Ninjutsu are planned as one GCD and pressed mudra by mudra; Kassatsu makes the next one free and 30% stronger (boost potencies are 1.3x). [Assumption] Ten Chi Jin's three ninjutsu take about 1 s each (moving is fine since 7.1); Phantom Kamaitachi is on Bunshin's button, Zesho Meppo on Bhavacakra's, Tenri Jindo on Ten Chi Jin's; Fleeting/Forked Raiju are pressed by their own ids. Kunai's Bane needs Shadow Walker (Suiton/Huton), not Hide. Mudra-only openers below level 100 are left to the planner."
 }

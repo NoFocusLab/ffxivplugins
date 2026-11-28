@@ -16,6 +16,8 @@ public sealed class JobDef
     /// <summary>Class/job abbreviations this file covers (WAR and its base class MRD).</summary>
     public List<string> ClassJobs { get; set; } = new();
     public string Patch { get; set; } = "";
+    /// <summary>Where the numbers come from and how they're kept current (free text).</summary>
+    public string DataPolicy { get; set; } = "";
     public string Source { get; set; } = "";
     public GaugeDef? Gauge { get; set; }
     /// <summary>[Estimate] average potency per second, used to value buffs that outlast the look-ahead.</summary>
