@@ -174,6 +174,8 @@ public sealed class Sim
         var combo = d.Follows(Combo) && ComboUntil > T;
         var potency = combo && a.ComboPotency > 0 ? a.ComboPotency : a.Potency;
         Mp -= MpCostOf(a);
+        // Walking could do this job (True North while auto-move can reach the rear or flank).
+        if (d.CostIfCanMove > 0 && Pos != null && !Pos.Omni && (Pos.RearEta < 999 || Pos.FlankEta < 999)) Damage -= d.CostIfCanMove;
         // Decided before anything is used up (Kassatsu both boosts and frees the ninjutsu).
         var freeCharge = d.UsesCharge != null && d.UsesCharge.FreeWith.Any(Has);
         var boost = BoostFor(a, combo);

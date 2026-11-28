@@ -17,6 +17,8 @@ public sealed class BoundAction
     public required ActionDef Def { get; init; }
     public uint Id { get; init; }
     public uint PressId { get; init; }
+    /// <summary>Other buttons this action can appear on.</summary>
+    public List<uint> PressAlsoIds { get; } = new();
     public int Level { get; init; }
     public bool IsGcd { get; init; }
     /// <summary>Recast group (cooldowns shared between actions, e.g. Upheaval/Orogeny); -1 = none of its own.</summary>
@@ -100,6 +102,8 @@ public sealed class JobBinding
                 Potency = a.Potency,
                 ComboPotency = a.ComboPotency,
             };
+            foreach (var also in a.PressAlso)
+                if (byName.TryGetValue(also, out var alsoRow)) bound.PressAlsoIds.Add(alsoRow.RowId);
             var tip = TooltipAtLevel(transient.GetRowOrDefault(row.RowId)?.Description);
             // [Assumption] Action sheet: PrimaryCostType 3 = MP, value in hundreds.
             bound.MpCost = a.MpCost ?? (row.PrimaryCostType == 3 ? row.PrimaryCostValue * 100 : 0);

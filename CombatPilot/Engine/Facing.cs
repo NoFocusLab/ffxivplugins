@@ -40,6 +40,37 @@ public static unsafe class Facing
         return off;
     }
 
+    private static DateTime lastKeep = DateTime.MinValue, turnedAt = DateTime.MinValue;
+    public static int DirectTurns { get; private set; }
+
+    /// <summary>
+    /// Between actions (standing still, in combat): keep facing the target so auto-attacks don't stop
+    /// and the next action has it in front. The game's auto-face first; if you're still turned away
+    /// half a second later, set the rotation directly (same convention BossMod uses: atan2(dx, dz)).
+    /// </summary>
+    public static void Keep(IGameObject? target)
+    {
+        var me = Plugin.ObjectTable.LocalPlayer;
+        if (me == null || target == null || me.IsCasting || target.GameObjectId == me.GameObjectId) return;
+        var now = DateTime.UtcNow;
+        if ((now - lastKeep).TotalSeconds < 0.3) return;
+        lastKeep = now;
+        if (OffBy(me, target) < 50) { turnedAt = DateTime.MinValue; return; }
+        if (turnedAt == DateTime.MinValue || (now - turnedAt).TotalSeconds > 2)
+        {
+            _ = Face(target);
+            turnedAt = now;
+            return;
+        }
+        if ((now - turnedAt).TotalSeconds >= 0.5)
+        {
+            var d = target.Position - me.Position;
+            ((FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject*)me.Address)->SetRotation(MathF.Atan2(d.X, d.Z));
+            DirectTurns++;
+            turnedAt = now;
+        }
+    }
+
     /// <summary>The game's "Face target when using an action" (Character Config > Control Settings > Target). Null: unknown.</summary>
     public static bool? GameAutoFaceOn()
     {

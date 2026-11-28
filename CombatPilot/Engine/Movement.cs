@@ -70,7 +70,14 @@ public sealed class Mover
     /// <summary>Why it chose the spot it did (for the Pilot tab).</summary>
     public string Reason { get; private set; } = "";
 
-    private DateTime startedAt, nextThink = DateTime.MinValue;
+    private DateTime startedAt, nextThink = DateTime.MinValue, holdUntil = DateTime.MinValue;
+
+    /// <summary>Stop for an action and stay put a moment (weaves, auto-attacks), instead of walking off facing away.</summary>
+    public void PauseForAction(string what)
+    {
+        if (Moving) Halt("stopped to use " + what);
+        holdUntil = DateTime.UtcNow.AddSeconds(1.0);
+    }
     private Vector3 dest, lastPos;
     private DateTime lastPosAt = DateTime.MinValue, youMovedAt;
     private bool youMoved;
@@ -100,7 +107,7 @@ public sealed class Mover
         if (Bmr.SpecialIn() < 3) { Halt("special mechanic coming: holding"); return; }
         if (youMoved) { Halt("you're moving: not taking over"); return; }
         if (Plugin.ObjectTable.LocalPlayer?.IsCasting == true) return; // never cut a cast
-        if (now < nextThink) return;
+        if (now < nextThink || now < holdUntil) return;
         nextThink = now.AddMilliseconds(250);
 
         var target = Plugin.TargetManager.Target;
@@ -108,7 +115,7 @@ public sealed class Mover
         var pick = Choose(me, target, job, g, plan, rules, danger, out var reason);
         Reason = reason;
         if (pick == null) { Halt(reason); return; }
-        if (Vector3.Distance(Flat(pick.Value), Flat(me.Position)) < 0.8f) { Halt($"in place ({reason})"); return; }
+        if (Vector3.Distance(Flat(pick.Value), Flat(me.Position)) < 1.2f) { Halt($"in place ({reason})"); return; }
         if (Moving && (now - startedAt).TotalSeconds > 4) { Halt("gave up (4 s)"); return; }
         if (!Moving || Vector3.Distance(pick.Value, dest) > 1f)
         {

@@ -190,7 +190,7 @@
       "consumes": ["Tenri Jindo Ready"]
     },
     {
-      "name": "True North",
+      "name": "True North", "costIfCanMove": 150,
       "requires": [ { "not": { "status": "True North" } } ],
       "grants": [ { "status": "True North", "duration": 10 } ]
     }

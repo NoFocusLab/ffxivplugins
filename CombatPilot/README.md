@@ -35,7 +35,11 @@ again (and started, if "turn it back on" is set) when you leave Live, when Comba
 the game restarts; your saved plugin list isn't changed, so Settings Sync doesn't copy it to other PCs.
 (Unticking "Unload" falls back to turning it off every time it switches on.) Before any action on the
 target, Combat Pilot stops auto-move if it's walking, turns you to face the target (the game's own
-auto-face) and then presses; it also turns you to the target whenever auto-move stops.
+auto-face) and then presses; auto-move then stays put for a second (weaves, auto-attacks) instead of
+walking straight off facing away. While Live and standing still in combat it keeps you facing the
+target; if the game's auto-face doesn't turn you within half a second, it sets your facing directly.
+True North is only used when walking won't do (auto-move off, no safe spot, no time): while auto-move
+can reach the rear or flank it counts as costing 150 potency [Estimate], so it's saved for when it's needed.
 
 **MP:** a resource like gauge. Costs come from the game (or the job file when a trait changes them),
 MP comes back from natural regen ([Estimate] 200 per 3 s), actions that restore it (Riot Blade, Expiacion)

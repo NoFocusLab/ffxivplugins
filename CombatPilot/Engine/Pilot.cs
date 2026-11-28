@@ -150,6 +150,9 @@ public sealed unsafe class Pilot : IDisposable
         var am = ActionManager.Instance();
         if (am == null || me.IsCasting) return;
 
+        // Live, in combat, standing still: keep facing the target (auto-attacks, the next action).
+        if (Mode == PilotMode.Live && !Paused && inCombat && !Mover.Moving) Facing.Keep(Plugin.TargetManager.Target);
+
         // A multi-button action in progress (mudras): finish it before anything else.
         if (Sequence.Running)
         {
@@ -305,6 +308,11 @@ public sealed unsafe class Pilot : IDisposable
             return true;
         }
         var id = am->GetAdjustedActionId(a.PressId);
+        // The action may be showing on another button right now (Drakesbane after Fang and Claw is on
+        // Wheeling Thrust's): use whichever button shows it (seen live: Fang and Claw went out twice).
+        if (id != a.Id)
+            foreach (var alt in a.PressAlsoIds)
+                if (am->GetAdjustedActionId(alt) == a.Id) { id = a.Id; break; }
         if (id == lastPressId && (now - lastPress).TotalSeconds < 0.25) return false;
         lastPressId = id;
         lastPress = now;
@@ -318,7 +326,7 @@ public sealed unsafe class Pilot : IDisposable
         // walks: stop it, then turn to the target, then press (it picks the walk up again next think).
         if (target != 0xE000_0000UL && Plugin.ObjectTable.SearchById(target) is { } tgo && !a.Def.AllyTarget)
         {
-            if (Mover.Moving) Mover.Halt("stopped to use " + a.Name);
+            Mover.PauseForAction(a.Name);
             lastOffBy = Facing.Face(tgo);
         }
         ok = am->UseAction(ActionType.Action, id, target);
@@ -330,7 +338,7 @@ public sealed unsafe class Pilot : IDisposable
 
     /// <summary>Multi-button actions (ninjutsu) in progress.</summary>
     public SequenceRunner Sequence { get; } = new();
-    private void StopWalking() { if (Mover.Moving) Mover.Halt("stopped for a ninjutsu"); }
+    private void StopWalking() => Mover.PauseForAction("a ninjutsu");
 
     /// <summary>Last partner pick per action, for the bar tooltip and Pilot tab.</summary>
     public Dictionary<string, string> PartnerWhy { get; } = new();

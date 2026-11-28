@@ -111,6 +111,8 @@ public sealed class ActionDef
     public string Name { get; set; } = "";
     /// <summary>The hotbar action that turns into this one (Fell Cleave -> Inner Chaos). Default: itself.</summary>
     public string? Press { get; set; }
+    /// <summary>Other buttons it can appear on (Drakesbane: Wheeling Thrust's after Fang and Claw, and the reverse).</summary>
+    public List<string> PressAlso { get; set; } = new();
     /// <summary>A trait replaces this action with another at a higher level (Berserk -> Inner Release).</summary>
     public string? UpgradedTo { get; set; }
     public double Potency { get; set; }
@@ -192,6 +194,11 @@ public sealed class ActionDef
     public string? ShownAs { get; set; }
     /// <summary>Cast on a party member chosen by the partner rules (Dancer's Closed Position, Astrologian cards).</summary>
     public bool AllyTarget { get; set; }
+    /// <summary>
+    /// [Estimate] Potency-equivalent cost of using this when auto-move could get you there instead
+    /// (True North: keep the charge for when walking isn't possible).
+    /// </summary>
+    public double CostIfCanMove { get; set; }
     /// <summary>[Estimate] seconds you're locked after this oGCD when longer than usual (Stardiver). 0: the default.</summary>
     public double AnimationLock { get; set; }
 

@@ -79,7 +79,7 @@
       "positional": "rear", "positionalBonus": 40
     },
     {
-      "name": "Drakesbane", "press": "Fang and Claw",
+      "name": "Drakesbane", "press": "Fang and Claw", "pressAlso": ["Wheeling Thrust"],
       "potency": 460, "comboFrom": "Fang and Claw|Wheeling Thrust", "comboPotency": 460,
       "requiresCombo": true,
       "grants": [ { "status": "Draconian Fire", "duration": 30, "minLevel": 76 } ]
@@ -172,7 +172,7 @@
     { "name": "Winged Glide", "rangedOk": true, "movesToTarget": true },
     { "name": "Elusive Jump", "moves": "back", "moveDistance": 15 },
     {
-      "name": "True North",
+      "name": "True North", "costIfCanMove": 150,
       "requires": [ { "not": { "status": "True North" } } ],
       "grants": [ { "status": "True North", "duration": 10 } ]
     }
