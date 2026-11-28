@@ -148,7 +148,7 @@
       "name": "Stardiver", "potency": 840,
       "requires": [ { "status": "Life of the Dragon" } ],
       "grants": [ { "status": "Starcross Ready", "duration": 20, "minLevel": 100 } ],
-      "animationLock": 1.5,
+      "animationLock": 1.8,
       "movesToTarget": true
     },
     {
