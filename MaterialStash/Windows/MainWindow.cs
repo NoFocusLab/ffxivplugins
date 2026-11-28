@@ -856,10 +856,10 @@ public sealed class MainWindow : Window
         var onRetainers = me.SellLots.Where(l => !l.Done).ToList();
         if (onRetainers.Count > 0)
         {
-            ImGui.TextColored(Dim, "Money ventures (only their results are taken out to sell):");
+            ImGui.TextColored(Dim, "Money ventures out (only what they bring back to your bags is sold):");
             foreach (var l in onRetainers)
                 ImGui.BulletText($"{plugin.Tracker.NameOf(l.RetainerId)}: {Items.Info(l.ItemId)?.Name} " +
-                                 (l.Got < 0 ? $"out (~{l.Expected})" : $"{l.Left} waiting to be taken out"));
+                                 $"out (~{l.Expected})");
         }
         if (me.SellLog.Count > 0 && ImGui.CollapsingHeader($"Selling log ({me.SellLog.Count})"))
             foreach (var line in me.SellLog.Take(40)) ImGui.TextUnformatted(line);

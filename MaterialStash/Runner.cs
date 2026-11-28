@@ -734,36 +734,8 @@ public sealed unsafe class Runner : IDisposable
 
     private bool collectSell;
 
-    /// <summary>
-    /// Take this retainer's money-venture results into your bags (only what the ledger says they brought
-    /// back; never stock or stacks you stored there). True if something moved.
-    /// </summary>
-    private bool SellWithdrawStep()
-    {
-        if (current == 0 || bagsFull) return false;
-        foreach (var (item, want) in selling.OwedAt(current))
-        {
-            var stacks = Tracker.Stacks(Tracker.RetainerPages, id => id % 1_000_000 == item)
-                .Where(s => !skipStacks.Contains((s.Type, s.Slot)) && !Tracker.Spiritbound(s.Type, s.Slot)).ToList();
-            if (stacks.Count == 0) { selling.GiveUp(current, item, "none on the retainer any more"); continue; }
-            // Whole stacks only, and none bigger than what the ventures brought: a bigger one has your own
-            // stored items merged in, so it stays put.
-            var fit = stacks.Where(s => s.Qty <= want).OrderByDescending(s => s.Qty).ToList();
-            if (fit.Count == 0) { selling.GiveUp(current, item, $"the {want} merged into a stack of {stacks.Min(s => s.Qty)}"); continue; }
-            var s = fit[0];
-            if (BagSlot(s.ItemId) is not { } dst) { bagsFull = true; return false; }
-            var im = InventoryManager.Instance();
-            if (im == null) return false;
-            im->MoveItemSlot(s.Type, (ushort)s.Slot, dst.Type, (ushort)dst.Slot, true);
-            skipStacks.Add((s.Type, s.Slot));
-            withdrawn++;
-            selling.Took(current, item, s.Qty);
-            Plugin.Log.Info($"Stash: took {Items.Info(s.ItemId)?.Name} x{s.Qty} (venture results) out of {tracker.NameOf(current)} to sell");
-            next = DateTime.UtcNow.AddSeconds(0.6);
-            return true;
-        }
-        return false;
-    }
+    /// <summary>Nothing is taken off a retainer to sell outside a clean-up (venture results come to your bags).</summary>
+    private bool SellWithdrawStep() => false;
 
     private bool SellStep()
     {

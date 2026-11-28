@@ -100,7 +100,9 @@ public sealed class Selling : IDisposable
 
     // ------------------------------------------------------------------ venture ledger
     // Normal cycle: ventures run, stock is kept, and only what a money venture brought back is sold.
-    // Nothing else on a retainer is ever pulled to sell (that's the clean-up's job).
+    // Venture results come back into YOUR bags when AutoRetainer collects them, so what a venture
+    // brought is the increase in your bags of that item while its retainer was open. Nothing is ever
+    // pulled off a retainer to sell (that's the clean-up's job).
 
     private void Note(CharacterData me, string text)
     {
@@ -110,31 +112,36 @@ public sealed class Selling : IDisposable
 
     private string RName(CharacterData me, ulong r) => me.Retainers.TryGetValue(r, out var snap) && snap.Name.Length > 0 ? snap.Name : tracker.NameOf(r);
     private static string IName(uint id) => Items.Info(id)?.Name ?? $"#{id}";
+    private static int InBagsNow(uint itemId) => Tracker.Stacks(Tracker.Bags, id => id % 1_000_000 == itemId).Sum(x => x.Qty);
 
-    /// <summary>How many of an item this retainer holds: live if it's open, otherwise its last snapshot.</summary>
-    private static int OnRetainer(CharacterData me, ulong retainerId, uint itemId)
-    {
-        if (Tracker.ActiveRetainer() is { } a && a.Id == retainerId && Tracker.Loaded(Tracker.RetainerPages))
-            return Tracker.Stacks(Tracker.RetainerPages, id => id % 1_000_000 == itemId).Sum(x => x.Qty);
-        return me.Retainers.TryGetValue(retainerId, out var snap)
-            ? snap.Items.GetValueOrDefault(itemId) + snap.Items.GetValueOrDefault(itemId + 1_000_000) : 0;
-    }
-
-    /// <summary>A money venture went out: remember what the retainer held, so only the results get sold.</summary>
+    /// <summary>A money venture went out: it's collected into your bags next time this retainer is opened.</summary>
     public void VentureSent(ulong retainerId, uint itemId, int expected)
     {
         var me = tracker.Me();
         if (me == null) return;
         var id = itemId % 1_000_000;
-        me.SellLots.Add(new SellLot { RetainerId = retainerId, ItemId = id, Baseline = OnRetainer(me, retainerId, id), Expected = expected, SentAt = DateTime.UtcNow });
+        me.SellLots.Add(new SellLot { RetainerId = retainerId, ItemId = id, Baseline = -1, Expected = expected, SentAt = DateTime.UtcNow });
         Note(me, $"{RName(me, retainerId)}: money venture for {IName(id)} (~{expected})");
         tracker.Save(force: true);
     }
 
+    private ulong openRetainer;
+
+    /// <summary>A retainer was just opened (before its venture is collected): note your bag count of what it's bringing.</summary>
+    private void WatchRetainerOpen(CharacterData me)
+    {
+        var active = Tracker.ActiveRetainer()?.Id ?? 0;
+        if (active == openRetainer) return;
+        openRetainer = active;
+        if (active == 0) return;
+        foreach (var lot in me.SellLots.Where(l => l.RetainerId == active && l.Got < 0))
+            lot.Baseline = InBagsNow(lot.ItemId);
+    }
+
     /// <summary>
     /// The retainer's last venture was just collected (we're at its next venture): what came back is the
-    /// growth since it went out. [Estimate] Capped at 1.5x the expected yield, so anything you stored
-    /// there meanwhile isn't counted as venture results.
+    /// increase in your bags since the retainer was opened. [Estimate] Capped at 1.5x the expected yield,
+    /// so anything else that landed in your bags meanwhile isn't counted.
     /// </summary>
     public void Collected(ulong retainerId)
     {
@@ -143,61 +150,19 @@ public sealed class Selling : IDisposable
         var changed = false;
         foreach (var lot in me.SellLots.Where(l => l.RetainerId == retainerId && l.Got < 0))
         {
-            var now = OnRetainer(me, retainerId, lot.ItemId);
-            lot.Got = Math.Clamp(now - lot.Baseline, 0, (int)Math.Ceiling(lot.Expected * 1.5));
-            // Stock comes first: a stocked item is kept, not sold.
-            if (Stock.Wanted(config).ContainsKey(lot.ItemId)) { Note(me, $"{RName(me, retainerId)}: {IName(lot.ItemId)} x{lot.Got} back; it's on the stock list, kept"); lot.Done = true; }
-            else Note(me, $"{RName(me, retainerId)}: {IName(lot.ItemId)} x{lot.Got} back, to sell");
-            if (lot.Got == 0) lot.Done = true;
+            lot.Done = true;
             changed = true;
+            if (lot.Baseline < 0) { lot.Got = 0; Note(me, $"{RName(me, retainerId)}: {IName(lot.ItemId)} came back, but the bags weren't counted first; not sold"); continue; }
+            lot.Got = Math.Clamp(InBagsNow(lot.ItemId) - lot.Baseline, 0, (int)Math.Ceiling(lot.Expected * 1.5));
+            if (lot.Got == 0) { Note(me, $"{RName(me, retainerId)}: {IName(lot.ItemId)}: nothing new in your bags"); continue; }
+            // Stock comes first: a stocked item is kept (stashed as usual), not sold.
+            if (Stock.Wanted(config).ContainsKey(lot.ItemId)) { Note(me, $"{RName(me, retainerId)}: {IName(lot.ItemId)} x{lot.Got} back; on the stock list, kept"); continue; }
+            me.SellOwed[lot.ItemId] = me.SellOwed.GetValueOrDefault(lot.ItemId) + lot.Got;
+            owedSince[lot.ItemId] = DateTime.UtcNow;
+            Note(me, $"{RName(me, retainerId)}: {IName(lot.ItemId)} x{lot.Got} back in your bags, to sell");
         }
         me.SellLots.RemoveAll(l => l.Done && (DateTime.UtcNow - l.SentAt).TotalDays > 7);
         if (changed) tracker.Save(force: true);
-    }
-
-    /// <summary>What this retainer holds from money ventures, still to sell: item -> quantity.</summary>
-    public Dictionary<uint, int> OwedAt(ulong retainerId)
-    {
-        var me = tracker.Me();
-        var result = new Dictionary<uint, int>();
-        if (me == null) return result;
-        foreach (var l in me.SellLots.Where(l => l.RetainerId == retainerId && l.Left > 0))
-            result[l.ItemId] = result.GetValueOrDefault(l.ItemId) + l.Left;
-        return result;
-    }
-
-    /// <summary>Venture results were taken out of a retainer into your bags.</summary>
-    public void Took(ulong retainerId, uint itemId, int qty)
-    {
-        var me = tracker.Me();
-        if (me == null) return;
-        var id = itemId % 1_000_000;
-        var rest = qty;
-        foreach (var l in me.SellLots.Where(l => l.RetainerId == retainerId && l.ItemId == id && l.Left > 0).OrderBy(l => l.SentAt))
-        {
-            var n = Math.Min(rest, l.Left);
-            l.Taken += n;
-            rest -= n;
-            if (l.Left == 0) l.Done = true;
-            if (rest <= 0) break;
-        }
-        // A venture for the same item that's still out counted these in its starting amount.
-        foreach (var l in me.SellLots.Where(l => l.RetainerId == retainerId && l.ItemId == id && l.Got < 0))
-            l.Baseline = Math.Max(0, l.Baseline - qty);
-        me.SellOwed[id] = me.SellOwed.GetValueOrDefault(id) + qty;
-        owedSince[id] = DateTime.UtcNow;
-        Note(me, $"{RName(me, retainerId)}: took {IName(id)} x{qty} out to sell");
-        tracker.Save(force: true);
-    }
-
-    /// <summary>Stop trying to take these venture results out (gone, or merged into a bigger stack).</summary>
-    public void GiveUp(ulong retainerId, uint itemId, string why)
-    {
-        var me = tracker.Me();
-        if (me == null) return;
-        foreach (var l in me.SellLots.Where(l => l.RetainerId == retainerId && l.ItemId == itemId && l.Left > 0)) l.Done = true;
-        Note(me, $"{RName(me, retainerId)}: {IName(itemId)} left there ({why})");
-        tracker.Save(force: true);
     }
 
     /// <summary>How much of this bag stack may be listed: clean-up items all of it, venture results what's owed.</summary>
@@ -212,9 +177,9 @@ public sealed class Selling : IDisposable
 
     private readonly Dictionary<uint, DateTime> owedSince = new();
 
-    /// <summary>To-sell venture results on retainers (pending ventures count their expected yield).</summary>
+    /// <summary>Money ventures still out (their expected yield).</summary>
     private static int WaitingOnRetainers(CharacterData me, uint itemId) =>
-        me.SellLots.Where(l => l.ItemId == itemId && !l.Done).Sum(l => l.Got < 0 ? l.Expected : l.Left);
+        me.SellLots.Where(l => l.ItemId == itemId && l.Got < 0).Sum(l => l.Expected);
 
     /// <summary>
     /// How many we already have on the market: Universalis's listings under your retainers' names, or
@@ -247,12 +212,8 @@ public sealed class Selling : IDisposable
         tracker.Save(force: true);
     }
 
-    /// <summary>Retainers holding money-venture results still to sell.</summary>
-    public HashSet<ulong> Holders()
-    {
-        var me = tracker.Me();
-        return me == null ? new HashSet<ulong>() : me.SellLots.Where(l => l.Left > 0).Select(l => l.RetainerId).ToHashSet();
-    }
+    /// <summary>Retainers to visit to collect to-sell items: none (venture results come to your bags).</summary>
+    public HashSet<ulong> Holders() => new();
 
     /// <summary>Anything to sell, in your bags or waiting on a retainer.</summary>
     public bool AnythingToSell() => InBags().Count > 0 || Holders().Count > 0;
@@ -283,6 +244,7 @@ public sealed class Selling : IDisposable
         try
         {
             if (Tracker.ContentId() == 0) return;
+            if (tracker.Me() is { } meW) WatchRetainerOpen(meW);
             if (DateTime.UtcNow >= nextPrefetch)
             {
                 nextPrefetch = DateTime.UtcNow.AddMinutes(5);

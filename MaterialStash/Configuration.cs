@@ -93,7 +93,7 @@ public class SellLot
 {
     public ulong RetainerId { get; set; }
     public uint ItemId { get; set; }
-    /// <summary>How many the retainer held when the venture went out.</summary>
+    /// <summary>Your bag count of the item when the retainer was opened to collect it (-1 = not seen yet).</summary>
     public int Baseline { get; set; }
     public int Expected { get; set; }
     public DateTime SentAt { get; set; }
