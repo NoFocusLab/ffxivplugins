@@ -85,6 +85,13 @@ public sealed class Plugin : IDalamudPlugin
         PluginInterface.UiBuilder.OpenConfigUi += main.Toggle;
     }
 
+    /// <summary>The bar's Options button: main window on its Settings tab.</summary>
+    public void OpenSettings()
+    {
+        main.IsOpen = true;
+        main.ShowSettings();
+    }
+
     public void Dispose()
     {
         PluginInterface.UiBuilder.Draw -= windows.Draw;

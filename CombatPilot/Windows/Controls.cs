@@ -12,6 +12,17 @@ namespace CombatPilot.Windows;
 public static class Controls
 {
     private static readonly Dictionary<string, float> knob = new();
+    /// <summary>Width of the label column (vertical bar), 0 = label right before the control.</summary>
+    public static float LabelWidth;
+
+    private static void Label(string label)
+    {
+        ImGui.AlignTextToFramePadding();
+        var x = ImGui.GetCursorPosX();
+        ImGui.TextUnformatted(label);
+        if (LabelWidth > 0) ImGui.SameLine(x + LabelWidth);
+        else ImGui.SameLine(0, 6);
+    }
 
     private static readonly uint OnColor = Rgba(52, 199, 89);        // iOS green
     private static readonly uint OffColor = Rgba(120, 120, 128, 140); // iOS grey
@@ -29,9 +40,7 @@ public static class Controls
     /// warnWhenOff: an "off" that matters (burst held, paused) shows orange instead of grey.</summary>
     public static bool Switch(string id, string label, bool on, string tip, bool warnWhenOff = false)
     {
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(label);
-        ImGui.SameLine(0, 6);
+        Label(label);
 
         var h = ImGui.GetFrameHeight() * 0.8f;
         var w = h * 1.75f;
@@ -60,12 +69,7 @@ public static class Controls
     /// <summary>Label, then a segmented control (one segment selected; onIndex shows green, warnIndex orange). Returns the clicked index, or -1.</summary>
     public static int Segmented(string id, string label, string[] options, int selected, string tip, int onIndex = -1, int warnIndex = -1)
     {
-        if (label.Length > 0)
-        {
-            ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted(label);
-            ImGui.SameLine(0, 6);
-        }
+        if (label.Length > 0 || LabelWidth > 0) Label(label);
         var h = ImGui.GetFrameHeight();
         var pad = 8f;
         var widths = new float[options.Length];

@@ -197,6 +197,12 @@ A bar for your current job (`/pilot bar` shows/hides it):
   (off = held: the job file's burst list, Warrior: Inner Release and Infuriate; orange when held),
   AoE Off/Auto/Force, travel reserve (Warrior: keep 1 Onslaught), keep raise MP, opener on countdown,
   auto-move, potions.
+- **Layout:** switches stacked vertically by default; the bar's Rows/Stack button flips it (per PC, e.g.
+  the Legion Go). The Options button opens Settings.
+- **"Move to ally" dashes** (any dash the game lets you aim at a party member) clicked in Cooldown Grid
+  go to the nearest party member who's alive, in range and line of sight, not standing in a BossMod
+  danger zone, reachable by a safe path, at least 3 y away, and not a tank (a Settings option allows the
+  tank as a last resort). Works whether or not Combat Pilot is Live.
 - **Ability icons and timers are in Cooldown Grid** (its Offense group, filled from this job file's
   `bar` list). Clicking one there **queues** it here: in Live it goes into the next slot it fits (next
   weave for an oGCD, next GCD otherwise), ahead of the plan, which continues around it; it waits up to

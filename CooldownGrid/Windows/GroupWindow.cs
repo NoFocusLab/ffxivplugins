@@ -156,7 +156,7 @@ public sealed class GroupWindow : Window
         if (clicked)
         {
             // Combat Pilot flying Live: let it weave the click into its plan (next slot it fits).
-            if (!sendable && CombatPilotBridge.TryQueue(entry.ActionId)) return;
+            if (!sendable && CombatPilotBridge.TryQueue(entry.ActionId, evenIfNotLive: entry.CanTargetAlly)) return;
             if (!sendable) ActionState.Use(entry.ActionId);
             else if (coTank is { } target) ActionState.Use(entry.ActionId, target.Id);
             else Plugin.ChatGui.Print($"[CooldownGrid] {entry.Name}: no {(toTank ? "" : "other ")}tank in the party to send it to.");

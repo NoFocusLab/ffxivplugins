@@ -42,7 +42,9 @@ public sealed class MainWindow : Window
         var flags = selectReports ? ImGuiTabItemFlags.SetSelected : ImGuiTabItemFlags.None;
         if (ImGui.BeginTabItem("Reports", flags)) { DrawReports(); ImGui.EndTabItem(); }
         selectReports = false;
-        if (ImGui.BeginTabItem("Settings")) { DrawSettings(); ImGui.EndTabItem(); }
+        var settingsFlags = selectSettings ? ImGuiTabItemFlags.SetSelected : ImGuiTabItemFlags.None;
+        selectSettings = false;
+        if (ImGui.BeginTabItem("Settings", settingsFlags)) { DrawSettings(); ImGui.EndTabItem(); }
         ImGui.EndTabBar();
     }
 
@@ -275,6 +277,9 @@ public sealed class MainWindow : Window
 
     // ================================================================ settings
 
+    private bool selectSettings;
+    public void ShowSettings() => selectSettings = true;
+
     private void DrawSettings()
     {
         var changed = false;
@@ -315,6 +320,11 @@ public sealed class MainWindow : Window
         if (ImGui.IsItemHovered()) ImGui.SetTooltip("RSR is unloaded (Dalamud's temporary disable) while a job is Live, so it can't switch itself on\n" +
                                                    "for a countdown or when attacked. Loaded again when you leave Live, when Combat Pilot closes,\n" +
                                                    "or when the game restarts. Your saved plugin list isn't changed (Settings Sync won't copy it).");
+        b = C.AllyDashTankFallback;
+        if (ImGui.Checkbox("Queued \"move to ally\" dashes may go to a tank if no one else is safe", ref b)) { C.AllyDashTankFallback = b; changed = true; }
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Dashes the game lets you aim at a party member (Thunderclap, Icarus...), clicked in Cooldown Grid,\n" +
+                                                   "go to the nearest party member who is alive, in range and line of sight, not standing in a\n" +
+                                                   "danger zone (BossMod), with a safe path, at least 3 y away, and not a tank.");
         if (!C.UnloadRsr)
         {
             b = C.TurnOffRsr;

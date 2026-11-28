@@ -5,6 +5,7 @@ using CombatPilot.Engine;
 using CombatPilot.Jobs;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Textures;
+using Dalamud.Interface.Utility;
 using Dalamud.Interface.Windowing;
 using FFXIVClientStructs.FFXIV.Client.Game;
 
@@ -41,26 +42,37 @@ public sealed unsafe class BarsWindow : Window
         var t = c.TogglesFor(job.Def.Job);
         var changed = false;
         const float gap = 14;
+        var vertical = c.BarVertical;
+        Controls.LabelWidth = vertical ? 110 * ImGuiHelpers.GlobalScale : 0;
+        // Between controls: a new line when vertical, side by side otherwise.
+        void Sep() { if (!vertical) ImGui.SameLine(0, gap); }
 
-        // ---- row 1: mode, pause, engage
+        // ---- header: options, layout
+        if (ImGui.SmallButton("Options")) plugin.OpenSettings();
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip("Open Combat Pilot's settings.");
+        ImGui.SameLine();
+        if (ImGui.SmallButton(vertical ? "Rows" : "Stack")) { c.BarVertical = !vertical; changed = true; }
+        if (ImGui.IsItemHovered()) ImGui.SetTooltip(vertical ? "Lay the switches out side by side." : "Stack the switches vertically.");
+
+        // ---- mode, pause, engage
         var mode = c.ModeFor(job.Def.Job);
-        var mi = Controls.Segmented("mode", "", new[] { "Off", "Listen", "Live" }, mode switch { PilotMode.Live => 2, PilotMode.Listen => 1, _ => 0 },
+        var mi = Controls.Segmented("mode", "Mode", new[] { "Off", "Listen", "Live" }, mode switch { PilotMode.Live => 2, PilotMode.Listen => 1, _ => 0 },
             "Off: nothing. Listen: RSR flies, Combat Pilot logs where it would differ. Live: Combat Pilot presses.", onIndex: 2);
         if (mi >= 0) plugin.SetMode(mi switch { 2 => PilotMode.Live, 1 => PilotMode.Listen, _ => PilotMode.Off });
         if (mode == PilotMode.Live)
         {
-            ImGui.SameLine(0, gap);
+            Sep();
             if (Controls.Switch("pause", "Running", !p.Paused, "Kill switch (also Ctrl+Shift+End): off pauses Live.", warnWhenOff: true))
                 p.SetPaused(!p.Paused, "bar");
         }
-        ImGui.SameLine(0, gap);
+        Sep();
         var ei = Controls.Segmented("engage", "Engage", new[] { "Wait", "Fighting", "Any" }, (int)c.Engage,
             "Starting a fight: wait for combat / attack targets already fighting / attack any target (pulls, dummies).");
         if (ei >= 0) { c.Engage = (EngageMode)ei; changed = true; }
 
         // ---- row 2: rotation switches
         var first = true;
-        void Next() { if (!first) ImGui.SameLine(0, gap); first = false; }
+        void Next() { if (!first) Sep(); first = false; }
 
         if (job.Def.Burst.Count > 0)
         {

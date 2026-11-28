@@ -107,6 +107,10 @@ public class Configuration : IPluginConfiguration
 
     // ---- bars
     public bool ShowBars { get; set; } = true;
+    /// <summary>Job bar: switches stacked vertically (true) or in rows (false).</summary>
+    public bool BarVertical { get; set; } = true;
+    /// <summary>Queued "move to ally" dashes may go to the tank when no one else is safe and in range.</summary>
+    public bool AllyDashTankFallback { get; set; } = false;
     public float BarIconSize { get; set; } = 40;
     /// <summary>A clicked action waits this long for its slot before it's dropped.</summary>
     public float QueueSeconds { get; set; } = 6;

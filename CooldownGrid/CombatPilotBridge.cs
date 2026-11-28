@@ -44,12 +44,14 @@ public static class CombatPilotBridge
     }
 
     /// <summary>Queue in Combat Pilot. False: not Live, not loaded, or not one of its job's actions.</summary>
-    public static bool TryQueue(uint actionId)
+    /// <param name="evenIfNotLive">Party-targetable actions: Combat Pilot picks the ally ("move to ally"
+    /// dashes) even when it isn't flying; it uses them at once in that case.</param>
+    public static bool TryQueue(uint actionId, bool evenIfNotLive = false)
     {
         try
         {
             Init();
-            if (!Live()) return false;
+            if (!evenIfNotLive && !Live()) return false;
             if (queue!.InvokeFunc(actionId)) return true;
             // Upgraded forms (Requiescat -> Imperator): Combat Pilot knows the live id.
             unsafe

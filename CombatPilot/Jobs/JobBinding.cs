@@ -37,6 +37,8 @@ public sealed class BoundAction
     public double Falloff { get; set; }
     public bool IsAoe => Shape != Shape.Single;
 
+    /// <summary>The game lets you aim it at a party member (with MovesToTarget: a "move to ally" dash).</summary>
+    public bool CanTargetParty { get; init; }
     /// <summary>An inventory item (potion), used with the item's id (HQ: id + 1,000,000).</summary>
     public bool IsItem { get; init; }
     /// <summary>MP cost (job file override, else the game's).</summary>
@@ -99,6 +101,7 @@ public sealed class JobBinding
                 // Ninjutsu are limited by mudra charges (UsesCharge), not a recast of their own.
                 CooldownGroup = row.CooldownGroup == GcdGroup || a.UsesCharge != null ? -1 : row.CooldownGroup,
                 Icon = row.Icon,
+                CanTargetParty = row.CanTargetParty,
                 Potency = a.Potency,
                 ComboPotency = a.ComboPotency,
             };

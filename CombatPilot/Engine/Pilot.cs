@@ -197,7 +197,7 @@ public sealed unsafe class Pilot : IDisposable
             if (DateTime.UtcNow > queuedUntil) { Queued = null; }
             else if (q.IsGcd == forGcd)
             {
-                if (Press(q, g)) { Plugin.Log.Debug($"[Pilot] queued {q.Name} pressed"); Log.Note($"you queued {q.Name}"); Queued = null; }
+                if (Press(q, g, queued: true)) { Plugin.Log.Debug($"[Pilot] queued {q.Name} pressed"); Log.Note($"you queued {q.Name}"); Queued = null; }
                 return;
             }
         }
@@ -298,7 +298,7 @@ public sealed unsafe class Pilot : IDisposable
 
     // ================================================================ pressing
 
-    private bool Press(BoundAction a, GameState g)
+    private bool Press(BoundAction a, GameState g, bool queued = false)
     {
         var am = ActionManager.Instance();
         var now = DateTime.UtcNow;
@@ -335,9 +335,21 @@ public sealed unsafe class Pilot : IDisposable
             if (PartnerFor(a) is not { } partner) return false;
             target = partner.GameObjectId;
         }
+        // A dash you queued that can go to a party member: to the nearest safe non-tank ally.
+        var allyDash = queued && a.Def.MovesToTarget && a.CanTargetParty && !a.Def.AllyTarget;
+        if (allyDash)
+        {
+            if (AllyDash.Pick(a, Mover.Bmr, danger, config.AllyDashTankFallback, out var why) is not { } ally)
+            {
+                Log.Note($"{a.Name}: held ({why})");
+                return false;
+            }
+            target = ally.GameObjectId;
+            AllyDashWhy = why;
+        }
         // Auto-move walks facing the way it goes, and vnavmesh keeps turning you that way while it
         // walks: stop it, then turn to the target, then press (it picks the walk up again next think).
-        if (target != 0xE000_0000UL && Plugin.ObjectTable.SearchById(target) is { } tgo && !a.Def.AllyTarget)
+        if (target != 0xE000_0000UL && Plugin.ObjectTable.SearchById(target) is { } tgo && !a.Def.AllyTarget && !allyDash)
         {
             Mover.PauseForAction(a.Name);
             lastOffBy = Facing.Face(tgo);
@@ -393,8 +405,11 @@ public sealed unsafe class Pilot : IDisposable
             queuedUntil = DateTime.UtcNow.AddSeconds(Math.Clamp(config.QueueSeconds, 1, 30));
             return;
         }
-        if (Job != null) Press(a, GameState.Read(Job));
+        if (Job != null) Press(a, GameState.Read(Job), queued: true);
     }
+
+    /// <summary>Who the last queued "move to ally" dash went to, and why.</summary>
+    public string AllyDashWhy { get; private set; } = "";
 
     public void ClearQueue() => Queued = null;
 
