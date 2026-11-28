@@ -291,7 +291,9 @@ public static class Planner
     /// </summary>
     private static int Hits(BoundAction a, GameState g, PlannerSettings set, double t)
     {
-        if (!a.IsAoe) return g.TargetTtk > t || g.TargetTtk >= 999 ? 1 : 0;
+        // What goes out now always lands on a live target: a time-to-kill estimate of ~0 (seen on a
+        // striking dummy) must not make every single-target GCD worthless (Throwing Dagger instead).
+        if (!a.IsAoe) return t < 0.5 || g.TargetTtk > t || g.TargetTtk >= 999 ? 1 : 0;
         var n = g.HitTtks.TryGetValue(a.Id, out var h) ? h.Count(x => x > t) : 0;
         return set.Aoe == AoeMode.Force ? Math.Max(3, n) : n;
     }
