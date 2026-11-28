@@ -42,6 +42,8 @@ public sealed class PlannerSettings
     public bool NoPull = true;
     /// <summary>A party member the partner rules allow is in range (ally-targeted actions).</summary>
     public bool HasPartner;
+    /// <summary>Seconds of walking that make True North unnecessary (about one GCD).</summary>
+    public double WalkWithin = 2.5;
     /// <summary>MP kept back (a raise's cost when the job's toggle is on).</summary>
     public int MpFloor;
 }
@@ -139,6 +141,10 @@ public static class Planner
         if (set.Held.Contains(a.Name) || !c.Ready(a) || !c.Allowed(a, job)) return false;
         if (a.Def.AllyTarget && !set.HasPartner) return false;
         if (a.Def.PlanNever) return false;
+        // True North: not while auto-move can reach both the rear and the flank safely within a GCD
+        // (walking covers every positional; seen live: 17 uses in 8 min with auto-move on).
+        if (a.Def.CostIfCanMove > 0 && c.Pos is { Omni: false } p && p.RearEta <= set.WalkWithin && p.FlankEta <= set.WalkWithin)
+            return false;
         // Pure movement (Elusive Jump, Winged Glide) is never planned: only the bar's queue presses it.
         if (a.Def.Moves != null || (a.Def.MovesToTarget && a.Def.Potency <= 0 && a.Def.Grants.Count == 0)) return false;
         if (set.ReserveAction == a.Name && a.CooldownGroup >= 0 && c.Cd.TryGetValue(a.CooldownGroup, out var cd) && cd.Charges <= set.ReserveKeep)

@@ -234,6 +234,7 @@ public sealed unsafe class Pilot : IDisposable
             ReserveAction = t.KeepTravel ? Job.Def.Travel?.Action : null,
             ReserveKeep = Job.Def.Travel?.Keep ?? 0,
             NoPull = config.NoPullWithAoe,
+            WalkWithin = g.GcdLength,
             MpFloor = t.KeepRaiseMp && Job.RaiseMpCost > 0 ? Job.RaiseMpCost : 0,
             HasPartner = Job.Actions.Any(a => a.Def.AllyTarget) && PartnerFor(Job.Actions.First(a => a.Def.AllyTarget)) != null,
         };

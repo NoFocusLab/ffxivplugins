@@ -38,8 +38,8 @@ target, Combat Pilot stops auto-move if it's walking, turns you to face the targ
 auto-face) and then presses; auto-move then stays put for a moment (0.35 s) instead of
 walking straight off facing away. While Live and standing still in combat it keeps you facing the
 target; if the game's auto-face doesn't turn you within half a second, it sets your facing directly.
-True North is only used when walking won't do (auto-move off, no safe spot, no time): while auto-move
-can reach the rear or flank it counts as costing 150 potency [Estimate], so it's saved for when it's needed.
+True North is only used when walking won't do: not at all while auto-move can reach both the rear and
+the flank safely within a GCD; otherwise (auto-move off, a spot unsafe or too far) as the planner sees fit.
 
 **MP:** a resource like gauge. Costs come from the game (or the job file when a trait changes them),
 MP comes back from natural regen ([Estimate] 200 per 3 s), actions that restore it (Riot Blade, Expiacion)
