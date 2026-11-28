@@ -233,6 +233,7 @@ public sealed unsafe class Pilot : IDisposable
             ReservedWeaves = !forGcd && mit.PressDueIn() <= g.GcdRemaining + 0.3f ? 1 : 0,
             Held = t.HoldBurst ? Job.Def.Burst.ToHashSet() : new HashSet<string>(),
             Aoe = t.Aoe,
+            CommittedFinisher = forGcd ? committedFinisher : null,
             ReserveAction = t.KeepTravel ? Job.Def.Travel?.Action : null,
             ReserveKeep = Job.Def.Travel?.Keep ?? 0,
             NoPull = config.NoPullWithAoe,
@@ -285,7 +286,21 @@ public sealed unsafe class Pilot : IDisposable
         {
             // Log the decision that actually pressed the GCD, not a later re-plan of the same slot
             // (Death Blossom was pressed by one plan, then logged against the next one).
-            if (Press(d.Action, g) && forGcd) pressedGcd = d;
+            if (Press(d.Action, g) && forGcd)
+            {
+                pressedGcd = d;
+                // Pick the positional finisher now, while the walk is free (a whole GCD to get there),
+                // and keep it: switching at the last moment left no time to move (5 misses in 11 min).
+                // Ninjutsu and other combo-keeping GCDs in between keep the choice.
+                if (!d.Action.Def.KeepsCombo && d.Action.Def.Sequence == null)
+                {
+                    committedFinisher = null;
+                    var next = d.Path.Skip(1).Select(n => Job.ByName.GetValueOrDefault(n))
+                        .FirstOrDefault(x => x is { IsGcd: true } && !x.Def.KeepsCombo && x.Def.Sequence == null);
+                    if (next?.Def.Positional != null && next.Def.Follows(d.Action.Name))
+                        committedFinisher = next.Name;
+                }
+            }
             return;
         }
         if (forGcd) CheckStall(g);
@@ -583,6 +598,7 @@ public sealed unsafe class Pilot : IDisposable
 
     private string heldWanted = "";
     private Decision? pressedGcd;
+    private string? committedFinisher;
     private DateTime lastGcdSeenAt = DateTime.MinValue;
     private (string Name, uint Id, DateTime At) lastGcdPress = ("", 0, DateTime.MinValue);
 
@@ -611,6 +627,7 @@ public sealed unsafe class Pilot : IDisposable
             ? "alts: " + string.Join(", ", d.RootScores.OrderByDescending(r => r.Value).Take(4).Select(r => $"{r.Key} {r.Value - d.RootScores.Values.Max():+0;-0}"))
             : "";
         var outs = d.Excluded.Count > 0 ? "out: " + string.Join(", ", d.Excluded.Take(5)) : "";
+        if (d.ForGcd && committedFinisher != null) outs = (outs.Length > 0 ? outs + "; " : "") + $"committed to {committedFinisher}";
         var note = string.Join(" | ", new[] { d.Error ?? "", age > 1.5 ? $"stale {age:0.0}s" : "", d.State, alts, outs }.Where(x => x.Length > 0));
         Log.Add(new DecisionRecord(Log.FightTime, gcd, wanted, actual, lost, string.Join(" > ", d.Path.Take(8)), note));
     }

@@ -42,6 +42,11 @@ public sealed class PlannerSettings
     /// <summary>Burst actions held by the bar's toggle.</summary>
     public HashSet<string> Held = new();
     public AoeMode Aoe = AoeMode.Auto;
+    /// <summary>
+    /// Positional finisher already chosen (and walked for) when the combo step before it went out:
+    /// the next GCD may not switch to a finisher for the other side.
+    /// </summary>
+    public string? CommittedFinisher;
     /// <summary>Travel action whose charges above Keep are all the planner may spend.</summary>
     public string? ReserveAction;
     public int ReserveKeep;
@@ -190,6 +195,9 @@ public static class Planner
             {
                 if (!a.IsGcd) continue;
                 if (!Usable(at0, a, job, set)) continue;
+                if (nearNow && set.CommittedFinisher is { } cf && a.Def.Positional != null && a.Name != cf &&
+                    job.ByName.TryGetValue(cf, out var cfa) && Usable(at0, cfa, job, set))
+                { excluded?.Add($"{a.Name}: committed to {cf}"); continue; }
                 if (nearNow && (!g.HasTarget || !Reaches(a, g, set))) { excluded?.Add($"{a.Name}: {(g.HasTarget ? "can't reach" : "no target")}"); continue; }
                 // A hard cast can't start while you're moving.
                 if (nearNow && g.PlayerMoving && at0.CastFor(a) > 0) { excluded?.Add($"{a.Name}: moving"); continue; }
