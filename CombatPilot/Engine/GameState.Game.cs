@@ -267,8 +267,19 @@ public sealed partial class GameState
             }
             var src = (GameObjectStruct*)me.Address;
             var dst = (GameObjectStruct*)target.Address;
+            var actions = Plugin.DataManager.GetExcelSheet<Lumina.Excel.Sheets.Action>();
+            var reach = Vector2.Distance(new(me.Position.X, me.Position.Z), new(target.Position.X, target.Position.Z)) - target.HitboxRadius;
             foreach (var a in job.Actions)
-                if (!a.IsItem && ActionManager.GetActionInRangeOrLoS(a.Id, src, dst) == 0) s.InRange.Add(a.Id);
+            {
+                if (a.IsItem) continue;
+                if (ActionManager.GetActionInRangeOrLoS(a.Id, src, dst) == 0) s.InRange.Add(a.Id);
+                // Pressed on yourself but hits through later buttons (Ten Chi Jin: Fuma, Raiton, Suiton):
+                // the game's range check on the self-cast button always says no, so the planner never
+                // started it (seen live: Ten Chi Jin "next" for 2.5 min, used once in 6 min). Ninjutsu reach 25 y.
+                else if (a.Def.Sequence != null && a.Def.Potency > 0 && !a.IsAoe &&
+                         actions.GetRowOrDefault(a.Id)?.CanTargetHostile != true && reach <= 25)
+                    s.InRange.Add(a.Id);
+            }
         }
 
         ReadEnemies(s, job, me, target, starterId);

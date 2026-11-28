@@ -189,6 +189,9 @@ public sealed class Mover
             {
                 if (!job.ByName.TryGetValue(name, out var a) || !a.IsGcd) continue;
                 if (a.Def.Positional != null) { need = a.Def.Positional; break; }
+                // Mudra sequences (Raiton, Ten Chi Jin) don't count: they're short and auto-move holds
+                // during them, so the finisher after one still needs the walk started now.
+                if (a.Def.Sequence != null) continue;
                 if (++gcds >= 3) break; // start walking up to 3 GCDs early (arrivals were cutting it close)
             }
             // Already well inside that zone (not just over its edge): stay.

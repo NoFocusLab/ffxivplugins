@@ -357,6 +357,7 @@ public sealed unsafe class Pilot : IDisposable
         }
         ok = am->UseAction(ActionType.Action, id, target);
         if (!ok) NoteRefusal(a, id, target);
+        else if (a.IsGcd) lastGcdPress = (a.Name, id, now);
         Plugin.Log.Debug($"[Pilot] press {a.Name} (#{id}) -> {(ok ? "ok" : "refused")}; gcd {g.GcdRemaining:0.00}s");
         if (a.IsGcd) CheckStall(g);
         return ok;
@@ -501,8 +502,18 @@ public sealed unsafe class Pilot : IDisposable
                     goto ogcds;
                 }
                 var used = Sequence.TakeFinished() ?? NameOf(gcd->ActionId);
+                // A GCD we didn't ask for (seen live: Death Blossom 6x in 6 min on a single dummy):
+                // say what the Pilot last pressed, so the next log shows whether it was us or something else.
+                if (pendingGcd?.Label is { } want && want != used && Job.ByName.TryGetValue(used, out var ua0) && ua0.Def.Sequence == null)
+                {
+                    var (pn, pid, pat) = lastGcdPress;
+                    Log.Note($"{Log.FightTime:0.0}s: {used} (#{gcd->ActionId}) went out; wanted {want}; Pilot last pressed " +
+                             (pn.Length == 0 ? "nothing" : $"{pn} (#{pid}) {(DateTime.UtcNow - pat).TotalSeconds:0.00}s before"));
+                }
                 Opener.OnGcdUsed(used);
-                Log.Used(used, true, LastState?.GcdLength ?? 2.5);
+                // A sequence finishes after its mudras (~0.6 s each [Estimate]): not a gap.
+                var allow = (LastState?.GcdLength ?? 2.5) + (Job.ByName.TryGetValue(used, out var sq) && sq.Def.Sequence is { } steps ? 0.6 * (steps.Count - 1) : 0);
+                Log.Used(used, true, allow);
                 // Positional: judged where you stand as it goes out (the report's landed/missed).
                 if (Job.ByName.TryGetValue(used, out var ua) && ua.Def.Positional is { } need &&
                     Plugin.TargetManager.Target is { } pt && Plugin.ObjectTable.LocalPlayer is { } pme && LastState?.Position is { Omni: false })
@@ -541,6 +552,12 @@ public sealed unsafe class Pilot : IDisposable
                 {
                     var det = am->GetRecastGroupDetail(am->GetRecastGroup((int)ActionType.Action, id));
                     var name = NameOf(det != null && det->ActionId != 0 ? det->ActionId : id);
+                    // Mudras and ninjutsu belong to their sequence (logged once, as the GCD it makes).
+                    if (Sequence.Running || a.Def.PlanNever || (Job.ByName.TryGetValue(name, out var na) && (na.IsGcd || na.Def.PlanNever)))
+                    {
+                        lastCd[a.CooldownGroup] = (charges, elapsed);
+                        continue;
+                    }
                     Record(pendingWeave, name, false);
                     Log.Used(name, false, 0);
                     pendingWeave = null;
@@ -552,6 +569,7 @@ public sealed unsafe class Pilot : IDisposable
     }
 
     private string heldWanted = "";
+    private (string Name, uint Id, DateTime At) lastGcdPress = ("", 0, DateTime.MinValue);
 
     private void Record(Decision? d, string actual, bool gcd)
     {
