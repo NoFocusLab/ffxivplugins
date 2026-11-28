@@ -52,7 +52,8 @@ public sealed class BossModAi
 /// Auto-move: picks where to stand and walks you there with vnavmesh. Priorities:
 /// 1. BossMod's AI mechanic (tower, stack, dodge): it moves you, Combat Pilot steps aside.
 /// 2. Safety: every spot needs floor, a BossMod-safe spot and a safe path; never chosen otherwise.
-/// 3. Positional within the next 3 GCDs (melee).
+/// 3. Positional within the next 3 GCDs (melee): middle of the zone on your radius, cutting inside
+///    the ring (at most halfway to its centre) only when walking around wouldn't make it in time.
 /// 4. Your rules for the job: within X of the anchor (party member by role or name, or none for
 ///    tanks), within Y of the target; or, when an AoE around you would do 15%+ more than single
 ///    target (time to live and the walk counted), within Z of the pack's centre.
@@ -152,7 +153,7 @@ public sealed class Mover
         var forPositional = reason.EndsWith("for the positional");
         var inPlace = forPositional
             ? Positionals.SafeSideOf(me.Position, target) == reason.Split(' ')[0] || Vector3.Distance(Flat(pick.Value), Flat(me.Position)) < 0.4f
-            : Vector3.Distance(Flat(pick.Value), Flat(me.Position)) < 1.2f;
+            : Vector3.Distance(Flat(pick.Value), Flat(me.Position)) < 0.5f;
         if (inPlace) { Halt($"in place ({reason})"); return; }
         if (Moving && (now - startedAt).TotalSeconds > 4) { Halt("gave up (4 s)"); return; }
         if (!Moving || Vector3.Distance(pick.Value, dest) > 1f)
@@ -182,13 +183,16 @@ public sealed class Mover
 
         // Positional within the next two GCDs.
         string? need = null;
+        var needIn = 0.0; // seconds until the positional GCD goes out
         if (plan != null && g.Position is { Omni: false } pos && !HasStatus(job.Def.TrueNorthStatus))
         {
             var gcds = 0;
+            var t = g.GcdRemaining;
             foreach (var name in plan.Path)
             {
                 if (!job.ByName.TryGetValue(name, out var a) || !a.IsGcd) continue;
-                if (a.Def.Positional != null) { need = a.Def.Positional; break; }
+                if (a.Def.Positional != null) { need = a.Def.Positional; needIn = t; break; }
+                t += a.Def.GcdTime > 0 ? a.Def.GcdTime : g.GcdLength;
                 // Mudra sequences (Raiton, Ten Chi Jin) don't count: they're short and auto-move holds
                 // during them, so the finisher after one still needs the walk started now.
                 if (a.Def.Sequence != null) continue;
@@ -204,11 +208,35 @@ public sealed class Mover
             Vector3.Distance(Flat(p), Flat(target.Position)) - tr <= targetRange &&
             (anchor == null || r.AnchorRange <= 0 || Vector3.Distance(Flat(p), Flat(anchor.Position)) <= r.AnchorRange);
 
-        // 1. Positional spot.
+        var melee = r.TargetRange <= 3.5f;
+        var d = Vector3.Distance(Flat(me.Position), Flat(target.Position));
+        var fromRing = d - tr;                          // + outside the ring, - inside it
+        var innerR = Math.Max(0.3f, tr * (1 - r.InnerShare)); // closest to the centre we ever stand
+        var restR = Math.Clamp(d, tr + r.RestNear, tr + r.RestFar);
+
+        // 1. Positional spot: the middle of the zone on your current radius (kept within the resting
+        // range); cutting inside the ring only when walking around wouldn't make it in time.
         if (need != null && g.Position is { } pi)
         {
-            var spot = need == "rear" ? pi.RearSpot : pi.FlankSpot;
-            if (Ok(spot)) { reason = $"{need} for the positional"; return spot; }
+            var facing = new Vector3((float)Math.Sin(target.Rotation), 0, (float)Math.Cos(target.Rotation));
+            var right = new Vector3(facing.Z, 0, -facing.X);
+            var dir = need == "rear" ? -facing
+                : Vector3.Dot(me.Position - target.Position, right) >= 0 ? right : -right;
+            Vector3 At(float radius) => target.Position + dir * radius;
+            double Eta(Vector3 p) => Vector3.Distance(Flat(p), Flat(me.Position)) / Positionals.RunSpeed + 0.35;
+            var spot = At(restR);
+            var cut = false;
+            if (Eta(spot) > needIn)
+            {
+                // Try closer radii, down to the inner limit, for the first that makes it.
+                foreach (var rad in new[] { tr + 0.3f, tr, tr - (tr - innerR) / 2, innerR })
+                {
+                    if (rad < innerR - 0.01f || rad >= restR) continue;
+                    var p2 = At(rad);
+                    if (Eta(p2) <= needIn && Ok(p2)) { spot = p2; cut = true; break; }
+                }
+            }
+            if (Ok(spot)) { reason = $"{need} for the positional" + (cut ? " (cutting in)" : ""); return spot; }
         }
 
         // 2. AoE around me: worth walking to the pack?
@@ -234,9 +262,17 @@ public sealed class Mover
             if (best != null && bestGain >= r.AoeGain) { reason = $"pack for {aoe.Name} (+{bestGain:P0})"; return best; }
         }
 
-        // 3. Rules: if already fine, stay; else the nearest safe spot that satisfies them.
-        if (Rules(me.Position, r.TargetRange)) { reason = "in range"; return null; }
-        var stand = Math.Max(0.5f, Math.Min(r.TargetRange - 0.5f, r.TargetRange * 0.8f));
+        // 3. Rules. Melee: anywhere from the inner limit to the far edge of the resting range is fine
+        // (no fidgeting); deep inside the ring, ease back out to the resting range between GCDs.
+        if (melee)
+        {
+            var anchorOk = anchor == null || r.AnchorRange <= 0 || Vector3.Distance(Flat(me.Position), Flat(anchor.Position)) <= r.AnchorRange;
+            var tooDeep = d < innerR - 0.05f;
+            var drifting = fromRing < r.RestNear - 0.5f && g.GcdRemaining > 0.8; // well inside: step out between GCDs
+            if (anchorOk && !tooDeep && !drifting && fromRing <= r.RestFar + 0.3f) { reason = "in range"; return null; }
+        }
+        else if (Rules(me.Position, r.TargetRange)) { reason = "in range"; return null; }
+        var stand = melee ? (r.RestNear + r.RestFar) / 2 : Math.Max(0.5f, Math.Min(r.TargetRange - 0.5f, r.TargetRange * 0.8f));
         var candidates = Ring(target.Position, tr + stand, tr + stand, 16)
             .Where(p => Rules(p, r.TargetRange) && Ok(p))
             .OrderBy(p => Vector3.Distance(Flat(p), Flat(me.Position)))

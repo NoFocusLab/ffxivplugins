@@ -458,6 +458,16 @@ public sealed class MainWindow : Window
         }
         f = r.TargetRange; ImGui.SetNextItemWidth(120);
         if (ImGui.SliderFloat("Y: within this of the target (y)", ref f, 1, 25, "%.0f")) { r.TargetRange = f; changed = true; }
+        if (r.TargetRange <= 3.5f)
+        {
+            float near = r.RestNear, far = r.RestFar, share = r.InnerShare * 100;
+            ImGui.SetNextItemWidth(120);
+            if (ImGui.DragFloatRange2("Resting range outside the ring (y)", ref near, ref far, 0.1f, 0f, 3.5f, "%.1f", "%.1f"))
+            { r.RestNear = near; r.RestFar = Math.Max(near, far); changed = true; }
+            ImGui.SetNextItemWidth(120);
+            if (ImGui.SliderFloat("Positionals may cut inside the ring, up to (% of the way to its centre)", ref share, 0, 90, "%.0f%%"))
+            { r.InnerShare = share / 100; changed = true; }
+        }
         f = r.PackRange; ImGui.SetNextItemWidth(120);
         if (ImGui.SliderFloat("Z: within this of the pack centre for AoE (y, 0 = from the AoE's size)", ref f, 0, 10, "%.0f")) { r.PackRange = f; changed = true; }
         f = r.AoeGain * 100; ImGui.SetNextItemWidth(120);

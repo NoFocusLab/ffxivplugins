@@ -22,6 +22,11 @@ public class MoveRules
     public float PackRange { get; set; } = 0;
     /// <summary>Only move in for AoE if it's this much better (after time to live and the walk).</summary>
     public float AoeGain { get; set; } = 0.15f;
+    /// <summary>Melee standing range: rest between these distances outside the target's ring (y).</summary>
+    public float RestNear { get; set; } = 1.0f;
+    public float RestFar { get; set; } = 2.5f;
+    /// <summary>For a positional in time you may cut inside the ring, at most this share of the way to its centre.</summary>
+    public float InnerShare { get; set; } = 0.5f;
 }
 
 /// <summary>Per-job toggles on the bar.</summary>
