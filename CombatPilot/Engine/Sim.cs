@@ -66,6 +66,9 @@ public sealed class Sim
         var s = new Sim
         {
             GcdReadyAt = g.GcdRemaining,
+            // When the last GCD went out, from the game's GCD timer. Without it every real weave looked
+            // "too long after the GCD" and Stardiver was never allowed (seen live: once in 12 minutes).
+            LastGcdAt = g.GcdRemaining > 0.01 ? g.GcdRemaining - g.GcdLength : -10,
             LockUntil = g.AnimationLock,
             Gauge = g.Gauge,
             Mp = g.Mp,

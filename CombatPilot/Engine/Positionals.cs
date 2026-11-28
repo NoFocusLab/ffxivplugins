@@ -24,7 +24,7 @@ public sealed class PositionInfo
     public string Note = "";
 
     public bool Satisfied(string positional, double t) =>
-        Omni || SafeSide == positional || (positional == "rear" ? RearEta : FlankEta) <= t;
+        Omni || SafeSide == positional || (positional == "rear" ? RearEta : FlankEta) + 0.4 <= t; // 0.4 s spare
 }
 
 /// <summary>
@@ -75,9 +75,9 @@ public static class Positionals
     /// [Estimate] Degrees to stay inside a zone's edge. Seen live: Chaotic Spring from -108° to -127°
     /// (flank, just short of the rear's 135°) after auto-move called "close enough" by distance.
     /// </summary>
-    public const double Margin = 15;
+    public const double Margin = 20;
 
-    /// <summary>The side you're on with the margin: rear beyond 150°, flank 60-120°, front under 30°, else "edge".</summary>
+    /// <summary>The side you're on with the margin: rear beyond 155°, flank 65-115°, front under 25°, else "edge".</summary>
     public static string SafeSideOf(Vector3 point, IGameObject target)
     {
         var a = AngleOf(point, target);

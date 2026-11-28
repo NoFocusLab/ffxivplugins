@@ -203,7 +203,7 @@ public static class Planner
             var lockFor = a.Def.AnimationLock > 0 ? a.Def.AnimationLock : Sim.OgcdLock;
             // A long animation (Stardiver) only as the first weave after a GCD, never after another
             // oGCD (seen live: Geirskogul + Stardiver pushed the next GCD back ~0.8 s, 11 times in 9 min).
-            if (a.Def.AnimationLock > Sim.OgcdLock && at > w0.LastGcdAt + Sim.GcdLock + 0.15) continue;
+            if (a.Def.AnimationLock > Sim.OgcdLock && at > w0.LastGcdAt + Sim.GcdLock + 0.45) continue;
             if (!Usable(w0, a, job, set)) continue;
             if (a.Def.Potency > 0 && nearNow && (!g.HasTarget || !Reaches(a, g, set))) continue;
             if (a.Def.Potency > 0 && !g.HasTarget) continue;
