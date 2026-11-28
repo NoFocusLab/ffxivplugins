@@ -18,15 +18,29 @@ namespace CombatPilot.Engine;
 public static class HpHistory
 {
     private static readonly Dictionary<ulong, Queue<(DateTime At, uint Hp)>> samples = new();
+    private static readonly HashSet<ulong> refills = new();
     private const double Window = 6;
 
-    public static double Ttk(ulong id, uint hp, uint maxHp)
+    /// <summary>
+    /// Training dummies, by BNpcName id (every "dummy" in the game data, 7.x): their HP refills, so a
+    /// time to kill means nothing. 541 "striking dummy" (cities, inns, houses, Wolves' Den),
+    /// 13078 "timeworn striking dummy".
+    /// </summary>
+    public static readonly HashSet<uint> DummyNames = new() { 541, 13078 };
+
+    /// <summary>A dummy (by name, or any target whose HP jumped back up by 10%+): never dies.</summary>
+    public static bool NeverDies(ulong id, uint nameId) => DummyNames.Contains(nameId) || refills.Contains(id);
+
+    public static double Ttk(ulong id, uint nameId, uint hp, uint maxHp)
     {
+        if (DummyNames.Contains(nameId) || refills.Contains(id)) return 999;
         var now = DateTime.UtcNow;
         if (!samples.TryGetValue(id, out var q)) samples[id] = q = new();
+        // HP jumped back up (a dummy we don't know by name, or a full heal): no time to kill for it.
+        if (q.Count > 0 && hp > q.Last().Hp + maxHp / 10) { refills.Add(id); q.Clear(); return 999; }
         if (q.Count == 0 || (now - q.Last().At).TotalSeconds >= 0.25) q.Enqueue((now, hp));
         while (q.Count > 0 && (now - q.Peek().At).TotalSeconds > Window) q.Dequeue();
-        if (samples.Count > 200) samples.Clear();
+        if (samples.Count > 200) { samples.Clear(); refills.Clear(); }
         var first = q.Peek();
         var dt = (now - first.At).TotalSeconds;
         if (dt < 1.5 || first.Hp <= hp) return 999;
@@ -66,7 +80,7 @@ public sealed partial class GameState
             if (Invulnerable(n)) continue;
             var inCombat = (n.StatusFlags & StatusFlags.InCombat) != 0;
             var info = new EnemyInfo(n.GameObjectId, n.Name.TextValue, n.Position, n.HitboxRadius, inCombat, isTarget,
-                HpHistory.Ttk(n.GameObjectId, n.CurrentHp, n.MaxHp));
+                HpHistory.Ttk(n.GameObjectId, n.NameId, n.CurrentHp, n.MaxHp));
             if (isTarget) s.TargetTtk = info.Ttk;
             others.Add((info, inCombat || isTarget));
         }
