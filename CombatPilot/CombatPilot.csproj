@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Dalamud.NET.Sdk/15.0.0">
   <PropertyGroup>
-    <Version>0.14.4.0</Version>
+    <Version>0.14.5.0</Version>
     <Author>NoFocusLab</Author>
     <Name>Combat Pilot</Name>
     <Punchline>Your own damage rotation: plans a few GCDs ahead from what's happening now and re-plans every GCD.</Punchline>

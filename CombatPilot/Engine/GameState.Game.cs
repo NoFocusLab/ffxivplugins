@@ -272,7 +272,11 @@ public sealed partial class GameState
             foreach (var a in job.Actions)
             {
                 if (a.IsItem) continue;
-                if (ActionManager.GetActionInRangeOrLoS(a.Id, src, dst) == 0) s.InRange.Add(a.Id);
+                var rc = ActionManager.GetActionInRangeOrLoS(a.Id, src, dst);
+                // 562 "not in line of sight" is also what the game says while you face away (auto-move
+                // walking to a positional). The Pilot turns to the target before pressing, so up close it
+                // counts as in range (seen live: melee GCDs dropped mid-walk, Death Blossom 9x in 7.5 min).
+                if (rc == 0 || (rc == 562 && reach <= 6)) s.InRange.Add(a.Id);
                 // Pressed on yourself but hits through later buttons (Ten Chi Jin: Fuma, Raiton, Suiton):
                 // the game's range check on the self-cast button always says no, so the planner never
                 // started it (seen live: Ten Chi Jin "next" for 2.5 min, used once in 6 min). Ninjutsu reach 25 y.
