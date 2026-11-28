@@ -20,6 +20,8 @@ public sealed class Decision
     public Dictionary<string, double> RootDamage = new();
     public List<string> Path = new();
     public string? Error;
+    /// <summary>Something the planner refused at the root and why (logged as a note).</summary>
+    public string? Guard;
     /// <summary>What the planner saw (combo, tracked buffs and timers, gauge, MP), for the log.</summary>
     public string State = "";
     public DateTime MadeAt = DateTime.UtcNow;
@@ -73,12 +75,15 @@ public static class Planner
     /// <summary>[Estimate] seconds a proc needs left to count as usable later (2 GCDs).</summary>
     private const double ExpirySafety = 5.0;
 
+    [ThreadStatic] private static string? guardNote;
+
     private const string Skip = "(skip)";
     private const string Hold = "(hold)";
 
     public static Decision Decide(GameState g, JobBinding job, PlannerSettings set, bool forGcd)
     {
         var decision = new Decision { ForGcd = forGcd };
+        guardNote = null;
         try
         {
             var start = Sim.From(g);
@@ -121,6 +126,7 @@ public static class Planner
             decision.Path = best.Sim.Path;
             decision.Label = best.Root;
             decision.Action = job.ByName.GetValueOrDefault(best.Root);
+            decision.Guard = guardNote;
         }
         catch (Exception ex)
         {
@@ -182,6 +188,16 @@ public static class Planner
                 if (nearNow && (!g.HasTarget || !Reaches(a, g, set))) continue;
                 // A hard cast can't start while you're moving.
                 if (nearNow && g.PlayerMoving && at0.CastFor(a) > 0) continue;
+                // A weaker area GCD that hits only your target while a stronger single-target GCD reaches
+                // it is never right (seen live: Death Blossom 10x in 5 min on one dummy, chosen by the
+                // Pilot itself). Only plain fillers: procs and buffed area hits (Primal Rend, Confiteor) stay; the simulator caught both.
+                if (nearNow && a.IsAoe && a.Def.Requires.Count == 0 && a.Def.Boosts.Count == 0 && Hits(a, g, set, at0.T) <= 1 &&
+                    job.Actions.Any(x => x.IsGcd && !x.IsAoe && x.Def.Potency > a.Def.Potency && x.Def.Sequence == null &&
+                                         Usable(at0, x, job, set) && Reaches(x, g, set)))
+                {
+                    guardNote = $"held {a.Name}: hits 1 (target ttk {(g.TargetTtk >= 999 ? "none" : g.TargetTtk.ToString("0.0"))}s)";
+                    continue;
+                }
                 if (a.Def.CastOnlyAtRange && at0.CastFor(a) > 0 &&
                     (!nearNow || job.Actions.Any(x => x.IsGcd && !x.Def.Ranged && !x.Def.RangedOk && Reaches(x, g, set)))) continue;
                 var c = at0.Clone();

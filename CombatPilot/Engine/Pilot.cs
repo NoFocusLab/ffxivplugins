@@ -281,7 +281,13 @@ public sealed unsafe class Pilot : IDisposable
             if (forGcd && g.GcdRemaining <= 0.05) SafePress(g);
             return;
         }
-        if (d.Action != null) { Press(d.Action, g); return; }
+        if (d.Action != null)
+        {
+            // Log the decision that actually pressed the GCD, not a later re-plan of the same slot
+            // (Death Blossom was pressed by one plan, then logged against the next one).
+            if (Press(d.Action, g) && forGcd) pressedGcd = d;
+            return;
+        }
         if (forGcd) CheckStall(g);
     }
 
@@ -504,7 +510,7 @@ public sealed unsafe class Pilot : IDisposable
                 var used = Sequence.TakeFinished() ?? NameOf(gcd->ActionId);
                 // A GCD we didn't ask for (seen live: Death Blossom 6x in 6 min on a single dummy):
                 // say what the Pilot last pressed, so the next log shows whether it was us or something else.
-                if (pendingGcd?.Label is { } want && want != used && Job.ByName.TryGetValue(used, out var ua0) && ua0.Def.Sequence == null)
+                if ((pressedGcd ?? pendingGcd)?.Label is { } want && want != used && Job.ByName.TryGetValue(used, out var ua0) && ua0.Def.Sequence == null)
                 {
                     var (pn, pid, pat) = lastGcdPress;
                     Log.Note($"{Log.FightTime:0.0}s: {used} (#{gcd->ActionId}) went out; wanted {want}; Pilot last pressed " +
@@ -521,8 +527,8 @@ public sealed unsafe class Pilot : IDisposable
                     var tn = pme.StatusList.Any(st => st.StatusId != 0 && StatusNames.Of(st.StatusId) == Job.Def.TrueNorthStatus);
                     Log.Positional(used, need, Positionals.AngleOf(pme.Position, pt), tn);
                 }
-                Record(pendingGcd, used, true);
-                pendingGcd = null;
+                Record(pressedGcd ?? pendingGcd, used, true);
+                pendingGcd = pressedGcd = null;
                 // The weave window before this GCD is over.
                 if (pendingWeave != null && !weaveUsedThisWindow) Record(pendingWeave, "(nothing)", false);
                 pendingWeave = null;
@@ -569,6 +575,7 @@ public sealed unsafe class Pilot : IDisposable
     }
 
     private string heldWanted = "";
+    private Decision? pressedGcd;
     private (string Name, uint Id, DateTime At) lastGcdPress = ("", 0, DateTime.MinValue);
 
     private void Record(Decision? d, string actual, bool gcd)
@@ -612,6 +619,7 @@ public sealed unsafe class Pilot : IDisposable
             if (job.Def.Statuses.ContainsKey(name) || job.Actions.Any(a => a.Def.Dot?.Status == name) || name == job.Def.TrueNorthStatus)
                 parts.Add(v.Stacks > 1 ? $"{name} x{v.Stacks} {v.Left:0}s" : $"{name} {v.Left:0}s");
         if (job.Def.Gauge != null) parts.Add($"gauge {g.Gauge}");
+        if (g.TargetTtk < 999) parts.Add($"ttk {g.TargetTtk:0}s");
         if (job.Def.MpValue > 0) parts.Add($"MP {g.Mp}");
         if (g.Position is { Omni: false } pos) parts.Add($"at {pos.Side}");
         return string.Join("; ", parts);
@@ -628,7 +636,7 @@ public sealed unsafe class Pilot : IDisposable
     {
         if (!wasInFight) return;
         wasInFight = false;
-        pendingGcd = pendingWeave = null;
+        pendingGcd = pendingWeave = pressedGcd = null;
         SafeMode = false;
         stallSince = safeSince = null;
         Party.EndFight();
