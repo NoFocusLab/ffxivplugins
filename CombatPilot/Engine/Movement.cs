@@ -60,6 +60,35 @@ public sealed class BossModAi
 /// </summary>
 public sealed class Mover
 {
+    private readonly ICallGateSubscriber<bool> getAlignCamera = Plugin.PluginInterface.GetIpcSubscriber<bool>("vnavmesh.Path.GetAlignCamera");
+    private readonly ICallGateSubscriber<bool, object> setAlignCamera = Plugin.PluginInterface.GetIpcSubscriber<bool, object>("vnavmesh.Path.SetAlignCamera");
+    /// <summary>vnavmesh's own "align camera to movement" before we turned it off (null: we didn't).</summary>
+    private bool? savedAlignCamera;
+
+    /// <summary>
+    /// vnavmesh can swing the camera toward wherever it walks; with Combat Pilot turning you back to
+    /// the target before each press, the camera whipped back and forth. Off while we auto-move;
+    /// your setting comes back when Combat Pilot stops moving you.
+    /// </summary>
+    private void CameraStill()
+    {
+        if (savedAlignCamera != null) return;
+        try
+        {
+            var was = getAlignCamera.InvokeFunc();
+            if (was) setAlignCamera.InvokeAction(false);
+            savedAlignCamera = was;
+        }
+        catch (Exception) { }
+    }
+
+    public void RestoreCamera()
+    {
+        if (savedAlignCamera is not { } was) return;
+        try { if (was) setAlignCamera.InvokeAction(true); } catch (Exception) { }
+        savedAlignCamera = null;
+    }
+
     private readonly ICallGateSubscriber<Vector3, bool, float, bool> moveCloseTo =
         Plugin.PluginInterface.GetIpcSubscriber<Vector3, bool, float, bool>("vnavmesh.SimpleMove.PathfindAndMoveCloseTo");
     private readonly ICallGateSubscriber<object> stop = Plugin.PluginInterface.GetIpcSubscriber<object>("vnavmesh.Path.Stop");
@@ -104,6 +133,7 @@ public sealed class Mover
         lastPos = me.Position;
         lastPosAt = now;
 
+        if (!allowed) RestoreCamera();
         if (!allowed || g == null || !g.HasTarget) { Halt(allowed ? "" : Status == "" ? "" : "off"); return; }
         if (Bmr.MechanicSpot() is { } m) { Halt("BossMod is handling a mechanic"); Reason = $"mechanic at {Vector3.Distance(me.Position, m):0.0}y"; return; }
         if (Bmr.SpecialIn() < 3) { Halt("special mechanic coming: holding"); return; }
@@ -129,6 +159,7 @@ public sealed class Mover
         {
             try
             {
+                CameraStill();
                 if (moveCloseTo.InvokeFunc(pick.Value, false, 0.3f))
                 {
                     if (!Moving) startedAt = now;

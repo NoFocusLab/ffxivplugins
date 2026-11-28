@@ -31,8 +31,8 @@ Balance's standard (4th GCD Kunai's Bane), mudras from -2.4 s so Suiton lands at
 
 **RSR and facing:** while a job is Live (paused included), RotationSolver is **unloaded** with
 Dalamud's temporary disable, so it can't switch itself on for a countdown or when attacked. It's loaded
-again (and started, if "turn it back on" is set) when you leave Live, when Combat Pilot closes, or when
-the game restarts; your saved plugin list isn't changed, so Settings Sync doesn't copy it to other PCs.
+again when you leave Live, when Combat Pilot closes, or when the game restarts, and it comes back
+**off** (Combat Pilot never starts RSR's rotation: you do); your saved plugin list isn't changed, so Settings Sync doesn't copy it to other PCs.
 (Unticking "Unload" falls back to turning it off every time it switches on.) Before any action on the
 target, Combat Pilot stops auto-move if it's walking, turns you to face the target (the game's own
 auto-face) and then presses; auto-move then stays put for a moment (0.35 s) instead of
@@ -40,6 +40,10 @@ walking straight off facing away. While Live and standing still in combat it kee
 target; if the game's auto-face doesn't turn you within half a second, it sets your facing directly.
 True North is only used when walking won't do: not at all while auto-move can reach both the rear and
 the flank safely within a GCD; otherwise (auto-move off, a spot unsafe or too far) as the planner sees fit.
+
+**Camera:** while auto-move walks, vnavmesh's "align camera to movement direction" is switched off
+(your setting is restored afterwards), and standing still you're only turned to the target when you're
+more than 90° off it, so the camera stays put instead of swinging between the walk and the target.
 
 **MP:** a resource like gauge. Costs come from the game (or the job file when a trait changes them),
 MP comes back from natural regen ([Estimate] 200 per 3 s), actions that restore it (Riot Blade, Expiacion)

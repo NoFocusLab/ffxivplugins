@@ -322,7 +322,7 @@ public sealed class MainWindow : Window
             if (ImGui.IsItemHovered()) ImGui.SetTooltip("Turned off when you go Live, and again whenever it switches itself back on: checked every frame.");
         }
         b = C.HandBackToRsr;
-        if (ImGui.Checkbox("Turn RotationSolver back on for jobs that aren't Live", ref b)) { C.HandBackToRsr = b; changed = true; }
+        if (ImGui.Checkbox("Load RotationSolver again when you leave Live (it stays off: you start it)", ref b)) { C.HandBackToRsr = b; changed = true; }
         b = C.ShowOverlay;
         if (ImGui.Checkbox("Show the small status panel", ref b)) plugin.SetOverlay(b);
 

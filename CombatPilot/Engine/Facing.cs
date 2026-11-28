@@ -55,7 +55,8 @@ public static unsafe class Facing
         var now = DateTime.UtcNow;
         if ((now - lastKeep).TotalSeconds < 0.3) return;
         lastKeep = now;
-        if (OffBy(me, target) < 50) { turnedAt = DateTime.MinValue; return; }
+        // Only when clearly turned away (auto-attacks need the target in front); fewer turns = calmer camera.
+        if (OffBy(me, target) < 90) { turnedAt = DateTime.MinValue; return; }
         if (turnedAt == DateTime.MinValue || (now - turnedAt).TotalSeconds > 2)
         {
             _ = Face(target);

@@ -71,7 +71,8 @@ public sealed unsafe class Pilot : IDisposable
     public void Dispose()
     {
         Plugin.Framework.Update -= OnUpdate;
-        rsr.Reload(config.HandBackToRsr); // never leave RSR unloaded behind us
+        rsr.Reload(); // never leave RSR unloaded behind us (it comes back off)
+        Mover.RestoreCamera();
         Log.End();
     }
 
@@ -621,8 +622,9 @@ public sealed unsafe class Pilot : IDisposable
     /// <summary>Leaving Live: load RSR again if we unloaded it (and start it if we'd stopped it).</summary>
     private void HandBackRsr()
     {
-        if (rsr.WeUnloaded) { rsr.Reload(config.HandBackToRsr); return; }
-        if (config.HandBackToRsr) rsr.HandBack();
+        // RSR comes back loaded and OFF: Combat Pilot never starts its rotation.
+        if (rsr.WeUnloaded) { if (config.HandBackToRsr) rsr.Reload(); return; }
+        rsr.HandBack();
     }
 
     public int RsrUnloads => rsr.TimesUnloaded;

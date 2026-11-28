@@ -126,8 +126,9 @@ public sealed class RsrBridge
     }
 
     /// <summary>Load RSR again if we unloaded it; autoOn: then start its rotation (hand back).</summary>
-    public void Reload(bool autoOn)
+    public void Reload(bool autoOn = false)
     {
+        autoOn = false; // seen live: "/rotation auto" after reloading made RSR pick a target and attack
         if (unloadedName == null) return;
         Plugin.CommandManager.ProcessCommand($"/xlenableplugintemp \"{unloadedName}\"");
         Plugin.Log.Information($"[Pilot] RotationSolver loaded again ({unloadedName})");
@@ -136,13 +137,8 @@ public sealed class RsrBridge
         autoAfterReload = autoOn;
     }
 
-    /// <summary>Every frame: once a reloaded RSR is up, turn its rotation on (when handing back).</summary>
-    public void Tick()
-    {
-        if (!autoAfterReload || !Loaded || (DateTime.UtcNow - reloadedAt).TotalSeconds < 3) return;
-        autoAfterReload = false;
-        Plugin.CommandManager.ProcessCommand("/rotation auto");
-    }
+    /// <summary>Kept for the frame loop; RSR is never started by Combat Pilot (it comes back loaded and off).</summary>
+    public void Tick() { }
 
     public void TurnOff()
     {
@@ -181,10 +177,6 @@ public sealed class RsrBridge
         Plugin.Log.Debug("[Pilot] RSR switched itself on: turned it off again");
     }
 
-    public void HandBack()
-    {
-        if (!WeTurnedItOff || !Loaded) return;
-        Plugin.CommandManager.ProcessCommand("/rotation auto");
-        WeTurnedItOff = false;
-    }
+    /// <summary>Leaving Live after only turning RSR off: leave it off (you start it yourself).</summary>
+    public void HandBack() => WeTurnedItOff = false;
 }
