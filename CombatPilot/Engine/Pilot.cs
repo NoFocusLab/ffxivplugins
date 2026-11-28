@@ -499,6 +499,10 @@ public sealed unsafe class Pilot : IDisposable
         if (gcd != null && gcd->IsActive)
         {
             var restarted = gcd->ActionId != lastGcdAction ? gcd->Elapsed < 0.5f : gcd->Elapsed + 0.05f < lastGcdElapsed;
+            // The same GCD seen twice: the timer's action changes from Ninjutsu to the ninjutsu it became
+            // right after it starts (seen live: Hyosho Ranryu counted twice in the report).
+            if (restarted && (DateTime.UtcNow - lastGcdSeenAt).TotalSeconds < 0.6) restarted = false;
+            if (restarted) lastGcdSeenAt = DateTime.UtcNow;
             if (restarted)
             {
                 if (Sequence.Running)
@@ -545,10 +549,13 @@ public sealed unsafe class Pilot : IDisposable
         }
 
         ogcds:
+        var seenIds = new HashSet<uint>();
         foreach (var a in Job.Actions)
         {
             if (a.IsGcd || a.IsItem || a.CooldownGroup < 0) continue;
             var id = am->GetAdjustedActionId(a.Id);
+            // Two entries on one button (Imperator and Blade of Honor) are one use, not two.
+            if (!seenIds.Add(id)) { lastCd[a.CooldownGroup] = ((int)am->GetCurrentCharges(id), am->GetRecastTimeElapsed(ActionType.Action, id)); continue; }
             var charges = (int)am->GetCurrentCharges(id);
             var elapsed = am->GetRecastTimeElapsed(ActionType.Action, id);
             if (lastCd.TryGetValue(a.CooldownGroup, out var prev))
@@ -576,6 +583,7 @@ public sealed unsafe class Pilot : IDisposable
 
     private string heldWanted = "";
     private Decision? pressedGcd;
+    private DateTime lastGcdSeenAt = DateTime.MinValue;
     private (string Name, uint Id, DateTime At) lastGcdPress = ("", 0, DateTime.MinValue);
 
     private void Record(Decision? d, string actual, bool gcd)
@@ -627,6 +635,7 @@ public sealed unsafe class Pilot : IDisposable
         {
             var ring = System.Numerics.Vector2.Distance(new(me.Position.X, me.Position.Z), new(tg.Position.X, tg.Position.Z)) - tg.HitboxRadius - me.HitboxRadius;
             parts.Add($"facing {Facing.OffBy(me, tg):0}° off; {(g.PlayerMoving ? "moving" : "still")}; {ring:0.0} y from ring");
+            if (g.Enemies.Count > 1) parts.Add($"{g.Enemies.Count} enemies near");
         }
         if (job.Def.MpValue > 0) parts.Add($"MP {g.Mp}");
         if (g.Position is { Omni: false } pos) parts.Add($"at {pos.Side}");

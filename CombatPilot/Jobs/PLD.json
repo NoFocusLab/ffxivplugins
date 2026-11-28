@@ -29,6 +29,7 @@
     {
       "name": "Royal Authority",
       "potency": 200, "comboFrom": "Riot Blade", "comboPotency": 460,
+      "consumes": [ "Supplication Ready", "Sepulchre Ready" ],
       "grants": [
         { "status": "Divine Might", "duration": 30, "comboOnly": true, "minLevel": 64 },
         { "status": "Atonement Ready", "duration": 30, "comboOnly": true, "minLevel": 76 }

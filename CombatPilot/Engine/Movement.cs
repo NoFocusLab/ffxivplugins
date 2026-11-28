@@ -209,7 +209,9 @@ public sealed class Mover
             (anchor == null || r.AnchorRange <= 0 || Vector3.Distance(Flat(p), Flat(anchor.Position)) <= r.AnchorRange);
 
         var melee = r.TargetRange <= 3.5f;
-        var d = Vector3.Distance(Flat(me.Position), Flat(target.Position));
+        // Ring to ring (yours and the target's), the same measure as the log and the game's range.
+        var mr = me.HitboxRadius;
+        var d = Vector3.Distance(Flat(me.Position), Flat(target.Position)) - mr;
         var fromRing = d - tr;                          // + outside the ring, - inside it
         var innerR = Math.Max(0.3f, tr * (1 - r.InnerShare)); // closest to the centre we ever stand
         var restR = Math.Clamp(d, tr + r.RestNear, tr + r.RestFar);
@@ -222,7 +224,7 @@ public sealed class Mover
             var right = new Vector3(facing.Z, 0, -facing.X);
             var dir = need == "rear" ? -facing
                 : Vector3.Dot(me.Position - target.Position, right) >= 0 ? right : -right;
-            Vector3 At(float radius) => target.Position + dir * radius;
+            Vector3 At(float radius) => target.Position + dir * (radius + mr);
             double Eta(Vector3 p) => Vector3.Distance(Flat(p), Flat(me.Position)) / Positionals.RunSpeed + 0.35;
             var spot = At(restR);
             var cut = false;
@@ -273,7 +275,8 @@ public sealed class Mover
         }
         else if (Rules(me.Position, r.TargetRange)) { reason = "in range"; return null; }
         var stand = melee ? (r.RestNear + r.RestFar) / 2 : Math.Max(0.5f, Math.Min(r.TargetRange - 0.5f, r.TargetRange * 0.8f));
-        var candidates = Ring(target.Position, tr + stand, tr + stand, 16)
+        var ringR = tr + stand + (melee ? mr : 0);
+        var candidates = Ring(target.Position, ringR, ringR, 16)
             .Where(p => Rules(p, r.TargetRange) && Ok(p))
             .OrderBy(p => Vector3.Distance(Flat(p), Flat(me.Position)))
             .ToList();
