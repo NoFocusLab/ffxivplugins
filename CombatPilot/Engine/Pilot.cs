@@ -536,8 +536,11 @@ public sealed unsafe class Pilot : IDisposable
                              (pn.Length == 0 ? "nothing" : $"{pn} (#{pid}) {(DateTime.UtcNow - pat).TotalSeconds:0.00}s before"));
                 }
                 Opener.OnGcdUsed(used);
-                // A sequence finishes after its mudras (~0.6 s each [Estimate]): not a gap.
-                var allow = (LastState?.GcdLength ?? 2.5) + (Job.ByName.TryGetValue(used, out var sq) && sq.Def.Sequence is { } steps ? 0.6 * (steps.Count - 1) : 0);
+                // A sequence is logged when the GCD after it starts, so its own time is not a gap: mudras
+                // 0.5 s each plus the ninjutsu's 1.5 s (its gcdTime). Checked against the game log: Suiton
+                // 5.1 s after the GCD before it is perfect play, not 1 s lost.
+                var allow = (LastState?.GcdLength ?? 2.5) + (Job.ByName.TryGetValue(used, out var sq) && sq.Def.Sequence is { } steps
+                    ? (sq.Def.GcdTime > 0 ? sq.Def.GcdTime : 0.5 * (steps.Count - 1) + 1.5) + 0.1 : 0);
                 Log.Used(used, true, allow);
                 // Positional: judged where you stand as it goes out (the report's landed/missed).
                 if (Job.ByName.TryGetValue(used, out var ua) && ua.Def.Positional is { } need &&

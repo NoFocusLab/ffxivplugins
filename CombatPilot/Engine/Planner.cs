@@ -195,9 +195,12 @@ public static class Planner
             {
                 if (!a.IsGcd) continue;
                 if (!Usable(at0, a, job, set)) continue;
-                if (nearNow && set.CommittedFinisher is { } cf && a.Def.Positional != null && a.Name != cf &&
+                // Until the committed finisher is placed, the whole plan keeps to it (auto-move walks by the
+                // plan: committing only the first move let it walk to the other side, 8 Armor Crush misses).
+                if (set.CommittedFinisher is { } cf && a.Def.Positional != null && a.Name != cf &&
+                    !s.Path.Any(p => job.ByName.TryGetValue(p, out var x) && x.Def.Positional != null) &&
                     job.ByName.TryGetValue(cf, out var cfa) && Usable(at0, cfa, job, set))
-                { excluded?.Add($"{a.Name}: committed to {cf}"); continue; }
+                { if (nearNow) excluded?.Add($"{a.Name}: committed to {cf}"); continue; }
                 if (nearNow && (!g.HasTarget || !Reaches(a, g, set))) { excluded?.Add($"{a.Name}: {(g.HasTarget ? "can't reach" : "no target")}"); continue; }
                 // A hard cast can't start while you're moving.
                 if (nearNow && g.PlayerMoving && at0.CastFor(a) > 0) { excluded?.Add($"{a.Name}: moving"); continue; }
