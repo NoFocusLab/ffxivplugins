@@ -30,6 +30,7 @@ public sealed class Plugin : IDalamudPlugin
 
     private readonly WindowSystem windowSystem = new("CombatRecorder");
     private readonly ConfigWindow configWindow;
+    private readonly Dalamud.Plugin.Ipc.ICallGateProvider<uint, double[]> dpsIpc;
 
     public Plugin()
     {
@@ -45,6 +46,14 @@ public sealed class Plugin : IDalamudPlugin
         {
             HelpMessage = "Settings. /crec mark <note> (flag this moment for review) | on | off | stop (close the current file) | meter (show/hide the DPS meter) | meter move (position mode: show it now to move/resize) | reset (clear the meter)",
         });
+        // For Combat Pilot's end-of-fight report: [damage, seconds] for a player (entity id) in the
+        // running encounter, or the last one if none is running. Empty if they weren't in it.
+        dpsIpc = PluginInterface.GetIpcProvider<uint, double[]>("CombatRecorder.Damage");
+        dpsIpc.RegisterFunc(id =>
+        {
+            var e = Meter.Current ?? (Meter.History.Count > 0 ? Meter.History[0] : null);
+            return e != null && e.Players.TryGetValue(id, out var c) ? new double[] { c.Damage, e.Seconds } : System.Array.Empty<double>();
+        });
         PluginInterface.UiBuilder.Draw += windowSystem.Draw;
         PluginInterface.UiBuilder.OpenConfigUi += configWindow.Toggle;
         PluginInterface.UiBuilder.OpenMainUi += configWindow.Toggle;
@@ -52,6 +61,7 @@ public sealed class Plugin : IDalamudPlugin
 
     public void Dispose()
     {
+        dpsIpc.UnregisterFunc();
         PluginInterface.UiBuilder.Draw -= windowSystem.Draw;
         PluginInterface.UiBuilder.OpenConfigUi -= configWindow.Toggle;
         PluginInterface.UiBuilder.OpenMainUi -= configWindow.Toggle;

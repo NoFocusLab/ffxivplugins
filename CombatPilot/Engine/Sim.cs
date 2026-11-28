@@ -177,6 +177,10 @@ public sealed class Sim
     {
         var d = a.Def;
         var combo = d.Follows(Combo) && ComboUntil > T;
+        // "Only while X is up" is judged as the action starts, before it uses anything up (the
+        // third Fell Cleave in Inner Release spends the last stack and still grants Burgeoning Fury;
+        // found by the simulator: Primal Wrath never came up).
+        var upAtStart = d.Grants.Where(gr => gr.IfStatus != null).Select(gr => gr.IfStatus!).Where(Has).ToHashSet();
         var potency = combo && a.ComboPotency > 0 ? a.ComboPotency : a.Potency;
         Mp -= MpCostOf(a);
         // Walking could do this job (True North while auto-move can reach the rear or flank).
@@ -260,7 +264,7 @@ public sealed class Sim
         foreach (var g in d.Grants)
         {
             if (g.ComboOnly && !combo) continue;
-            if (g.IfStatus != null && !Has(g.IfStatus)) continue;
+            if (g.IfStatus != null && !upAtStart.Contains(g.IfStatus)) continue;
             if (g.MinLevel > job.Level) continue;
             if (g.Gauge != 0) Gauge = Math.Min(job.Def.Gauge?.Max ?? 100, Gauge + g.Gauge);
             if (g.Mp != 0) Mp = Math.Min(MaxMp, Mp + g.Mp);
@@ -300,6 +304,9 @@ public sealed class Sim
             else if (!d.KeepsCombo) Combo = null;
         }
 
+        // A press with nothing to gain shouldn't tie with not pressing (found by the simulator: True
+        // North used every time it was ready, for nothing). A token cost breaks the tie.
+        if (!a.IsGcd) Damage -= 0.1;
         Path.Add(d.Name);
         return dmg;
     }

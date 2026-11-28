@@ -15,6 +15,9 @@ public sealed class Decision
     public double Score;
     /// <summary>Best score reachable after each possible first move (label -> score).</summary>
     public Dictionary<string, double> RootScores = new();
+    /// <summary>The best sequence found after each first move (simulator traces, debugging).</summary>
+    public Dictionary<string, List<string>> RootPaths = new();
+    public Dictionary<string, double> RootDamage = new();
     public List<string> Path = new();
     public string? Error;
     /// <summary>What the planner saw (combo, tracked buffs and timers, gauge, MP), for the log.</summary>
@@ -106,7 +109,13 @@ public static class Planner
             }
 
             if (done.Count == 0) { decision.Error = "no sequence found"; return decision; }
-            foreach (var grp in done.GroupBy(d => d.Root)) decision.RootScores[grp.Key] = grp.Max(d => d.Score);
+            foreach (var grp in done.GroupBy(d => d.Root))
+            {
+                var top = grp.OrderByDescending(d => d.Score).First();
+                decision.RootScores[grp.Key] = top.Score;
+                decision.RootPaths[grp.Key] = top.Sim.Path;
+                decision.RootDamage[grp.Key] = top.Sim.Damage;
+            }
             var best = done.OrderByDescending(d => d.Score).First();
             decision.Score = best.Score;
             decision.Path = best.Sim.Path;
@@ -116,7 +125,7 @@ public static class Planner
         catch (Exception ex)
         {
             decision.Error = ex.Message;
-            Plugin.Log.Warning(ex, "Combat Pilot planner failed");
+            EngineLog.Warning(ex, "Combat Pilot planner failed");
         }
         return decision;
     }
@@ -141,6 +150,8 @@ public static class Planner
         if (set.Held.Contains(a.Name) || !c.Ready(a) || !c.Allowed(a, job)) return false;
         if (a.Def.AllyTarget && !set.HasPartner) return false;
         if (a.Def.PlanNever) return false;
+        // True North against a target with no positionals does nothing (found by the simulator).
+        if (a.Def.CostIfCanMove > 0 && c.Pos is { Omni: true }) return false;
         // True North: not while auto-move can reach both the rear and the flank safely within a GCD
         // (walking covers every positional; seen live: 17 uses in 8 min with auto-move on).
         if (a.Def.CostIfCanMove > 0 && c.Pos is { Omni: false } p && p.RearEta <= set.WalkWithin && p.FlankEta <= set.WalkWithin)
@@ -300,6 +311,10 @@ public static class Planner
         foreach (var (group, idle) in s.Idle)
         {
             if (idle <= 0 || !s.Cd.TryGetValue(group, out var cd)) continue;
+            // Only real cooldowns: a 1-second recast gated by gauge (Bhavacakra) "sits ready" most of
+            // the fight and charged ~400 potency a second (found by the simulator: it made every
+            // longer sequence, like Raiton into Fleeting Raiju, look ~1,900 potency worse).
+            if (cd.RecastPerCharge < 5) continue;
             var worth = job.Actions.Where(a => a.CooldownGroup == group).Select(a => ActionWorth(a, job)).DefaultIfEmpty(0).Max();
             v -= idle * worth / Math.Max(1, cd.RecastPerCharge);
         }
@@ -313,7 +328,12 @@ public static class Planner
         {
             w += gr.Gauge * (job.Def.Gauge?.ValuePerUnit ?? 0);
             if (gr.Status != null && job.Def.Statuses.TryGetValue(gr.Status, out var sd))
+            {
                 w += sd.TerminalValue * Math.Max(1, gr.Stacks);
+                // A damage window it opens is part of what it's worth (Kunai's Bane: +10% for 15 s;
+                // without this, a cooldown waiting on a setup looked cheap to leave idle).
+                if (sd.DamageMult > 1 && !sd.Maintained) w += (sd.DamageMult - 1) * job.Def.PotencyPerSecond * gr.Duration;
+            }
         }
         return w;
     }

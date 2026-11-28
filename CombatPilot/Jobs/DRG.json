@@ -107,7 +107,7 @@
       "grants": [ { "status": "Draconian Fire", "duration": 30, "comboOnly": true, "minLevel": 76 } ]
     },
     {
-      "name": "Life Surge",
+      "name": "Life Surge", "charges": 2,
       "requires": [ { "not": { "status": "Life Surge" } } ],
       "grants": [ { "status": "Life Surge", "duration": 5 } ]
     },

@@ -45,6 +45,18 @@ the flank safely within a GCD; otherwise (auto-move off, a spot unsafe or too fa
 (your setting is restored afterwards), and standing still you're only turned to the target when you're
 more than 90° off it, so the camera stays put instead of swinging between the walk and the target.
 
+**After-action report:** each fight also writes `fights/<time>-<job>.report.json`: DPS (from Combat
+Recorder, if loaded), GCD count and average, every gap longer than a GCD (what came before/after),
+positionals landed / missed / near the edge / under True North (judged where you stood as each one went
+out), and uses per minute. With Settings Sync this is all that's needed to review a run.
+
+**Offline simulator (CombatPilot.Sim):** the same planner, run against a modelled fight with action data
+from the public game tables (`tools/sim/build_action_data.py`, once per patch). CI runs every job's
+expectations (`CombatPilot.Sim/expect`) on each pull request; a failing check prints the planner's
+decisions, the alternatives it weighed, and when the counted actions went out. Fight timelines
+(`CombatPilot.Sim/fights`) model downtime, adds, out-of-melee windows and party buffs; per-fight tuning
+builds on them. `dotnet run --project CombatPilot.Sim -- run DRG [fight.json]` runs one job.
+
 **MP:** a resource like gauge. Costs come from the game (or the job file when a trait changes them),
 MP comes back from natural regen ([Estimate] 200 per 3 s), actions that restore it (Riot Blade, Expiacion)
 and MP-over-time buffs (Lucid Dreaming). The planner won't plan what you can't afford, and MP left at the

@@ -1,0 +1,66 @@
+{
+ "job": "NIN",
+ "seconds": 300,
+ "gcdLength": 2.12,
+ "maxLostGcdSeconds": 1.5,
+ "openerValid": true,
+ "perMinute": {
+  "Kunai's Bane": [
+   0.8,
+   1.25
+  ],
+  "Dokumori": [
+   0.4,
+   0.7
+  ],
+  "Kassatsu": [
+   0.8,
+   1.25
+  ],
+  "Hyosho Ranryu": [
+   0.8,
+   1.25
+  ],
+  "Ten Chi Jin": [
+   0.4,
+   0.7
+  ],
+  "Tenri Jindo": [
+   0.4,
+   0.7
+  ],
+  "Bunshin": [
+   0.6,
+   0.85
+  ],
+  "Phantom Kamaitachi": [
+   0.6,
+   0.85
+  ],
+  "Dream Within a Dream": [
+   0.8,
+   1.25
+  ],
+  "Meisui": [
+   0.4,
+   0.7
+  ],
+  "Raiton": [
+   1.4,
+   2.8
+  ],
+  "Suiton": [
+   0.5,
+   1.4
+  ],
+  "Fleeting Raiju": [
+   1.4,
+   3.2
+  ]
+ },
+ "neverTwiceInARow": [
+  "Gust Slash",
+  "Aeolian Edge",
+  "Armor Crush"
+ ]
+}

@@ -501,6 +501,14 @@ public sealed unsafe class Pilot : IDisposable
                 }
                 var used = Sequence.TakeFinished() ?? NameOf(gcd->ActionId);
                 Opener.OnGcdUsed(used);
+                Log.Used(used, true, LastState?.GcdLength ?? 2.5);
+                // Positional: judged where you stand as it goes out (the report's landed/missed).
+                if (Job.ByName.TryGetValue(used, out var ua) && ua.Def.Positional is { } need &&
+                    Plugin.TargetManager.Target is { } pt && Plugin.ObjectTable.LocalPlayer is { } pme && LastState?.Position is { Omni: false })
+                {
+                    var tn = pme.StatusList.Any(st => st.StatusId != 0 && StatusNames.Of(st.StatusId) == Job.Def.TrueNorthStatus);
+                    Log.Positional(used, need, Positionals.AngleOf(pme.Position, pt), tn);
+                }
                 Record(pendingGcd, used, true);
                 pendingGcd = null;
                 // The weave window before this GCD is over.
@@ -533,6 +541,7 @@ public sealed unsafe class Pilot : IDisposable
                     var det = am->GetRecastGroupDetail(am->GetRecastGroup((int)ActionType.Action, id));
                     var name = NameOf(det != null && det->ActionId != 0 ? det->ActionId : id);
                     Record(pendingWeave, name, false);
+                    Log.Used(name, false, 0);
                     pendingWeave = null;
                     weaveUsedThisWindow = true;
                 }
@@ -606,6 +615,14 @@ public sealed unsafe class Pilot : IDisposable
         Party.EndFight();
         Opener.Stop("ended (fight over)");
         Mover.Halt("");
+        // DPS for the report, from Combat Recorder (if it's loaded).
+        try
+        {
+            if (Plugin.ObjectTable.LocalPlayer is { } meNow &&
+                Plugin.PluginInterface.GetIpcSubscriber<uint, double[]>("CombatRecorder.Damage").InvokeFunc(meNow.EntityId) is { Length: 2 } dmg)
+                Log.SetDamage(dmg[0], dmg[1]);
+        }
+        catch (Exception) { }
         Log.End();
     }
 

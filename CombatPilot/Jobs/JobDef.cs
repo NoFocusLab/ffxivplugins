@@ -172,6 +172,8 @@ public sealed class ActionDef
     public ChargeUse? UsesCharge { get; set; }
     /// <summary>Statuses this uses one stack of (Fleeting Raiju: Raiju Ready).</summary>
     public List<string> ConsumesStack { get; set; } = new();
+    /// <summary>Charges at your level when the game data doesn't say (a trait adds them: Life Surge 2 at 88). Simulator only; in game the game knows.</summary>
+    public int Charges { get; set; }
     /// <summary>Number of hits at the tooltip's potency (Dream Within a Dream: 3).</summary>
     public int Hits { get; set; } = 1;
     /// <summary>Never chosen by the planner (mudras, the Ninjutsu button): only pressed as a step.</summary>
@@ -283,34 +285,4 @@ public sealed class Reduce
     public string Action { get; set; } = "";
     public double Seconds { get; set; }
     public int MinLevel { get; set; }
-}
-
-public static class JobLibrary
-{
-    private static List<JobDef>? all;
-
-    public static IReadOnlyList<JobDef> All => all ??= Load();
-
-    public static JobDef? For(string abbreviation) =>
-        All.FirstOrDefault(j => j.ClassJobs.Contains(abbreviation, StringComparer.OrdinalIgnoreCase));
-
-    private static List<JobDef> Load()
-    {
-        var list = new List<JobDef>();
-        var asm = Assembly.GetExecutingAssembly();
-        foreach (var name in asm.GetManifestResourceNames().Where(n => n.StartsWith("CombatPilot.Jobs.") && n.EndsWith(".json")))
-        {
-            try
-            {
-                using var stream = asm.GetManifestResourceStream(name)!;
-                using var reader = new StreamReader(stream);
-                if (JsonConvert.DeserializeObject<JobDef>(reader.ReadToEnd()) is { } def) list.Add(def);
-            }
-            catch (Exception ex)
-            {
-                Plugin.Log.Error(ex, $"Combat Pilot: couldn't read job file {name}");
-            }
-        }
-        return list;
-    }
 }

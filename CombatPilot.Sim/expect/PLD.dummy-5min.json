@@ -1,0 +1,69 @@
+{
+ "job": "PLD",
+ "seconds": 300,
+ "gcdLength": 2.5,
+ "maxLostGcdSeconds": 1.5,
+ "openerValid": true,
+ "perMinute": {
+  "Fight or Flight": [
+   0.8,
+   1.25
+  ],
+  "Imperator": [
+   0.8,
+   1.25
+  ],
+  "Confiteor": [
+   0.8,
+   1.25
+  ],
+  "Blade of Faith": [
+   0.8,
+   1.25
+  ],
+  "Blade of Truth": [
+   0.8,
+   1.25
+  ],
+  "Blade of Valor": [
+   0.8,
+   1.25
+  ],
+  "Blade of Honor": [
+   0.8,
+   1.25
+  ],
+  "Goring Blade": [
+   0.8,
+   1.25
+  ],
+  "Expiacion": [
+   1.6,
+   2.2
+  ],
+  "Circle of Scorn": [
+   1.6,
+   2.2
+  ],
+  "Atonement": [
+   1.6,
+   3.2
+  ],
+  "Supplication": [
+   1.6,
+   3.2
+  ],
+  "Sepulchre": [
+   1.6,
+   3.2
+  ],
+  "Holy Spirit": [
+   1.6,
+   3.2
+  ]
+ },
+ "neverTwiceInARow": [
+  "Riot Blade",
+  "Royal Authority"
+ ]
+}

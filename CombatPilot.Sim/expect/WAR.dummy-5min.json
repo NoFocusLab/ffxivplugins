@@ -1,0 +1,46 @@
+{
+ "job": "WAR",
+ "seconds": 300,
+ "gcdLength": 2.5,
+ "maxLostGcdSeconds": 1.5,
+ "openerValid": true,
+ "perMinute": {
+  "Inner Release": [
+   0.8,
+   1.25
+  ],
+  "Primal Rend": [
+   0.8,
+   1.25
+  ],
+  "Primal Ruination": [
+   0.8,
+   1.25
+  ],
+  "Primal Wrath": [
+   0.8,
+   1.25
+  ],
+  "Upheaval": [
+   1.6,
+   2.2
+  ],
+  "Infuriate": [
+   1.2,
+   2.4
+  ],
+  "Inner Chaos": [
+   1.2,
+   2.4
+  ],
+  "Onslaught": [
+   0.8,
+   2.2
+  ]
+ },
+ "neverTwiceInARow": [
+  "Maim",
+  "Storm's Path",
+  "Storm's Eye"
+ ]
+}

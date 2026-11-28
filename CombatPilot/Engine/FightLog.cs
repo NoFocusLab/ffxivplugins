@@ -25,6 +25,31 @@ public sealed class FightSummary
     public double Lost { get; set; }
     public int SafeModePresses { get; set; }
     public List<string> Notes { get; set; } = new();
+    /// <summary>What actually happened (written to fights/*.report.json too): the after-action report.</summary>
+    public FightReport Report { get; set; } = new();
+}
+
+/// <summary>
+/// The after-action report: everything needed to judge a run without the IINACT log. DPS comes from
+/// Combat Recorder (if loaded); the rest from what Combat Pilot saw go out.
+/// </summary>
+public sealed class FightReport
+{
+    public double Damage { get; set; }
+    public double Dps { get; set; }
+    public int Gcds { get; set; }
+    public double AverageGcd { get; set; }
+    /// <summary>GCD time lost: gaps longer than the GCD (+0.2 s), summed beyond the GCD.</summary>
+    public double LostGcdSeconds { get; set; }
+    public List<string> Gaps { get; set; } = new();
+    public int Positionals { get; set; }
+    public int PositionalsMissed { get; set; }
+    public int PositionalsUnderTrueNorth { get; set; }
+    /// <summary>Landed, but within 20° of the zone's edge.</summary>
+    public int PositionalsNearEdge { get; set; }
+    public List<string> PositionalMisses { get; set; } = new();
+    public Dictionary<string, double> PerMinute { get; set; } = new();
+    public Dictionary<string, int> Counts { get; set; } = new();
 }
 
 /// <summary>
@@ -55,6 +80,8 @@ public sealed class FightLog
         if (Current != null) return;
         startedAt = DateTime.UtcNow;
         CurrentDecisions.Clear();
+        lastGcdAt = -1;
+        gcdSum = 0;
         Current = new FightSummary { Start = DateTime.Now, Job = job, Mode = mode, Place = place };
     }
 
@@ -75,6 +102,55 @@ public sealed class FightLog
 
     public void SafeModePress() { if (Current != null) Current.SafeModePresses++; }
 
+    private double lastGcdAt = -1, gcdSum;
+    private string lastGcdName = "";
+
+    /// <summary>An action went out (seen by the Pilot).</summary>
+    public void Used(string name, bool gcd, double gcdLength)
+    {
+        if (Current == null) return;
+        var r = Current.Report;
+        r.Counts[name] = r.Counts.GetValueOrDefault(name) + 1;
+        if (!gcd) return;
+        var t = FightTime;
+        if (lastGcdAt >= 0)
+        {
+            var gap = t - lastGcdAt;
+            gcdSum += gap;
+            if (gap > gcdLength + 0.2 && gap < 60)
+            {
+                r.LostGcdSeconds += gap - gcdLength;
+                if (r.Gaps.Count < 40) r.Gaps.Add($"{lastGcdAt:0.0}s {lastGcdName} -> {name}: {gap:0.00}s");
+            }
+        }
+        r.Gcds++;
+        lastGcdAt = t;
+        lastGcdName = name;
+    }
+
+    /// <summary>A positional GCD went out: where you were (degrees from the target's front) and True North.</summary>
+    public void Positional(string name, string need, double angle, bool trueNorth)
+    {
+        if (Current == null) return;
+        var r = Current.Report;
+        r.Positionals++;
+        if (trueNorth) { r.PositionalsUnderTrueNorth++; return; }
+        var inside = need == "rear" ? angle - 135 : Math.Min(angle - 45, 135 - angle);
+        if (inside < 0)
+        {
+            r.PositionalsMissed++;
+            if (r.PositionalMisses.Count < 40) r.PositionalMisses.Add($"{FightTime:0.0}s {name}: needed {need}, at {angle:0}°");
+        }
+        else if (inside < 20) r.PositionalsNearEdge++;
+    }
+
+    public void SetDamage(double damage, double seconds)
+    {
+        if (Current == null || seconds <= 0) return;
+        Current.Report.Damage = damage;
+        Current.Report.Dps = damage / seconds;
+    }
+
     public void End()
     {
         if (Current == null) return;
@@ -83,6 +159,15 @@ public sealed class FightLog
         f.Seconds = (DateTime.UtcNow - startedAt).TotalSeconds;
         if (f.Seconds < 5 && f.Decisions == 0) return;
         f.File = $"{f.Start:yyyyMMdd-HHmmss}-{f.Job}.tsv";
+        var rep = f.Report;
+        if (rep.Gcds > 1) rep.AverageGcd = gcdSum / (rep.Gcds - 1);
+        foreach (var (k, v) in rep.Counts) rep.PerMinute[k] = Math.Round(v / Math.Max(1, f.Seconds) * 60, 2);
+        try
+        {
+            // The small after-action report, readable without the decision log or IINACT.
+            File.WriteAllText(Path.Combine(dir, Path.ChangeExtension(f.File, ".report.json")), JsonConvert.SerializeObject(f, Formatting.Indented));
+        }
+        catch (Exception ex) { Plugin.Log.Warning(ex, "Combat Pilot: couldn't write fight report"); }
         try
         {
             using var w = new StreamWriter(Path.Combine(dir, f.File));

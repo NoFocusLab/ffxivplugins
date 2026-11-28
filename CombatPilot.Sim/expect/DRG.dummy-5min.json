@@ -1,0 +1,82 @@
+{
+ "job": "DRG",
+ "seconds": 300,
+ "gcdLength": 2.5,
+ "maxLostGcdSeconds": 1.5,
+ "openerValid": true,
+ "perMinute": {
+  "Stardiver": [
+   0.8,
+   1.25
+  ],
+  "Starcross": [
+   0.8,
+   1.25
+  ],
+  "Geirskogul": [
+   0.8,
+   1.25
+  ],
+  "Nastrond": [
+   0.8,
+   1.25
+  ],
+  "Lance Charge": [
+   0.8,
+   1.25
+  ],
+  "High Jump": [
+   1.6,
+   2.2
+  ],
+  "Mirage Dive": [
+   1.6,
+   2.2
+  ],
+  "Battle Litany": [
+   0.4,
+   0.7
+  ],
+  "Dragonfire Dive": [
+   0.4,
+   0.7
+  ],
+  "Rise of the Dragon": [
+   0.4,
+   0.7
+  ],
+  "Heavens' Thrust": [
+   2.0,
+   2.6
+  ],
+  "Chaotic Spring": [
+   2.0,
+   3.0
+  ],
+  "Drakesbane": [
+   4.3,
+   5.0
+  ],
+  "Wyrmwind Thrust": [
+   1.8,
+   2.6
+  ],
+  "Life Surge": [
+   1.2,
+   1.8
+  ],
+  "True North": [
+   0,
+   0.3
+  ]
+ },
+ "neverTwiceInARow": [
+  "Fang and Claw",
+  "Wheeling Thrust",
+  "Heavens' Thrust",
+  "Chaotic Spring",
+  "Lance Barrage",
+  "Spiral Blow"
+ ],
+ "note": "Chaotic Spring up to 3/min: the planner refreshes the DoT inside 2-minute buffs (snapshot); [Assumption] a small real gain, check in game."
+}
