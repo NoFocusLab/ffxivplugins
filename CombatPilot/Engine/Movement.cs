@@ -76,7 +76,9 @@ public sealed class Mover
     public void PauseForAction(string what)
     {
         if (Moving) Halt("stopped to use " + what);
-        holdUntil = DateTime.UtcNow.AddSeconds(1.0);
+        // Long enough for the action to go out, short enough to walk in the weave window: a 1 s hold
+        // with a GCD and two weaves every 2.5 s never ended, so rear positionals were missed.
+        holdUntil = DateTime.UtcNow.AddSeconds(0.35);
     }
     private Vector3 dest, lastPos;
     private DateTime lastPosAt = DateTime.MinValue, youMovedAt;

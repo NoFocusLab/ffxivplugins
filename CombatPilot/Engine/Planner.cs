@@ -170,6 +170,7 @@ public static class Planner
                 var c = at0.Clone();
                 c.Apply(a, job, Hits(a, g, set, c.T), set.CritDhFactor, set.CritFactor);
                 c.GcdReadyAt = t + (a.Def.GcdTime > 0 ? a.Def.GcdTime : g.GcdLength);
+                c.LastGcdAt = t;
                 // Casting: no weaving until the cast (plus slide-cast margin) is done. Sequences
                 // (mudras): not until the last button.
                 c.LockUntil = t + Math.Max(Math.Max(Sim.GcdLock, a.Def.WeaveFrom), c.LastCast > 0 ? c.LastCast + 0.1 : 0);
@@ -200,6 +201,9 @@ public static class Planner
         {
             if (a.IsGcd) continue;
             var lockFor = a.Def.AnimationLock > 0 ? a.Def.AnimationLock : Sim.OgcdLock;
+            // A long animation (Stardiver) only as the first weave after a GCD, never after another
+            // oGCD (seen live: Geirskogul + Stardiver pushed the next GCD back ~0.8 s, 11 times in 9 min).
+            if (a.Def.AnimationLock > Sim.OgcdLock && at > w0.LastGcdAt + Sim.GcdLock + 0.15) continue;
             if (!Usable(w0, a, job, set)) continue;
             if (a.Def.Potency > 0 && nearNow && (!g.HasTarget || !Reaches(a, g, set))) continue;
             if (a.Def.Potency > 0 && !g.HasTarget) continue;
@@ -210,7 +214,7 @@ public static class Planner
             if (c.LockUntil > c.GcdReadyAt)
             {
                 // The horizon counts GCDs, so a late GCD would look free: charge the lost time.
-                c.Damage -= (c.LockUntil - c.GcdReadyAt) * job.Def.PotencyPerSecond;
+                c.Damage -= 2 * (c.LockUntil - c.GcdReadyAt) * job.Def.PotencyPerSecond; // x2: a late GCD drifts everything after it
                 c.GcdReadyAt = c.LockUntil;
             }
             var left = lockFor > Sim.OgcdLock ? 0 : n.WeavesLeft - 1;

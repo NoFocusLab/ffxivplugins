@@ -37,6 +37,8 @@ public sealed class Sim
     public Dictionary<int, double> Idle = new();
     public double Damage;
     public List<string> Path = new();
+    /// <summary>When the last GCD went out (a long-lock oGCD may only be the first weave after it).</summary>
+    public double LastGcdAt = -10;
     /// <summary>Cast time of the last action applied (0 = instant).</summary>
     public double LastCast;
 
@@ -55,7 +57,7 @@ public sealed class Sim
     public Sim Clone() => new()
     {
         statusDefs = statusDefs,
-        T = T, GcdReadyAt = GcdReadyAt, LockUntil = LockUntil, Gauge = Gauge, Mp = Mp, MaxMp = MaxMp, MpFloor = MpFloor, MpRegenPerTick = MpRegenPerTick, Combo = Combo, ComboUntil = ComboUntil,
+        T = T, GcdReadyAt = GcdReadyAt, LastGcdAt = LastGcdAt, LockUntil = LockUntil, Gauge = Gauge, Mp = Mp, MaxMp = MaxMp, MpFloor = MpFloor, MpRegenPerTick = MpRegenPerTick, Combo = Combo, ComboUntil = ComboUntil,
         Statuses = new(Statuses), PartyBuffs = PartyBuffs, Downtime = Downtime, Pos = Pos, Cd = new(Cd), Idle = new(Idle), Damage = Damage, Path = new(Path),
     };
 
