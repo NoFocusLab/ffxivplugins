@@ -275,13 +275,16 @@ public sealed partial class GameState
             {
                 if (a.IsItem) continue;
                 var rc = ActionManager.GetActionInRangeOrLoS(a.Id, src, dst);
-                // 562 "not in line of sight" is also what the game says while you face away (auto-move
-                // walking to a positional). The Pilot turns to the target before pressing, so it counts as
-                // in range when you're within the action's own range of the target's ring (melee: 3 y),
-                // however big the boss is (seen live: melee GCDs dropped mid-walk, Death Blossom 9x in 7.5 min).
+                // While you face away (auto-move walking to a positional) the game refuses melee actions
+                // with a "line of sight" (562) or "not in range" (565/566) code, even right next to the
+                // target. The Pilot turns to the target before pressing, so what counts is our own measure:
+                // ring to ring within the action's own range (melee 3 y). Seen live: melee GCDs dropped
+                // right after a positional move, Death Blossom 7-10x per run.
                 var rawRange = actions.GetRowOrDefault(a.Id) is { } row ? (int)row.Range : 0;
                 var range = rawRange > 0 ? rawRange : 3;
-                if (rc == 0 || (rc == 562 && reach <= range)) s.InRange.Add(a.Id);
+                if (rc == 0 || (rc is 562 or 565 or 566 && reach <= range)) s.InRange.Add(a.Id);
+                else if (!a.IsAoe && a.IsGcd && a.Def.Potency > 0 && s.RangeNote.Length == 0)
+                    s.RangeNote = $"{a.Name} out: code {rc}, {reach:0.0} y from ring";
                 // Pressed on yourself but hits through later buttons (Ten Chi Jin: Fuma, Raiton, Suiton):
                 // the game's range check on the self-cast button always says no, so the planner never
                 // started it (seen live: Ten Chi Jin "next" for 2.5 min, used once in 6 min). Ninjutsu reach 25 y.

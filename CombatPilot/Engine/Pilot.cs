@@ -620,6 +620,7 @@ public sealed unsafe class Pilot : IDisposable
                 parts.Add(v.Stacks > 1 ? $"{name} x{v.Stacks} {v.Left:0}s" : $"{name} {v.Left:0}s");
         if (job.Def.Gauge != null) parts.Add($"gauge {g.Gauge}");
         if (g.TargetTtk < 999) parts.Add($"ttk {g.TargetTtk:0}s");
+        if (g.RangeNote.Length > 0) parts.Add(g.RangeNote);
         if (job.Def.MpValue > 0) parts.Add($"MP {g.Mp}");
         if (g.Position is { Omni: false } pos) parts.Add($"at {pos.Side}");
         return string.Join("; ", parts);

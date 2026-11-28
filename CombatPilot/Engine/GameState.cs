@@ -64,4 +64,6 @@ public sealed partial class GameState
     public bool TargetEngaged;
     /// <summary>Why there's no usable target (for the status line).</summary>
     public string TargetNote = "";
+    /// <summary>Why the game said a single-target action can't reach (code, ring-to-ring distance), for the log.</summary>
+    public string RangeNote = "";
 }
